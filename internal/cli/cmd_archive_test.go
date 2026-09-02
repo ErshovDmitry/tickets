@@ -13,7 +13,9 @@ import (
 // newTicketDir returns a Run env plus dir pre-seeded with ticket 1 (open).
 func newTicketDir(t *testing.T) (map[string]string, string) {
 	t.Helper()
-	dir := t.TempDir()
+	// Resolve symlinks so expected paths match what the binary prints
+	// (macOS: /var -> /private/var; paths.Resolve returns resolved dirs).
+	dir := mustEval(t, t.TempDir())
 	env := map[string]string{"TICKETS_DIR": dir}
 	createTestTicket(t, dir)
 	return env, dir

@@ -31,7 +31,9 @@ var setJournalRe = regexp.MustCompile(`(?m)^- ` + tsPattern + ` — статус
 // appends the bash-shaped journal entry, prints the NEW path to stdout,
 // and removes the old-status file.
 func TestSetHappyPath(t *testing.T) {
-	dir := t.TempDir()
+	// Resolve symlinks: the binary prints an EvalSymlinks-resolved path
+	// (macOS: /var -> /private/var).
+	dir := mustEval(t, t.TempDir())
 	env := map[string]string{"TICKETS_DIR": dir}
 	createTestTicket(t, dir)
 

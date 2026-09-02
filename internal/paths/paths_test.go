@@ -78,7 +78,7 @@ func TestResolveEnv(t *testing.T) {
 			env:     file,
 			cwd:     t.TempDir(),
 			wantErr: ErrEnvNotDir,
-			hint:    "not a directory: " + mustAbs(t, file),
+			hint:    "not a directory: " + mustEvalSymlinks(t, file),
 		},
 	}
 	for _, tt := range tests {
