@@ -188,30 +188,45 @@ try {
 
     # ---- Step 7: parallel new x5 (atomic numbering under OS lock) ----
     try {
-        $launches = @()
+        # Direct .NET Process APIs: PS 5.1 Start-Process -PassThru does not
+        # reliably expose .ExitCode (observed $null even after the timed wait
+        # followed by the parameterless WaitForExit() repair), while a Process
+        # started directly from ProcessStartInfo keeps its own handle and
+        # reports ExitCode reliably. On .NET Framework UseShellExecute defaults
+        # to true - it must be false for stream redirection to work.
+        $procs = @()
         for ($i = 1; $i -le 5; $i++) {
-            $outF = Join-Path $env:TEMP ('ticket-smoke-p' + $i + '-' + [guid]::NewGuid().ToString('N') + '.out')
-            $errF = Join-Path $env:TEMP ('ticket-smoke-p' + $i + '-' + [guid]::NewGuid().ToString('N') + '.err')
-            $cleanup += $outF
-            $cleanup += $errF
-            # Launched without -Wait on purpose: a -Wait loop would serialize
-            # the processes and defeat the race. All five run at once; we wait
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = $exe
+            $psi.Arguments = 'new "smoke-parallel-' + $i + '" -t ENH -p low -d "parallel-smoke-' + $i + '"'
+            $psi.WorkingDirectory = $sb
+            $psi.UseShellExecute = $false
+            $psi.CreateNoWindow = $true
+            $psi.RedirectStandardOutput = $true
+            $psi.RedirectStandardError = $true
+            # No waiting inside the launch loop: all five processes run at once
+            # (a wait here would serialize them and defeat the race); we wait
             # on each below (30 s timeout per process).
-            $p = Start-Process -FilePath $exe -ArgumentList @('new', ('smoke-parallel-' + $i), '-t', 'ENH', '-p', 'low', '-d', ('parallel-smoke-' + $i)) -NoNewWindow -PassThru -RedirectStandardOutput $outF -RedirectStandardError $errF -WorkingDirectory $sb
-            $launches += [pscustomobject]@{ Proc = $p; OutFile = $outF }
+            $procs += [System.Diagnostics.Process]::Start($psi)
         }
-        foreach ($l in $launches) {
-            if (-not $l.Proc.WaitForExit(30000)) {
-                Stop-Process -Id $l.Proc.Id -Force -ErrorAction SilentlyContinue
+        $done = @()
+        foreach ($p in $procs) {
+            if (-not $p.WaitForExit(30000)) {
+                Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
                 throw 'process did not exit within 30 s'
             }
+            # The process has exited here: pipes are flushed and closed, so the
+            # blocking drains below return immediately (stdout is one short
+            # line, far below the pipe buffer - no deadlock). Drain both streams
+            # to keep the console clean.
+            $done += [pscustomobject]@{ Code = $p.ExitCode; Stdout = $p.StandardOutput.ReadToEnd().Trim() }
+            $null = $p.StandardError.ReadToEnd()
         }
         $paths = @()
-        foreach ($l in $launches) {
-            Assert-True ($l.Proc.ExitCode -eq 0) ("one process exited with code " + $l.Proc.ExitCode)
-            $txt = ([string](Get-Content -LiteralPath $l.OutFile -Raw -Encoding UTF8)).Trim()
-            Assert-True ($txt.Length -gt 0) 'process printed nothing'
-            $paths += $txt
+        foreach ($d in $done) {
+            Assert-True ($d.Code -eq 0) ("one process exited with code " + $d.Code)
+            Assert-True ($d.Stdout.Length -gt 0) 'process printed nothing'
+            $paths += $d.Stdout
         }
         $nums = @()
         foreach ($pth in $paths) {
