@@ -49,8 +49,8 @@ func (e *CollisionError) Unwrap() error { return ErrCollision }
 // *CollisionError (target exists). The status check runs after the
 // already-archived check, matching bash cmd_archive.
 //
-// Caller MUST obtain the Store via New, not NewReadOnly (documented
-// contract, no runtime guard).
+// Mutations on a read-only Store (NewReadOnly) are rejected by withLock
+// with ErrReadOnly.
 func (s *Store) Archive(n int, who string) (string, error) {
 	var target string
 	err := s.withLock(func() error {
@@ -159,9 +159,12 @@ func renderArchived(path string, entry fileEntry, who string) ([]byte, error) {
 
 // commitArchive writes body to a tmp file in archiveDir, commits it to
 // target via the no-replace link, then removes old. A failed commit
-// cleans the tmp file up; a failed removal of old rolls the target back
-// so the archive never gains a duplicate. An already-absent old file is
-// success: only the new file remains, which is the invariant.
+// cleans the tmp file up. A failed removal of the tmp name after the
+// commit triggers a rollback (removeFile(target), the archive never
+// gains a duplicate) plus a best-effort tmp-removal retry; a failed
+// retry is joined with the tmp-removal error. A failed removal of old
+// rolls the target back for the same reason. An already-absent old file
+// is success: only the new file remains, which is the invariant.
 func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target, archiveDir string) error {
 	tmpPath, werr := s.writeTmp(n, st, body, archiveDir)
 	if werr != nil {
@@ -173,11 +176,29 @@ func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target,
 		} else {
 			lerr = fmt.Errorf("store: link commit: %w", lerr)
 		}
-		return errors.Join(lerr, os.Remove(tmpPath))
+		return errors.Join(lerr, removeTmp(tmpPath))
 	}
-	// tmp and target share one inode now; drop the tmp name directly.
-	if rerr := os.Remove(tmpPath); rerr != nil {
-		return fmt.Errorf("store: remove tmp %s: %w", tmpPath, rerr)
+	// tmp and target share one inode now; drop the tmp name via the
+	// removeTmp hook, NOT the removeFile hook (the removeFile call-count
+	// stays at remove-old + rollback). A removal failure rolls back the
+	// committed target (removeFile) and retries the tmp removal
+	// best-effort; a failed retry is joined with the tmp-removal error.
+	if rerr := removeTmp(tmpPath); rerr != nil {
+		// The commit already happened (target holds the archived
+		// body); roll it back by removing the target.
+		tmpErr := fmt.Errorf("store: remove tmp %s: %w", tmpPath, rerr)
+		if rbErr := removeFile(target); rbErr != nil {
+			return errors.Join(
+				tmpErr,
+				fmt.Errorf("rollback remove %s: %w", target, rbErr),
+			)
+		}
+		// Rollback succeeded: retry the tmp removal best-effort; a
+		// failed retry is joined with the original tmp-removal error.
+		if retryErr := removeTmp(tmpPath); retryErr != nil {
+			tmpErr = errors.Join(tmpErr, retryErr)
+		}
+		return tmpErr
 	}
 	if rerr := removeFile(old); rerr != nil && !errors.Is(rerr, fs.ErrNotExist) {
 		rbErr := removeFile(target)

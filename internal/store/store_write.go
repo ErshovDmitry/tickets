@@ -19,11 +19,13 @@ import (
 //  3. Link the .tmp to target — an atomic no-replace commit. If the
 //     target appeared since the Lstat fast-path (an out-of-lock agent),
 //     linkFile fails with fs.ErrExist => *CollisionError; any other
-//     failure => "store: link commit: %w"; both join os.Remove(tmp) as
+//     failure => "store: link commit: %w"; both join removeTmp(tmp) as
 //     cleanup. After a
 //     successful link tmp and target share one inode, so the tmp name
-//     is removed directly (os.Remove, NOT the removeFile hook); a
-//     removal failure is surfaced but the target is NOT rolled back.
+//     is removed via the removeTmp hook (NOT the removeFile hook); a
+//     removal failure triggers a rollback (removeFile(target)) plus a
+//     best-effort tmp-removal retry; a failed retry is joined with the
+//     tmp-removal error.
 //  4. os.Remove(old). ENOENT => success: the old file is already gone
 //     (e.g. removed by a lockless external agent), so the success
 //     invariant — ONLY the new file remains — already holds; rolling
@@ -42,8 +44,8 @@ import (
 // ticket kept at done/closed stays under archive/, so the caller cannot
 // derive the path from s.Dir alone.
 //
-// Caller MUST obtain the Store via New, not NewReadOnly (documented
-// contract, no runtime guard).
+// Mutations on a read-only Store (NewReadOnly) are rejected by withLock
+// with ErrReadOnly.
 func (s *Store) SetStatus(n int, next domain.Status, who, comment string) (string, error) {
 	var target string
 	err := s.withLock(func() error {
@@ -117,15 +119,30 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 		} else {
 			lerr = fmt.Errorf("store: link commit: %w", lerr)
 		}
-		cleanup := os.Remove(tmpPath)
+		cleanup := removeTmp(tmpPath)
 		return "", errors.Join(lerr, cleanup)
 	}
-	// tmp and target share one inode now; drop the tmp name directly
-	// (os.Remove, NOT the removeFile hook — the swapRemove call-count
-	// stays at remove-old + rollback). A failure is surfaced but the
-	// target is NOT rolled back.
-	if rerr := os.Remove(tmpPath); rerr != nil {
-		return "", fmt.Errorf("store: remove tmp %s: %w", tmpPath, rerr)
+	// tmp and target share one inode now; drop the tmp name via the
+	// removeTmp hook, NOT the removeFile hook (the swapRemove call-count
+	// stays at remove-old + rollback). A removal failure rolls back the
+	// committed target (removeFile) and retries the tmp removal
+	// best-effort; a failed retry is joined with the tmp-removal error.
+	if rerr := removeTmp(tmpPath); rerr != nil {
+		// The commit already happened (target holds the new status);
+		// roll it back by removing the target.
+		tmpErr := fmt.Errorf("store: remove tmp %s: %w", tmpPath, rerr)
+		if rbErr := removeFile(target); rbErr != nil {
+			return "", errors.Join(
+				tmpErr,
+				fmt.Errorf("rollback remove %s: %w", target, rbErr),
+			)
+		}
+		// Rollback succeeded: retry the tmp removal best-effort; a
+		// failed retry is joined with the original tmp-removal error.
+		if retryErr := removeTmp(tmpPath); retryErr != nil {
+			tmpErr = errors.Join(tmpErr, retryErr)
+		}
+		return "", tmpErr
 	}
 
 	if rerr := removeFile(old); rerr != nil {
@@ -232,9 +249,13 @@ func (s *Store) writeTmp(n int, next domain.Status, body []byte, dir string) (st
 }
 
 // Swappable os primitives for failure-path tests. The zero-value production
-// implementations call into the os package directly.
+// implementations call into the os package directly. removeTmp removes the
+// post-commit tmp name (initial removal, link-fail cleanup, best-effort
+// retry); removeFile stays reserved for old/rollback removals so swapRemove
+// call-counts remain unchanged.
 var (
 	linkFile   = os.Link
 	removeFile = os.Remove
+	removeTmp  = os.Remove
 	nanoNow    = func() int64 { return time.Now().UnixNano() }
 )

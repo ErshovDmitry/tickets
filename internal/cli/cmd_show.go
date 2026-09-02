@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -32,7 +33,14 @@ func cmdShow(st *store.Store, args []string, who, project string, stdout, stderr
 	// elements out of the directory — T-0006).
 	_, _, raw, err := st.FindRaw(n)
 	if err != nil {
-		return notFound(stderr, args[0])
+		// An absent number is a not-found report; anything else (unreadable
+		// or corrupt file, scan failure) is a real error the user must see,
+		// never masked as «не найден».
+		if errors.Is(err, store.ErrNotFound) {
+			return notFound(stderr, args[0])
+		}
+		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		return 1
 	}
 	if _, err := stdout.Write(raw); err != nil {
 		fmt.Fprintf(stderr, "ticket: %v\n", err)

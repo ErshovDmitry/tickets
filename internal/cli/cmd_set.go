@@ -31,7 +31,10 @@ func cmdSet(st *store.Store, args []string, who, project string, stdout, stderr 
 	}
 	cur, err := st.Find(n)
 	if err != nil {
-		return notFound(stderr, numArg)
+		// setError distinguishes ErrNotFound («не найден») from real
+		// lookup errors (unreadable/corrupt file), which are reported
+		// verbatim instead of being masked as not-found.
+		return setError(stderr, numArg, err)
 	}
 	if cur.Status == next {
 		fmt.Fprintf(stderr, "ticket: тикет уже в статусе %s\n", stArg)
@@ -47,8 +50,9 @@ func cmdSet(st *store.Store, args []string, who, project string, stdout, stderr 
 	return 0
 }
 
-// setError maps a failed SetStatus to the pinned §6 messages. The
-// collision target comes from the typed store error: an archived
+// setError maps a failed store lookup (Find) or SetStatus to the
+// pinned §6 messages. The collision target comes from the typed
+// store error: an archived
 // ticket's target lives under archive/, so it can never be derived
 // from the store directory here.
 func setError(stderr io.Writer, numArg string, err error) int {

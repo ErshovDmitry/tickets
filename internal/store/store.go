@@ -24,6 +24,9 @@ var (
 	// ErrCollision: a parallel agent has already taken this number or
 	// status; the operation was retried up to the cap and gave up.
 	ErrCollision = errors.New("ticket file collision")
+	// ErrReadOnly: a mutation (Create/SetStatus/Archive) was attempted on
+	// a Store opened via NewReadOnly. Use errors.Is to test.
+	ErrReadOnly = errors.New("store: read-only")
 )
 
 // ParseWarning records a ticket file the scanner could not interpret.
@@ -46,6 +49,10 @@ func (w ParseWarning) Error() string {
 type Store struct {
 	// Dir is the absolute path to the tickets directory.
 	Dir string
+
+	// readOnly marks a Store opened via NewReadOnly; withLock rejects
+	// mutations on it. New leaves it false (zero value).
+	readOnly bool
 }
 
 // validateDir checks that dir is a non-empty path to an existing
@@ -81,14 +88,14 @@ func New(dir string) (*Store, error) {
 
 // NewReadOnly validates the directory and returns a Store for read-only
 // commands (List, Find and friends) only: it skips the write probe, so
-// opening a directory never mutates it. Caller MUST obtain the Store via
-// New, not NewReadOnly, before calling Create or SetStatus (documented
-// contract, no runtime guard — the cli package is the only caller).
+// opening a directory never mutates it. Mutations (Create, SetStatus,
+// Archive) are rejected at runtime: withLock returns ErrReadOnly for a
+// read-only Store.
 func NewReadOnly(dir string) (*Store, error) {
 	if err := validateDir(dir); err != nil {
 		return nil, err
 	}
-	return &Store{Dir: dir}, nil
+	return &Store{Dir: dir, readOnly: true}, nil
 }
 
 // lockPath returns the per-store advisory lock file.
@@ -97,7 +104,12 @@ func (s *Store) lockPath() string { return filepath.Join(s.Dir, ".lock") }
 // withLock acquires the per-store advisory lock, runs fn, then releases.
 // A release error is joined with fn's error (errors.Join discards nils),
 // so neither is lost; the signature and callers are unchanged.
+// Read-only Stores (NewReadOnly) are rejected before the lock is taken,
+// so a rejected mutation never touches the directory.
 func (s *Store) withLock(fn func() error) (err error) {
+	if s.readOnly {
+		return ErrReadOnly
+	}
 	release, err := lock.Acquire(s.lockPath())
 	if err != nil {
 		return fmt.Errorf("store: lock: %w", err)
@@ -148,8 +160,8 @@ func (s *Store) Find(n int) (domain.Ticket, error) {
 // re-scans and retries; after MaxCreateAttempts unsuccessful tries it
 // returns ErrCollision wrapped with the last underlying error.
 //
-// Caller MUST obtain the Store via New, not NewReadOnly (documented
-// contract, no runtime guard).
+// Mutations on a read-only Store (NewReadOnly) are rejected by withLock
+// with ErrReadOnly.
 func (s *Store) Create(t *domain.Ticket) (int, error) {
 	if t == nil {
 		return 0, errors.New("store: Create: ticket is nil")
