@@ -1,0 +1,15 @@
+# T-{{.Number}} · {{.Type}}: {{.Title}}
+
+- Статус: open
+- Приоритет: {{.Priority}}
+- Создан: {{.Timestamp}} · кем: {{.Author}}
+- Проект: {{.Project}}
+
+## Кратко
+{{.Title}}
+
+## Подробности
+{{if .Details}}{{.Details}}{{else}}{{.Stub}}{{end}}
+
+## Журнал
+- {{.Timestamp}} — тикет создан ({{.Author}}).
