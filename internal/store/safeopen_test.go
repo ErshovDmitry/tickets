@@ -44,6 +44,22 @@ func installSwapHook(t *testing.T, dir, origName, sentinel string) {
 	t.Cleanup(func() { hookAfterValidate = nil })
 }
 
+// requireSymlinks skips the test when the platform cannot create
+// symlinks at all (e.g. unprivileged Windows), mirroring the skips in
+// TestOpenValidated_RejectsSymlinkAtReadTime and scan_symlink_test.go.
+// Needed by tests whose installSwapHook performs os.Symlink: without
+// the probe the hook's t.Errorf would fail instead of skip there.
+func requireSymlinks(t *testing.T) {
+	t.Helper()
+	probe := filepath.Join(t.TempDir(), "probe-target")
+	if err := os.WriteFile(probe, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(probe, probe+".link"); err != nil {
+		t.Skipf("symlinks unavailable on this platform: %v", err)
+	}
+}
+
 // realTicketBody is a fully valid T-0001 open ticket body stored INSIDE
 // the store directory.
 const realTicketBody = "# T-0001 · BUG: real\n" +
@@ -83,6 +99,7 @@ func newStoreWithRealTicket(t *testing.T) (s *Store, dir, sentinel string, senti
 // content can never be returned through FindRaw, List or SetStatus.
 // Pre-fix this leaked the sentinel bytes verbatim.
 func TestFindRaw_TOCTOUSymlinkSwapCannotLeakOutside(t *testing.T) {
+	requireSymlinks(t) // installSwapHook creates a symlink; skip (not fail) where unavailable
 	s, dir, sentinel, sentinelBody := newStoreWithRealTicket(t)
 	installSwapHook(t, dir, "T-0001-open.md", sentinel)
 

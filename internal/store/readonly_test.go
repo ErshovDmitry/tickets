@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"ticket/internal/domain"
 )
 
 // skipRootOrWindows skips chmod-dependent tests where they cannot hold.
@@ -105,5 +107,36 @@ func TestNewReadOnly_ValidationErrors(t *testing.T) {
 	}
 	if _, err := NewReadOnly(file); err == nil || !strings.HasSuffix(err.Error(), " is not a directory") {
 		t.Fatalf("file path: want 'is not a directory' error, got %v", err)
+	}
+}
+
+// TestNewReadOnly_MutationRejected pins the runtime guard: a Store from
+// NewReadOnly rejects Create and SetStatus with ErrReadOnly (no panic,
+// no silent write), and the directory keeps exactly the seeded ticket.
+func TestNewReadOnly_MutationRejected(t *testing.T) {
+	dir := t.TempDir()
+	seed, err := New(dir)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := seed.Create(fakeTicket(0)); err != nil {
+		t.Fatalf("seed Create: %v", err)
+	}
+	ro, err := NewReadOnly(dir)
+	if err != nil {
+		t.Fatalf("NewReadOnly: %v", err)
+	}
+	if _, err := ro.Create(fakeTicket(0)); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("Create on read-only store: want ErrReadOnly, got %v", err)
+	}
+	if _, err := ro.SetStatus(1, domain.StatusWip, "t", "must fail"); !errors.Is(err, ErrReadOnly) {
+		t.Fatalf("SetStatus on read-only store: want ErrReadOnly, got %v", err)
+	}
+	tickets, warns := ro.List()
+	if len(warns) != 0 {
+		t.Fatalf("unexpected warnings: %v", warns)
+	}
+	if len(tickets) != 1 || tickets[0].Number != 1 || tickets[0].Status != domain.StatusOpen {
+		t.Fatalf("read-only store mutated the directory: %+v", tickets)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"ticket/internal/cli"
@@ -138,5 +139,56 @@ func TestSetInvalidStatusFails(t *testing.T) {
 	}
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+// TestSet_UnreadableTicketReportsRealError pins the error-contract fix
+// for the Find lookup: a present-but-unreadable ticket (chmod 000) must
+// fail with the wrapped store error («ticket: store: read …»), not the
+// «не найден» message, and the file must stay untouched. Skips where
+// chmod cannot produce the condition (Windows, root).
+func TestSet_UnreadableTicketReportsRealError(t *testing.T) {
+	skipRootOrWindows(t)
+	dir := t.TempDir()
+	env := map[string]string{"TICKETS_DIR": dir}
+	createTestTicket(t, dir)
+	ticket := filepath.Join(dir, "T-0001-open.md")
+	if err := os.Chmod(ticket, 0o000); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := cli.Run([]string{"set", "1", "wip"}, env, &stdout, &stderr); code != 1 {
+		t.Fatalf("Run(set unreadable) = %d, want 1; stderr: %q", code, stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty", stdout.String())
+	}
+	if got := stderr.String(); !strings.HasPrefix(got, "ticket: store: read T-0001-open.md:") {
+		t.Errorf("stderr = %q, want prefix %q", got, "ticket: store: read T-0001-open.md:")
+	}
+	if got := stderr.String(); strings.Contains(got, "не найден") {
+		t.Errorf("stderr = %q masks a real error as not-found", got)
+	}
+	if _, err := os.Stat(ticket); err != nil {
+		t.Errorf("file should remain untouched: %v", err)
+	}
+}
+
+// TestSetAbsentNumberNotFound pins the absent-number contract: setting
+// a status on a number with no file exits 1 with the bash-compatible
+// «не найден» message and leaves the dir empty.
+func TestSetAbsentNumberNotFound(t *testing.T) {
+	env := map[string]string{"TICKETS_DIR": t.TempDir()}
+
+	var stdout, stderr bytes.Buffer
+	if code := cli.Run([]string{"set", "9999", "wip"}, env, &stdout, &stderr); code != 1 {
+		t.Fatalf("Run(set 9999) = %d, want 1; stderr: %q", code, stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty", stdout.String())
+	}
+	if got, want := stderr.String(), "ticket: тикет «9999» не найден\n"; got != want {
+		t.Errorf("stderr = %q, want %q", got, want)
 	}
 }
