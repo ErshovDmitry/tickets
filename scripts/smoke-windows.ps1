@@ -2,7 +2,7 @@
 #
 # Purpose:
 #   Verify the cross-compiled Windows binary (dist/ticket.exe, see
-#   AGENTS_ARCHITECTURE.md sections 5, 7, 8) on a Windows host (win-test-host):
+#   AGENTS_ARCHITECTURE.md sections 5, 7, 8) on a Windows host (internal Windows test host):
 #     1. new   -> creates T-0001-open.md and prints its path
 #     2. list  -> shows the ticket
 #     3. show  -> prints the ticket body

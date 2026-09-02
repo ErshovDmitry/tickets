@@ -1,0 +1,75 @@
+# CI: lint + cross-platform build (linux / windows / macos).
+# Version stamp comes from git describe; v* tag pushes act as release candidates.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      # gofmt -l exits 0 even when files need formatting, hence the test wrapper.
+      - name: Check formatting (gofmt)
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            bin: ticket
+          - os: windows-latest
+            bin: ticket.exe
+          - os: macos-latest
+            bin: ticket
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        shell: bash
+        run: |
+          VER=$(git describe --tags --always 2>/dev/null | sed 's/^v//')
+          VER=${VER:-dev}
+          go build -ldflags "-X ticket/internal/cli.version=$VER" -o "${{ matrix.bin }}" ./cmd/ticket
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-${{ matrix.os }}
+          path: ${{ matrix.bin }}
+          if-no-files-found: error
