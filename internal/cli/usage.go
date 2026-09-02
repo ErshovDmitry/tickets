@@ -5,14 +5,26 @@ import (
 	"io"
 )
 
-// usageText is the embedded usage message. templates/usage.txt is
-// byte-identical to the bash reference heredoc (usage() in
-// tickets/bin/ticket); do not edit that file.
+// usageTextRU and usageTextEN are the embedded usage messages.
+// templates/usage.ru.txt is byte-identical to the bash reference heredoc
+// (usage() in tickets/bin/ticket); templates/usage.en.txt is the English
+// translation with an identical line layout. Do not edit either file:
+// the version line is prepended at runtime (T-0028), not in the templates.
 //
-//go:embed templates/usage.txt
-var usageText string
+//go:embed templates/usage.ru.txt
+var usageTextRU string
 
-// usage writes the usage message verbatim to w.
-func usage(w io.Writer) {
-	_, _ = io.WriteString(w, usageText)
+//go:embed templates/usage.en.txt
+var usageTextEN string
+
+// usage writes the version line followed by the embedded usage message to w.
+// lang=="en" selects the English text; any other value (including unset)
+// falls back to Russian.
+func usage(w io.Writer, lang string) {
+	_, _ = io.WriteString(w, versionLine())
+	text := usageTextRU
+	if lang == "en" {
+		text = usageTextEN
+	}
+	_, _ = io.WriteString(w, text)
 }

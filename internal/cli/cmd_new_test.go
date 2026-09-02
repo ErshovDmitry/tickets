@@ -141,15 +141,17 @@ func TestNewFlagErrors(t *testing.T) {
 }
 
 // TestNewNoTitle checks the bash contract: `new` without a title prints the
-// usage text to stdout and exits 1 (bash:60).
+// usage text to stdout and exits 1 (bash:60). Since T-0028 the usage output
+// is prefixed by the version line, so the expectation is version line +
+// fixture via the shared wantUsage helper (cli_test.go).
 func TestNewNoTitle(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := cli.Run([]string{"new"}, testEnv(t), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("Run(new) = %d, want 1", code)
 	}
-	if got := stdout.String(); got != string(usageFixture) {
-		t.Fatalf("stdout is not the verbatim usage text (got %d bytes, want %d)", len(got), len(usageFixture))
+	if got := stdout.String(); got != wantUsage(usageFixture) {
+		t.Fatalf("stdout is not the version line + verbatim usage text (got %d bytes, want %d)", len(got), len(wantUsage(usageFixture)))
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
