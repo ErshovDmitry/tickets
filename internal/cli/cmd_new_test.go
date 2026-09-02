@@ -208,8 +208,9 @@ func TestNewTitlePreservedVerbatim(t *testing.T) {
 	}
 }
 
-// TestNewWhoResolution checks the bash who chain TICKET_WHO -> USER -> agent
-// (bash:12) and that -w overrides the environment (bash:68).
+// TestNewWhoResolution checks the bash who chain TICKET_WHO -> USER ->
+// USERNAME -> agent (bash:12 plus the Windows USERNAME fallback) and that
+// -w overrides the environment (bash:68).
 func TestNewWhoResolution(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -219,6 +220,9 @@ func TestNewWhoResolution(t *testing.T) {
 	}{
 		{"ticket who env", map[string]string{"TICKET_WHO": "who-env"}, nil, "who-env"},
 		{"user fallback", map[string]string{"USER": "who-user"}, nil, "who-user"},
+		{"username fallback", map[string]string{"USERNAME": "who-win"}, nil, "who-win"},
+		{"user beats username", map[string]string{"USER": "who-user", "USERNAME": "who-win"}, nil, "who-user"},
+		{"empty username falls to agent", map[string]string{"USERNAME": ""}, nil, "agent"},
 		{"agent fallback", map[string]string{}, nil, "agent"},
 		{"flag overrides env", map[string]string{"TICKET_WHO": "who-env"}, []string{"-w", "who-flag"}, "who-flag"},
 	}

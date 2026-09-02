@@ -24,8 +24,8 @@ import (
 //	func cmdX(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int
 //
 // where st is built here from the tickets dir resolved ONCE, who is the
-// resolved user (TICKET_WHO → USER → agent, bash:12) and project is
-// filepath.Base(filepath.Dir(dir)) (bash:10).
+// resolved user (TICKET_WHO → USER → USERNAME → agent, bash:12) and
+// project is filepath.Base(filepath.Dir(dir)) (bash:10).
 func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	cmd := "help"
 	if len(args) > 0 {
@@ -83,13 +83,17 @@ func dispatch(cmd string, args []string, env map[string]string, stdout, stderr i
 	}
 }
 
-// whoFrom resolves the current user: TICKET_WHO, then USER, then "agent"
-// (bash:12 WHO="${TICKET_WHO:-${USER:-agent}}").
+// whoFrom resolves the current user: TICKET_WHO, then USER, then USERNAME,
+// then "agent" (bash:12 WHO="${TICKET_WHO:-${USER:-agent}}"; USERNAME
+// covers Windows hosts where USER is normally unset).
 func whoFrom(env map[string]string) string {
 	if who := env["TICKET_WHO"]; who != "" {
 		return who
 	}
 	if who := env["USER"]; who != "" {
+		return who
+	}
+	if who := env["USERNAME"]; who != "" {
 		return who
 	}
 	return "agent"
