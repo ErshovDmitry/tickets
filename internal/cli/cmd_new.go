@@ -23,10 +23,11 @@ type newFlags struct {
 
 // cmdNew implements `new "<кратко>" [-t T] [-p P] [-d D] [-w W]`.
 // The title must come before any flag (bash: title=$1; shift).
+// lang selects the usage text language for argument errors.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
-func cmdNew(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int {
+func cmdNew(st *store.Store, args []string, who, project, lang string, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
-		usage(stdout)
+		usage(stdout, lang)
 		return 1
 	}
 	f, ok := parseNewFlags(args[0], args[1:], who, stderr)

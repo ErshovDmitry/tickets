@@ -71,7 +71,8 @@ function Invoke-Ticket {
 # Preflight: binary must exist.
 if (-not (Test-Path -LiteralPath $TicketExe -PathType Leaf)) {
     Write-Host "[FAIL] ticket.exe not found: $TicketExe"
-    Write-Host "       build it first: GOOS=windows GOARCH=amd64 go build -o dist/ticket.exe ./cmd/ticket"
+    Write-Host "       build it first (dev build, no version stamp): GOOS=windows GOARCH=amd64 go build -o dist/ticket.exe ./cmd/ticket"
+    Write-Host "       with version: `$ver = (git describe --tags --always 2>`$null) -replace '^v',''; if (-not `$ver) { `$ver = 'dev' }; go build -ldflags `"-X ticket/internal/cli.version=`$ver`" -o dist/ticket.exe ./cmd/ticket"
     Write-Host "SMOKE RESULT: FAIL (exe missing)"
     exit 1
 }

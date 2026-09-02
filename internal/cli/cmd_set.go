@@ -12,10 +12,11 @@ import (
 
 // cmdSet implements `set <номер> <статус> ["комментарий"]`. The comment
 // is the whitespace-join of all remaining arguments (bash ${*:-}).
+// lang selects the usage text language for argument errors.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
-func cmdSet(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int {
+func cmdSet(st *store.Store, args []string, who, project, lang string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
-		usage(stdout)
+		usage(stdout, lang)
 		return 1
 	}
 	numArg, stArg := args[0], args[1]

@@ -10,11 +10,30 @@ import (
 )
 
 // usageFixture is the byte-exact expected usage text. Production usage.go
-// embeds the same file via //go:embed; tests treat templates/usage.txt as a
-// byte fixture and assert verbatim stdout output.
+// embeds the same file via //go:embed; tests treat templates/usage.ru.txt
+// as a byte fixture and assert stdout equal to wantUsage(usageFixture):
+// the version line followed by this fixture verbatim (tests run with a
+// lang-less env, so usage falls back to the Russian text).
 //
-//go:embed templates/usage.txt
+//go:embed templates/usage.ru.txt
 var usageFixture []byte
+
+// wantUsage returns the expected stdout for usage-printing paths in the
+// default (dev) build: the version line followed by the embedded fixture
+// verbatim (usage() prepends versionLine() at runtime, T-0028). Black-box
+// tests cannot call the unexported versionLine, hence the literal.
+//
+// 🔴 The literal pins the DEFAULT "dev" build. Running the tests with a
+// release version override, e.g.
+//
+//	go test -ldflags "-X ticket/internal/cli.version=1.2.3" ./internal/cli/
+//
+// will FALSELY FAIL these tests (expected stdout still says "dev" while
+// the binary prints "1.2.3"). That is a known limitation, not a bug: run
+// the suite without the override, or re-pin the literal for such runs.
+func wantUsage(fixture []byte) string {
+	return "ticket version dev\n" + string(fixture)
+}
 
 // testEnv returns a Run env map pointing TICKETS_DIR at a fresh temp dir.
 func testEnv(t *testing.T) map[string]string {
@@ -23,7 +42,8 @@ func testEnv(t *testing.T) map[string]string {
 }
 
 // TestRunHelpRouting checks the bash contract: no args and help variants
-// print the usage text verbatim to stdout and exit 0 (bash:147,153).
+// print the version line followed by the usage text verbatim to stdout and
+// exit 0 (bash:147,153).
 func TestRunHelpRouting(t *testing.T) {
 	cases := []struct {
 		name string
@@ -42,8 +62,9 @@ func TestRunHelpRouting(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("Run(%q) = %d, want 0", tc.args, code)
 			}
-			if got := stdout.String(); got != string(usageFixture) {
-				t.Fatalf("stdout is not the verbatim usage text (got %d bytes, want %d)", len(got), len(usageFixture))
+			want := wantUsage(usageFixture)
+			if got := stdout.String(); got != want {
+				t.Fatalf("stdout is not the version line + verbatim usage text (got %d bytes, want %d)", len(got), len(want))
 			}
 			if stderr.Len() != 0 {
 				t.Fatalf("stderr = %q, want empty", stderr.String())
@@ -89,15 +110,17 @@ func TestListEmptyFilterDefaultsActive(t *testing.T) {
 }
 
 // TestRunUnknownCommand checks the bash contract: unknown command prints the
-// usage text to stdout and exits 1 without writing to stderr (bash:154).
+// version line followed by the usage text to stdout and exits 1 without
+// writing to stderr (bash:154).
 func TestRunUnknownCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := cli.Run([]string{"frobnicate"}, testEnv(t), &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("Run(unknown) = %d, want 1", code)
 	}
-	if got := stdout.String(); got != string(usageFixture) {
-		t.Fatalf("stdout is not the verbatim usage text (got %d bytes, want %d)", len(got), len(usageFixture))
+	want := wantUsage(usageFixture)
+	if got := stdout.String(); got != want {
+		t.Fatalf("stdout is not the version line + verbatim usage text (got %d bytes, want %d)", len(got), len(want))
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q, want empty", stderr.String())

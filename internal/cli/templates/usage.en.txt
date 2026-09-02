@@ -1,0 +1,19 @@
+ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
+
+  ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who]
+      create a ticket (status open), prints the file path
+  ticket list [active|open|wip|done|closed|archive|all]
+      list tickets; default active (= open + wip);
+      archive — closed tickets moved into the archive
+  ticket show <number|filename>
+      show a ticket (the archive is searched too)
+  ticket set <number> <status> ["comment"]
+      change the status (renames the file itself and appends a line to the ticket journal);
+      moving an archived ticket back to open/wip restores it from the archive into work
+  ticket archive [<number>]
+      move closed tickets (done/closed) into archive/;
+      without a number — all closed ones, with a number — only the given one
+
+Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
+Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
+Secrets (passwords, tokens, keys) must NOT be written into tickets.

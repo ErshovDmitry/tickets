@@ -12,10 +12,11 @@ import (
 
 // cmdShow implements `show <номер|имя-файла>`: look the ticket up by
 // number and print its file verbatim.
+// lang selects the usage text language for argument errors.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
-func cmdShow(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int {
+func cmdShow(st *store.Store, args []string, who, project, lang string, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
-		usage(stdout)
+		usage(stdout, lang)
 		return 1
 	}
 	n, ok := parseTicketNumber(args[0])
