@@ -1,0 +1,8 @@
+# CI windows runners check out text files as CRLF (core.autocrlf), but
+# golden/template/embed comparisons expect LF. Force LF for the exact
+# patterns that tests compare byte-for-byte. Deliberately no *.ps1 rule:
+# its CRLF blob must stay verbatim (no renormalization).
+*.go text eol=lf
+*.md text eol=lf
+*.tmpl text eol=lf
+*.txt text eol=lf

@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -75,6 +76,16 @@ func runMain(m *testing.M) int {
 	return code
 }
 
+// exeSuffix returns the OS executable suffix (".exe" on windows, "" on
+// other platforms): on Windows a built binary without it cannot be
+// executed directly ("executable file not found").
+func exeSuffix() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+	return ""
+}
+
 // buildTicketBinary compiles cmd/ticket into a fresh temp dir and returns
 // the binary path plus a cleanup func.
 func buildTicketBinary() (string, func(), error) {
@@ -82,7 +93,7 @@ func buildTicketBinary() (string, func(), error) {
 	if err != nil {
 		return "", nil, err
 	}
-	bin := filepath.Join(tmp, "ticket")
+	bin := filepath.Join(tmp, "ticket"+exeSuffix())
 	cmd := exec.Command("go", "build", "-o", bin, "../../cmd/ticket")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		os.RemoveAll(tmp)

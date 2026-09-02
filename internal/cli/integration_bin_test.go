@@ -106,9 +106,11 @@ func TestSymlinkInvocation(t *testing.T) {
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	installed := filepath.Join(binDir, "ticket")
+	// Both the installed name and the symlink name carry the OS exe
+	// suffix: on Windows the launcher only executes "*.exe" files.
+	installed := filepath.Join(binDir, "ticket"+exeSuffix())
 	installCopy(t, ticketBin, installed)
-	link := filepath.Join(root, "ticket-link")
+	link := filepath.Join(root, "ticket-link"+exeSuffix())
 	if err := os.Symlink(installed, link); err != nil {
 		t.Skipf("symlink unavailable on this host: %v", err)
 	}

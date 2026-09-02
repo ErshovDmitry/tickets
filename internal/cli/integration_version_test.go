@@ -24,7 +24,7 @@ import (
 // help must not need a real tickets dir (cli.Run skips dispatch entirely).
 func TestVersionLdflagsInjection(t *testing.T) {
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "ticket")
+	bin := filepath.Join(tmp, "ticket"+exeSuffix())
 
 	// Hermetic build: link-time injection of the release version (D1 path).
 	build := exec.Command("go", "build",
