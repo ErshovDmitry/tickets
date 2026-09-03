@@ -23,9 +23,11 @@ type newFlags struct {
 
 // cmdNew implements `new "<кратко>" [-t T] [-p P] [-d D] [-w W]`.
 // The title must come before any flag (bash: title=$1; shift).
-// lang selects the usage text language for argument errors.
-// Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
-func cmdNew(st *store.Store, args []string, who, project, lang string, stdout, stderr io.Writer) int {
+// lang selects the usage text language for argument errors AND the file
+// format language of the created ticket (T-0036: both come from the same
+// resolved lang, plan §C). Signature per wave-1 dispatch contract (wiki
+// 8bd93a4e, A1).
+func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
 		usage(stdout, lang)
 		return 1
@@ -50,7 +52,7 @@ func cmdNew(st *store.Store, args []string, who, project, lang string, stdout, s
 		fmt.Fprintln(stderr, "ticket: приоритет — один из: low normal high")
 		return 1
 	}
-	n, err := st.Create(newTicket(f, typ, prio, project))
+	n, err := st.Create(newTicket(f, typ, prio, project, lang))
 	if err != nil {
 		return createError(stderr, st, err)
 	}
@@ -125,9 +127,11 @@ func priorityByName(s string) (domain.Priority, bool) {
 	return domain.PriorityLow, false
 }
 
-// newTicket assembles the in-memory ticket for Create. The creation
-// journal entry (From==To==open, empty comment) matches §2 semantics.
-func newTicket(f newFlags, typ domain.Type, prio domain.Priority, project string) *domain.Ticket {
+// newTicket assembles the in-memory ticket for Create. lang becomes
+// tk.Lang: RenderNewTicket renders headers, meta and stubs from that
+// language's dictionary (T-0036). The creation journal entry
+// (From==To==open, empty comment) matches §2 semantics.
+func newTicket(f newFlags, typ domain.Type, prio domain.Priority, project string, lang domain.Lang) *domain.Ticket {
 	now := time.Now()
 	return &domain.Ticket{
 		Status:   domain.StatusOpen,
@@ -137,6 +141,7 @@ func newTicket(f newFlags, typ domain.Type, prio domain.Priority, project string
 		Details:  f.details,
 		Who:      f.who,
 		Project:  project,
+		Lang:     lang,
 		Created:  now,
 		Journal: []domain.JournalEntry{{
 			At:   now,

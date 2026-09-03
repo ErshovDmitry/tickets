@@ -37,7 +37,7 @@ func assertOpenBody(t *testing.T, path string) {
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}
-	if !strings.Contains(string(data), "- Статус: open") {
+	if !strings.Contains(string(data), "- Status (Статус): open") {
 		t.Errorf("%s was mutated:\n%s", path, string(data))
 	}
 }

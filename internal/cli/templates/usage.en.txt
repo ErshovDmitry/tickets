@@ -19,3 +19,16 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
 Secrets (passwords, tokens, keys) must NOT be written into tickets.
+
+Migrating old tickets: the old ticket format with Russian headers is not supported by new versions; run once over tickets/*.md:
+
+sed -i -E \
+ -e 's/^## Кратко$/## Summary (Кратко)/' \
+ -e 's/^## Подробности$/## Details (Подробности)/' \
+ -e 's/^## Комментарии от пользователя$/## User comments (Комментарии от пользователя)/' \
+ -e 's/^## Комментарии$/## Comments (Комментарии)/' \
+ -e 's/^## Журнал$/## Journal (Журнал)/' \
+ -e 's/^- Статус:/- Status (Статус):/' \
+ -e 's/^- Приоритет:/- Priority (Приоритет):/' \
+ -e 's/^- Создан: (.*) · кем: (.*)$/- Created (Создан): \1 · by (кем): \2/' \
+ -e 's/^- Проект:/- Project (Проект):/' tickets/*.md

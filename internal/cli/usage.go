@@ -3,13 +3,18 @@ package cli
 import (
 	_ "embed"
 	"io"
+
+	"ticket/internal/domain"
 )
 
 // usageTextRU and usageTextEN are the embedded usage messages.
-// templates/usage.ru.txt is byte-identical to the bash reference heredoc
-// (usage() in tickets/bin/ticket); templates/usage.en.txt is the English
-// translation with an identical line layout. Do not edit either file:
-// the version line is prepended at runtime (T-0028), not in the templates.
+// templates/usage.ru.txt was originally byte-identical to the bash
+// reference heredoc (usage() in tickets/bin/ticket) and usage.en.txt its
+// English translation with an identical line layout; since T-0036 both
+// files carry an appended ticket-migration section and are therefore no
+// longer byte-identical to the bash reference (deliberate divergence, as
+// with the new-ticket template in T-0032/T-0035). The version line is
+// prepended at runtime (T-0028), not in the templates.
 //
 //go:embed templates/usage.ru.txt
 var usageTextRU string
@@ -18,12 +23,12 @@ var usageTextRU string
 var usageTextEN string
 
 // usage writes the version line followed by the embedded usage message to w.
-// lang=="en" selects the English text; any other value (including unset)
-// falls back to Russian.
-func usage(w io.Writer, lang string) {
+// LangEN selects the English text; any other value (including LangRU and all
+// env vars unset) falls back to Russian.
+func usage(w io.Writer, lang domain.Lang) {
 	_, _ = io.WriteString(w, versionLine())
 	text := usageTextRU
-	if lang == "en" {
+	if lang == domain.LangEN {
 		text = usageTextEN
 	}
 	_, _ = io.WriteString(w, text)

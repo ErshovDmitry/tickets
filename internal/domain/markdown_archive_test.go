@@ -49,6 +49,7 @@ func TestRenderArchiveLineByteExact(t *testing.T) {
 		Number: 1, Type: TypeBUG, Priority: PriorityNormal,
 		Title: "x", Who: "a", Project: "p",
 		Created: at, Status: StatusOpen,
+		Lang:    LangRU,
 		Journal: []JournalEntry{{At: at, Who: "система", Archived: true}},
 	}
 	got, err := Render(tk, nil)
@@ -63,7 +64,7 @@ func TestRenderArchiveLineByteExact(t *testing.T) {
 		t.Errorf("archive line must NOT end with a dot:\n%s", got)
 	}
 	// T-0035: empty sections still render UC+stub and the bare free header.
-	if !bytes.Contains(got, []byte("## Комментарии от пользователя\n"+userCommentsStub+"\n\n## Комментарии\n\n## Журнал\n")) {
+	if !bytes.Contains(got, []byte("## User comments (Комментарии от пользователя)\n"+dictRU.userCommentsStub+"\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n")) {
 		t.Errorf("render output misses the canonical two-section layout:\n%s", got)
 	}
 }
@@ -110,7 +111,7 @@ func TestArchiveReopenJournalRoundTrip(t *testing.T) {
 }
 
 // TestParseArchiveKeepsStatus pins §8a: the archive journal line must not
-// touch the "- Статус: " metadata, so Ticket.Status stays as written.
+// touch the "- Status (Статус): " metadata, so Ticket.Status stays as written.
 func TestParseArchiveKeepsStatus(t *testing.T) {
 	tk, _, err := Parse([]byte(ticketT0001 + archiveLine))
 	if err != nil {

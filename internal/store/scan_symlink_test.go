@@ -19,14 +19,14 @@ func makeOutsideTicket(t *testing.T, outsideDir string) (string, []byte) {
 	t.Helper()
 	body := []byte("# T-0001 · BUG: outside bait\n" +
 		"\n" +
-		"- Статус: open\n" +
-		"- Приоритет: normal\n" +
-		"- Создан: 2026-09-02 10:00 · кем: attacker\n" +
-		"- Проект: tickets\n" +
+		"- Status (Статус): open\n" +
+		"- Priority (Приоритет): normal\n" +
+		"- Created (Создан): 2026-09-02 10:00 · by (кем): attacker\n" +
+		"- Project (Проект): tickets\n" +
 		"\n" +
-		"## Кратко\nTOPSECRET-SENTINEL\n" +
-		"\n## Подробности\noutside body\n" +
-		"\n## Журнал\n" +
+		"## Summary (Кратко)\nTOPSECRET-SENTINEL\n" +
+		"\n## Details (Подробности)\noutside body\n" +
+		"\n## Journal (Журнал)\n" +
 		"- 2026-09-02 10:00 — тикет создан (attacker).\n")
 	p := filepath.Join(outsideDir, "T-0001-open.md")
 	if err := os.WriteFile(p, body, 0o600); err != nil {

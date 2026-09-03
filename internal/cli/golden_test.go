@@ -19,8 +19,8 @@ import (
 // renderer layout changes by design — T-0032 added the "## Комментарии"
 // section and T-0035 split it into the stubbed
 // "## Комментарии от пользователя" plus the free-form "## Комментарии",
-// intentionally breaking bash byte-compat of `new`. Any other drift is a
-// renderer bug.
+// intentionally breaking bash byte-compat of `new`; T-0036 re-pinned it to
+// the ru-bilingual renderer output. Any other drift is a renderer bug.
 func TestGoldenRawBytes(t *testing.T) {
 	created := time.Date(2026, 9, 2, 3, 24, 0, 0, time.UTC)
 	tk := &domain.Ticket{
@@ -32,6 +32,7 @@ func TestGoldenRawBytes(t *testing.T) {
 		Details:  goldenDetails,
 		Who:      goldenWho,
 		Project:  "tickets",
+		Lang:     domain.LangRU,
 		Created:  created,
 		Journal: []domain.JournalEntry{{
 			At:   created,

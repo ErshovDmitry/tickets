@@ -13,10 +13,10 @@ import (
 
 // Golden reference ticket: canonical output of the Go renderer
 // (internal/cli/testdata/golden-T-0001-open.md); bash byte-compat of `new`
-// is intentionally broken by T-0032 + T-0035 (two comment sections: the
-// stubbed "## Комментарии от пользователя" and the free-form
-// "## Комментарии"). Title/type/priority/details must match the golden
-// file exactly for the byte comparison to hold.
+// was already intentionally broken by T-0032 + T-0035 (two comment
+// sections) and T-0036 adds the bilingual headers/meta below. Title/type/
+// priority/details must match the golden file exactly for the byte
+// comparison to hold.
 const (
 	goldenTitle   = "Реализовать Go-версию ticket по AGENTS_ARCHITECTURE.md"
 	goldenDetails = "Bootstrap завершён 2026-09-02: схема project_tickets, AGENTS.md, AGENTS_ARCHITECTURE.md, локальные тикеты. Реализация: cmd/ticket + internal/{domain,store,lock,paths,cli}, шаблоны через go:embed. Гейт: план в wiki -> план-ревью -> код."
@@ -29,13 +29,14 @@ const tsPattern = `\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?`
 
 var (
 	// createdRe captures the volatile parts of the header line
-	// "- Создан: <TS> · кем: <WHO>".
-	createdRe = regexp.MustCompile(`(?m)^(- Создан: )(` + tsPattern + `)( · кем: )([^\n]+)$`)
+	// "- Created (Создан): <TS> · by (кем): <WHO>" (T-0036 bilingual form).
+	createdRe = regexp.MustCompile(`(?m)^(- Created \(Создан\): )(` + tsPattern + `)( · by \(кем\): )([^\n]+)$`)
 	// journalRe captures the volatile parts of a journal entry
 	// "- <TS> — тикет создан (<WHO>).".
 	journalRe = regexp.MustCompile(`(?m)^(- )(` + tsPattern + `)( — тикет создан \()([^)\n]+)(\)\.)$`)
-	// projectRe captures the value of the "- Проект: <PROJECT>" line.
-	projectRe = regexp.MustCompile(`(?m)^(- Проект: )([^\n]+)$`)
+	// projectRe captures the value of the "- Project (Проект): <PROJECT>"
+	// line (T-0036 bilingual form).
+	projectRe = regexp.MustCompile(`(?m)^(- Project \(Проект\): )([^\n]+)$`)
 )
 
 // normalizeVolatile blanks out only the volatile substrings — creation
@@ -44,14 +45,15 @@ var (
 // ("· кем:", em-dash, dots). Degraded format no longer normalizes away:
 // an unmatched line stays raw and fails the byte comparison.
 func normalizeVolatile(b []byte) []byte {
-	s := createdRe.ReplaceAllString(string(b), "${1}<TS>${4}<WHO>")
-	s = journalRe.ReplaceAllString(s, "${1}<TS>${4}<WHO>${6}")
+	s := createdRe.ReplaceAllString(string(b), "${1}<TS>${3}<WHO>")
+	s = journalRe.ReplaceAllString(s, "${1}<TS>${3}<WHO>${5}")
 	s = projectRe.ReplaceAllString(s, "${1}<PROJECT>")
 	return []byte(s)
 }
 
 // TestNewGoldenBytes creates a ticket end-to-end via Run and compares the
 // created file bytes with the golden fixture (volatile fields normalized).
+// T-0036 re-pinned the fixture to the ru-bilingual renderer output.
 func TestNewGoldenBytes(t *testing.T) {
 	dir := t.TempDir()
 	env := map[string]string{"TICKETS_DIR": dir}
@@ -76,12 +78,12 @@ func TestNewGoldenBytes(t *testing.T) {
 		t.Fatalf("stdout %q does not mention the created file", stdout.String())
 	}
 	// §6: project = base name of the tickets dir parent (bash:10).
-	wantProject := "Проект: " + filepath.Base(filepath.Dir(dir))
+	wantProject := "Project (Проект): " + filepath.Base(filepath.Dir(dir))
 	if !strings.Contains(string(created), wantProject) {
 		t.Fatalf("created ticket missing project line %q:\n%s", wantProject, created)
 	}
 	// §6: -w sets who, recorded in the header and journal lines.
-	if !strings.Contains(string(created), "кем: "+goldenWho) {
+	if !strings.Contains(string(created), "by (кем): "+goldenWho) {
 		t.Fatalf("created ticket missing who %q:\n%s", goldenWho, created)
 	}
 }
@@ -101,9 +103,9 @@ func TestNewDefaults(t *testing.T) {
 	}
 	for _, want := range []string{
 		"# T-0001 · BUG: Проверка дефолтов",
-		"- Статус: open",
-		"- Приоритет: normal",
-		"## Подробности",
+		"- Status (Статус): open",
+		"- Priority (Приоритет): normal",
+		"## Details (Подробности)",
 		"<!-- что найдено, где (файл:строка), логи/вывод, как воспроизвести, предложение по исправлению -->",
 	} {
 		if !strings.Contains(string(data), want) {
@@ -244,7 +246,7 @@ func TestNewWhoResolution(t *testing.T) {
 			if err != nil {
 				t.Fatalf("created ticket is not readable: %v", err)
 			}
-			for _, want := range []string{"кем: " + tc.wantWho, "тикет создан (" + tc.wantWho + ")"} {
+			for _, want := range []string{"by (кем): " + tc.wantWho, "тикет создан (" + tc.wantWho + ")"} {
 				if !strings.Contains(string(data), want) {
 					t.Fatalf("created ticket missing %q:\n%s", want, data)
 				}

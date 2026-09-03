@@ -64,14 +64,14 @@ func requireSymlinks(t *testing.T) {
 // the store directory.
 const realTicketBody = "# T-0001 · BUG: real\n" +
 	"\n" +
-	"- Статус: open\n" +
-	"- Приоритет: normal\n" +
-	"- Создан: 2026-09-02 10:00 · кем: tester\n" +
-	"- Проект: tickets\n" +
+	"- Status (Статус): open\n" +
+	"- Priority (Приоритет): normal\n" +
+	"- Created (Создан): 2026-09-02 10:00 · by (кем): tester\n" +
+	"- Project (Проект): tickets\n" +
 	"\n" +
-	"## Кратко\ninside body\n" +
-	"\n## Подробности\nx\n" +
-	"\n## Журнал\n" +
+	"## Summary (Кратко)\ninside body\n" +
+	"\n## Details (Подробности)\nx\n" +
+	"\n## Journal (Журнал)\n" +
 	"- 2026-09-02 10:00 — тикет создан (tester).\n"
 
 // newStoreWithRealTicket builds a store dir holding exactly one real,

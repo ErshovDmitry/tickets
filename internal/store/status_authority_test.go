@@ -9,7 +9,7 @@ import (
 	"ticket/internal/domain"
 )
 
-// tamperBodyStatus hand-edits the "- Статус: " line of ticket n's file
+// tamperBodyStatus hand-edits the "- Status (Статус): " line of ticket n's file
 // inside dir to claim claimed, failing the test if the line is absent.
 // The filename is left untouched — this is the divergence the V19 fix
 // covers: filename status is authoritative, body status is untrusted.
@@ -20,7 +20,7 @@ func tamperBodyStatus(t *testing.T, dir string, n int, claimed domain.Status) {
 	if err != nil {
 		t.Fatalf("read %s: %v", p, err)
 	}
-	tampered := strings.Replace(string(data), "- Статус: open", "- Статус: "+string(claimed), 1)
+	tampered := strings.Replace(string(data), "- Status (Статус): open", "- Status (Статус): "+string(claimed), 1)
 	if tampered == string(data) {
 		t.Fatalf("status line not found in body of %s", p)
 	}

@@ -14,7 +14,7 @@ import (
 func TestCreate_NumberBeyond4DigitsRejected(t *testing.T) {
 	s, dir := newStore(t)
 	seed := filepath.Join(dir, "T-9999-open.md")
-	body := "# T-9999 · ENH: max\n\n- Статус: open\n- Приоритет: normal\n- Создан: 2026-09-02 00:00 · кем: seed\n- Проект: tickets\n\n## Кратко\nmax\n\n## Подробности\n\n## Журнал\n- 2026-09-02 00:00 — тикет создан (seed).\n"
+	body := "# T-9999 · ENH: max\n\n- Status (Статус): open\n- Priority (Приоритет): normal\n- Created (Создан): 2026-09-02 00:00 · by (кем): seed\n- Project (Проект): tickets\n\n## Summary (Кратко)\nmax\n\n## Details (Подробности)\n\n## Journal (Журнал)\n- 2026-09-02 00:00 — тикет создан (seed).\n"
 	if err := os.WriteFile(seed, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}

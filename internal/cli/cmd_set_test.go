@@ -59,7 +59,7 @@ func TestSetHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read new file: %v", err)
 	}
-	if !bytes.Contains(body, []byte("- Статус: wip")) {
+	if !bytes.Contains(body, []byte("- Status (Статус): wip")) {
 		t.Errorf("body missing updated status line:\n%s", body)
 	}
 	if !setJournalRe.Match(body) {

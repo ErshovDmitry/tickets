@@ -43,6 +43,40 @@ type Ticket struct {
 	Journal  []JournalEntry
 	// Unknown holds manual bytes after the journal section, preserved verbatim.
 	Unknown []byte
+
+	// Lang is the detected language of the ticket file (LOCK D4). It affects
+	// only: emission of new journal lines, stub choice for empty sections,
+	// default forms for absent components. It does NOT affect raw templates.
+	Lang Lang
+
+	// RawTemplates stores the original lines recognized during Parse
+	// (LOCK D1). Render prefers these over dict emission, guaranteeing
+	// byte-stability for free suffixes like "## Summary (任意语言)". Zero/absent
+	// entries mean "not recognized" -> Render emits dict form.
+	RawTemplates rawTemplates
+}
+
+// rawTemplates holds original lines from the parsed file.
+type rawTemplates struct {
+	// Section headers: original full line for each recognized section, keyed
+	// by canonical section name.
+	Headers map[sectionName]string
+
+	// Meta forms: original lines split into literal segments around their
+	// value slots (T-0036). No printf placeholders are stored, so a literal
+	// "%s" in a user free suffix or value survives round trips byte-
+	// identically.
+	Meta map[string]metaSegments
+}
+
+// metaSegments is one meta line as literal text around its value slots.
+// Single-slot metas (Status/Priority/Project) render Prefix+value+Suffix
+// (Middle is empty); the two-slot Created renders
+// Prefix+timestamp+Middle+author+Suffix.
+type metaSegments struct {
+	Prefix string // literal text before the first value slot
+	Middle string // Created only: literal text between ts and author slots
+	Suffix string // literal text after the last value slot
 }
 
 // JournalEntry is one line of the "## Журнал" section. The creation entry has
@@ -56,6 +90,13 @@ type JournalEntry struct {
 	Comment  string
 	Who      string
 	Archived bool
+
+	// Raw is the original line text for entries recognized during Parse
+	// (plan §B invariant). Non-empty Raw re-emits verbatim regardless of
+	// t.Lang, so a journal line in a foreign dict form (e.g. RU line in a
+	// file detected as EN) survives round trips byte-identically. Empty Raw
+	// (entries appended by set/archive) emits the t.Lang dict form.
+	Raw string
 }
 
 // Validate checks the ticket. In Strict mode (new tickets) it requires a

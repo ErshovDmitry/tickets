@@ -9,23 +9,23 @@ import (
 
 const ticketT0001 = `# T-0001 · ENH: Реализовать Go-версию ticket по AGENTS_ARCHITECTURE.md
 
-- Статус: open
-- Приоритет: high
-- Создан: 2026-09-02 03:24 · кем: erdmitry
-- Проект: tickets
+- Status (Статус): open
+- Priority (Приоритет): high
+- Created (Создан): 2026-09-02 03:24 · by (кем): erdmitry
+- Project (Проект): tickets
 
-## Кратко
+## Summary (Кратко)
 Реализовать Go-версию ticket по AGENTS_ARCHITECTURE.md
 
-## Подробности
+## Details (Подробности)
 Bootstrap завершён 2026-09-02: схема project_tickets, AGENTS.md, AGENTS_ARCHITECTURE.md, локальные тикеты. Реализация: cmd/ticket + internal/{domain,store,lock,paths,cli}, шаблоны через go:embed. Гейт: план в wiki -> план-ревью -> код.
 
-## Комментарии от пользователя
+## User comments (Комментарии от пользователя)
 _Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._
 
-## Комментарии
+## Comments (Комментарии)
 
-## Журнал
+## Journal (Журнал)
 - 2026-09-02 03:24 — тикет создан (erdmitry).
 `
 
@@ -106,7 +106,7 @@ func TestUnknownPreservedAfterJournal(t *testing.T) {
 }
 
 // TestUnknownBlankLinesPreservedAfterJournal documents that a blank line in
-// "## Журнал" is Unknown by design, not a parser bug: bytes after the last
+// "## Journal (Журнал)" is Unknown by design, not a parser bug: bytes after the last
 // recognized journal line — blank or manual — are preserved verbatim.
 func TestUnknownBlankLinesPreservedAfterJournal(t *testing.T) {
 	cases := []struct {
@@ -163,9 +163,9 @@ func TestParseJournalTransitions(t *testing.T) {
 
 func TestParseTolerantEmptyDetails(t *testing.T) {
 	cases := []string{
-		"## Подробности\n\n## Журнал\n",         // empty section
-		"## Подробности\n" + detailsStub + "\n", // stub
-		"## Журнал\n", // absent section
+		"## Details (Подробности)\n\n## Journal (Журнал)\n",      // empty section
+		"## Details (Подробности)\n" + dictRU.detailsStub + "\n", // stub
+		"## Journal (Журнал)\n",                                  // absent section
 	}
 	for _, src := range cases {
 		tk, _, err := Parse([]byte(src))
@@ -178,12 +178,12 @@ func TestParseTolerantEmptyDetails(t *testing.T) {
 	}
 
 	// Stub followed by real content is kept verbatim, not normalized.
-	src := "## Подробности\n" + detailsStub + "\nпометка\n\n## Журнал\n"
+	src := "## Details (Подробности)\n" + dictRU.detailsStub + "\nпометка\n\n## Journal (Журнал)\n"
 	tk, _, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if want := detailsStub + "\nпометка"; tk.Details != want {
+	if want := dictRU.detailsStub + "\nпометка"; tk.Details != want {
 		t.Errorf("Details = %q, want %q", tk.Details, want)
 	}
 }
@@ -194,8 +194,8 @@ func TestParseTolerantNeverErrors(t *testing.T) {
 		"\n\n\n",
 		"мусор без структуры",
 		"# T-XXXX · ???",
-		"# T-1 · BUG: x\n- Статус: bogus\n- Создан: мусор · кем: \n",
-		"## Журнал\nне журнал вовсе\n",
+		"# T-1 · BUG: x\n- Status (Статус): bogus\n- Created (Создан): мусор · by (кем): \n",
+		"## Journal (Журнал)\nне журнал вовсе\n",
 		"# T-999999999999999999999 · BUG: overflow\n",
 	} {
 		tk, unknown, err := Parse([]byte(src))
@@ -213,7 +213,7 @@ func TestParseTolerantNeverErrors(t *testing.T) {
 }
 
 func TestParseUnknownDetailsKept(t *testing.T) {
-	src := "# T-0001 · BUG: x\n\n- Статус: open\n- Приоритет: low\n- Создан: 2026-01-01 10:00 · кем: я\n- Проект: p\n\n## Кратко\nx\n\n## Подробности\nстрока1\n\nстрока2\n\n## Комментарии от пользователя\n" + userCommentsStub + "\n\n## Комментарии\n\n## Журнал\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	src := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): low\n- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n## Summary (Кратко)\nx\n\n## Details (Подробности)\nстрока1\n\nстрока2\n\n## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -248,7 +248,10 @@ func TestRenderJournalLineFormats(t *testing.T) {
 			"- 2026-09-02 05:00 — статус: open → closed · дубликат (я)\n"},
 	}
 	for _, tc := range cases {
-		tk := &Ticket{Journal: []JournalEntry{tc.e}}
+		tk := &Ticket{
+			Journal: []JournalEntry{tc.e},
+			Lang:    LangRU,
+		}
 		got, err := Render(tk, nil)
 		if err != nil {
 			t.Fatalf("Render: %v", err)
@@ -257,14 +260,14 @@ func TestRenderJournalLineFormats(t *testing.T) {
 			t.Errorf("%s: render output %q misses %q", tc.name, got, tc.want)
 		}
 		// Canonical two-section layout for empty sections (T-0035).
-		if !bytes.Contains(got, []byte("## Комментарии от пользователя\n"+userCommentsStub+"\n\n## Комментарии\n\n## Журнал\n")) {
+		if !bytes.Contains(got, []byte("## User comments (Комментарии от пользователя)\n"+dictRU.userCommentsStub+"\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n")) {
 			t.Errorf("%s: render output misses the canonical layout:\n%s", tc.name, got)
 		}
 	}
 }
 
 // TestParseUserCommentsStubCollision documents the known T-0035 limitation
-// (by design): user text in "## Комментарии от пользователя" byte-identical
+// (by design): user text in "## User comments (Комментарии от пользователя)" byte-identical
 // to userCommentsStub is indistinguishable from the placeholder and blanks
 // to "" on Parse; Render then re-emits the stub, keeping the round trip
 // byte-stable. Control: text differing from the stub (stub + an extra line)
@@ -278,12 +281,12 @@ func TestParseUserCommentsStubCollision(t *testing.T) {
 		t.Errorf("UserComments = %q, want empty (stub blanked)", tk.UserComments)
 	}
 
-	src := strings.Replace(ticketT0001, userCommentsStub+"\n", userCommentsStub+"\nдоп. строка\n", 1)
+	src := strings.Replace(ticketT0001, dictRU.userCommentsStub+"\n", dictRU.userCommentsStub+"\nдоп. строка\n", 1)
 	tk, _, err = Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if want := userCommentsStub + "\nдоп. строка"; tk.UserComments != want {
+	if want := dictRU.userCommentsStub + "\nдоп. строка"; tk.UserComments != want {
 		t.Errorf("UserComments = %q, want %q", tk.UserComments, want)
 	}
 	got, err := Render(tk, nil)

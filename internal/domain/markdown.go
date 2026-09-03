@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -12,36 +11,19 @@ import (
 // tsLayout is the timestamp format used everywhere in ticket files.
 const tsLayout = "2006-01-02 15:04"
 
-// detailsStub is the placeholder bash writes when Details are empty.
-const detailsStub = `<!-- что найдено, где (файл:строка), логи/вывод, как воспроизвести, предложение по исправлению -->`
-
-// userCommentsStub is the visible (italic) placeholder under
-// "## Комментарии от пользователя" (T-0035) inviting user remarks.
-// Like detailsStub it means "empty" once parsed back: a section holding
-// exactly this one line blanks to "" on Parse, and Render emits the stub
-// only for an empty section — user text is kept verbatim, so the placeholder
-// never duplicates and parse→render round trips stay byte-stable. Known
-// limitation (by design): user text byte-identical to the stub is
-// indistinguishable from the placeholder and blanks to "" as well.
-const userCommentsStub = `_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._`
-
 var (
-	h1Re       = regexp.MustCompile(`^# T-(\d+) · (\S+): (.*)$`)
-	statusRe   = regexp.MustCompile(`^- Статус: (.*)$`)
-	priorityRe = regexp.MustCompile(`^- Приоритет: (.*)$`)
-	createdRe  = regexp.MustCompile(`^- Создан: (.+) · кем: (.*)$`)
-	projectRe  = regexp.MustCompile(`^- Проект: (.*)$`)
+	h1Re = regexp.MustCompile(`^# T-(\d+) · (\S+): (.*)$`)
 )
 
 type section uint8
 
 const (
 	secHead         section = iota // H1 + metadata block
-	secBrief                       // inside "## Кратко" (duplicates Title — ignored)
-	secDetails                     // inside "## Подробности"
-	secUserComments                // inside "## Комментарии от пользователя" (T-0035)
-	secComments                    // inside "## Комментарии" (T-0032, no bash counterpart)
-	secJournal                     // inside "## Журнал"
+	secBrief                       // inside "## Summary" (duplicates Title — ignored)
+	secDetails                     // inside "## Details"
+	secUserComments                // inside "## User comments" (T-0035)
+	secComments                    // inside "## Comments" (T-0032, no bash counterpart)
+	secJournal                     // inside "## Journal"
 )
 
 // Parse reads ticket markdown tolerantly: it never fails, missing or
@@ -52,19 +34,28 @@ const (
 // the recognized tail; everything from that byte on becomes Unknown by
 // design so manual edits survive parse/render round trips intact.
 func Parse(data []byte) (*Ticket, []byte, error) {
-	t := &Ticket{}
+	t := &Ticket{
+		RawTemplates: rawTemplates{
+			Headers: make(map[sectionName]string),
+			Meta:    make(map[string]metaSegments),
+		},
+	}
 	var details, userComments, comments []string
 	sec := secHead
+
+	// Detect language first (LOCK D4).
+	t.Lang = detectLang(data)
+
 	finish := func() {
 		t.Details = strings.Join(trimTrailingEmpty(details), "\n")
-		if t.Details == detailsStub {
-			t.Details = "" // bash placeholder means empty Details
+		if isStubLine(t.Details) {
+			t.Details = "" // stub from any dict means empty Details
 		}
 		t.UserComments = strings.Join(trimTrailingEmpty(userComments), "\n")
-		if t.UserComments == userCommentsStub {
+		if isStubLine(t.UserComments) {
 			// Placeholder means no user remarks. Known limitation (by
 			// design): user text byte-identical to the stub is treated
-			// the same — see userCommentsStub.
+			// the same.
 			t.UserComments = ""
 		}
 		// The free-form "## Комментарии" section has no stub: its bytes are
@@ -99,24 +90,74 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 // handle rendering as a fallible operation.
 func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	var b bytes.Buffer
+	d := getDict(t.Lang)
+
+	// H1 line is always the same format.
 	fmt.Fprintf(&b, "# T-%04d · %s: %s\n\n", t.Number, t.Type, t.Title)
-	fmt.Fprintf(&b, "- Статус: %s\n", t.Status)
-	fmt.Fprintf(&b, "- Приоритет: %s\n", t.Priority)
-	fmt.Fprintf(&b, "- Создан: %s · кем: %s\n", t.Created.Format(tsLayout), t.Who)
-	fmt.Fprintf(&b, "- Проект: %s\n\n", t.Project)
-	fmt.Fprintf(&b, "## Кратко\n%s\n\n## Подробности\n", t.Title)
+
+	// Meta lines: prefer raw segments — literal text around the value slots
+	// captured at Parse time (T-0036). Segments contain no printf
+	// placeholders, so a literal "%s" in a user free suffix or value is
+	// emitted verbatim. Absent entries emit the dict form.
+	if seg, ok := t.RawTemplates.Meta["Status"]; ok {
+		b.WriteString(seg.Prefix + string(t.Status) + seg.Suffix + "\n")
+	} else {
+		fmt.Fprintf(&b, d.statusFmt+"\n", t.Status)
+	}
+	if seg, ok := t.RawTemplates.Meta["Priority"]; ok {
+		b.WriteString(seg.Prefix + string(t.Priority) + seg.Suffix + "\n")
+	} else {
+		fmt.Fprintf(&b, d.priorityFmt+"\n", t.Priority)
+	}
+	if seg, ok := t.RawTemplates.Meta["Created"]; ok {
+		b.WriteString(seg.Prefix + t.Created.Format(tsLayout) + seg.Middle + t.Who + seg.Suffix + "\n")
+	} else {
+		fmt.Fprintf(&b, d.createdFmt+"\n", t.Created.Format(tsLayout), t.Who)
+	}
+	if seg, ok := t.RawTemplates.Meta["Project"]; ok {
+		b.WriteString(seg.Prefix + string(t.Project) + seg.Suffix + "\n")
+	} else {
+		fmt.Fprintf(&b, d.projectFmt+"\n", t.Project)
+	}
+	b.WriteString("\n")
+
+	// Section headers: prefer raw templates, else dict.
+	if raw, ok := t.RawTemplates.Headers[secNameSummary]; ok {
+		b.WriteString(raw + "\n")
+	} else {
+		b.WriteString(d.headers[0] + "\n")
+	}
+	fmt.Fprintf(&b, "%s\n\n", t.Title)
+
+	if raw, ok := t.RawTemplates.Headers[secNameDetails]; ok {
+		b.WriteString(raw + "\n")
+	} else {
+		b.WriteString(d.headers[1] + "\n")
+	}
 	if t.Details == "" {
-		b.WriteString(detailsStub)
+		b.WriteString(d.detailsStub)
 	} else {
 		b.WriteString(t.Details)
 	}
-	b.WriteString("\n\n## Комментарии от пользователя\n")
+	b.WriteString("\n\n")
+
+	if raw, ok := t.RawTemplates.Headers[secNameUserComments]; ok {
+		b.WriteString(raw + "\n")
+	} else {
+		b.WriteString(d.headers[2] + "\n")
+	}
 	if t.UserComments == "" {
-		b.WriteString(userCommentsStub)
+		b.WriteString(d.userCommentsStub)
 	} else {
 		b.WriteString(t.UserComments)
 	}
-	b.WriteString("\n\n## Комментарии\n")
+	b.WriteString("\n\n")
+
+	if raw, ok := t.RawTemplates.Headers[secNameComments]; ok {
+		b.WriteString(raw + "\n")
+	} else {
+		b.WriteString(d.headers[3] + "\n")
+	}
 	if t.Comments != "" {
 		b.WriteString(t.Comments)
 	}
@@ -124,115 +165,21 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	// free section the output must be "## Комментарии\n\n## Журнал\n" —
 	// exactly one blank line, never "\n\n\n".
 	if t.Comments == "" {
-		b.WriteString("\n## Журнал\n")
+		b.WriteString("\n")
 	} else {
-		b.WriteString("\n\n## Журнал\n")
+		b.WriteString("\n\n")
+	}
+
+	if raw, ok := t.RawTemplates.Headers[secNameJournal]; ok {
+		b.WriteString(raw + "\n")
+	} else {
+		b.WriteString(d.headers[4] + "\n")
 	}
 	for _, e := range t.Journal {
-		writeJournalLine(&b, e)
+		writeJournalLine(&b, e, t.Lang)
 	}
 	b.Write(unknown)
 	return b.Bytes(), nil
-}
-
-// absorbLine consumes one line outside the journal section, updating the
-// ticket and returning the new section.
-func absorbLine(t *Ticket, details, userComments, comments *[]string, sec section, line string) section {
-	switch sec {
-	case secDetails:
-		switch line {
-		case "## Комментарии от пользователя":
-			return secUserComments
-		case "## Комментарии":
-			return secComments
-		case "## Журнал":
-			return secJournal
-		}
-		*details = append(*details, line)
-		return sec
-	case secUserComments:
-		// Only the next section's header ends the user-remarks section:
-		// anything else — stray headers and a duplicate own header included —
-		// stays verbatim (content-preserving policy, mirrors secComments).
-		switch line {
-		case "## Комментарии":
-			return secComments
-		case "## Журнал":
-			return secJournal
-		}
-		*userComments = append(*userComments, line)
-		return sec
-	case secComments:
-		// Only the journal header ends the section: stray lines — other
-		// headers and duplicate "## Комментарии" included — stay verbatim
-		// (content-preserving policy, mirrors secDetails).
-		if line == "## Журнал" {
-			return secJournal
-		}
-		*comments = append(*comments, line)
-		return sec
-	case secBrief:
-		if h, ok := headerName(line); ok {
-			return sectionFor(h)
-		}
-		return sec
-	default: // secHead
-		if applyHeadMeta(t, line) {
-			return sec
-		}
-		if h, ok := headerName(line); ok {
-			return sectionFor(h)
-		}
-		return sec
-	}
-}
-
-// applyHeadMeta captures the H1 line and the metadata block lines.
-func applyHeadMeta(t *Ticket, line string) bool {
-	if m := h1Re.FindStringSubmatch(line); m != nil {
-		t.Number, _ = strconv.Atoi(m[1]) // tolerant: overflow -> 0
-		t.Type = Type(m[2])
-		t.Title = m[3]
-		return true
-	}
-	if m := statusRe.FindStringSubmatch(line); m != nil {
-		t.Status = Status(m[1])
-		return true
-	}
-	if m := priorityRe.FindStringSubmatch(line); m != nil {
-		t.Priority = Priority(m[1])
-		return true
-	}
-	if m := createdRe.FindStringSubmatch(line); m != nil {
-		t.Created, t.Who = parseTS(m[1]), m[2]
-		return true
-	}
-	if m := projectRe.FindStringSubmatch(line); m != nil {
-		t.Project = m[1]
-		return true
-	}
-	return false
-}
-
-func headerName(line string) (string, bool) {
-	return strings.CutPrefix(line, "## ")
-}
-
-func sectionFor(name string) section {
-	switch name {
-	case "Кратко":
-		return secBrief
-	case "Подробности":
-		return secDetails
-	case "Комментарии от пользователя":
-		return secUserComments
-	case "Комментарии":
-		return secComments
-	case "Журнал":
-		return secJournal
-	default:
-		return secBrief // unknown header: ignore its content
-	}
 }
 
 func lineBounds(data []byte, pos int) (start, end int) {

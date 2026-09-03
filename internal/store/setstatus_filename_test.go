@@ -26,7 +26,7 @@ func TestSetStatus_JournalFromUsesFilenameStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tampered := strings.Replace(string(data), "- Статус: open", "- Статус: done", 1)
+	tampered := strings.Replace(string(data), "- Status (Статус): open", "- Status (Статус): done", 1)
 	if tampered == string(data) {
 		t.Fatalf("status line not found in body:\n%s", data)
 	}

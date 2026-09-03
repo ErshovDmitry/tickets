@@ -32,7 +32,7 @@ func TestBothSectionsRoundTrip(t *testing.T) {
 }
 
 // TestFreeCommentsEmptyRendersBareHeader pins (#2): an empty free section
-// renders exactly "## Комментарии\n\n## Журнал\n" — no stub, no blank-run.
+// renders exactly "## Comments (Комментарии)\n\n## Journal (Журнал)\n" — no stub, no blank-run.
 func TestFreeCommentsEmptyRendersBareHeader(t *testing.T) {
 	tk := newTestTicket()
 	tk.UserComments = "пометка"
@@ -40,13 +40,13 @@ func TestFreeCommentsEmptyRendersBareHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if want := "## Комментарии\n\n## Журнал\n"; !bytes.Contains(got, []byte(want)) {
+	if want := "## Comments (Комментарии)\n\n## Journal (Журнал)\n"; !bytes.Contains(got, []byte(want)) {
 		t.Errorf("empty free section must render the bare header:\n%s", got)
 	}
 	if strings.Contains(string(got), "\n\n\n") {
 		t.Errorf("render output must never contain a blank-run \\n\\n\\n:\n%s", got)
 	}
-	if bytes.Contains(got, []byte("## Комментарии\n"+userCommentsStub)) {
+	if bytes.Contains(got, []byte("## Comments (Комментарии)\n"+dictRU.userCommentsStub)) {
 		t.Errorf("free section must not carry the user stub:\n%s", got)
 	}
 }
@@ -61,7 +61,7 @@ func TestUserSectionInjectedBeforeExistingFreeSection(t *testing.T) {
 		{"plain text", "пометка агента"},
 		{"old T-0034 stub", oldStub},
 	} {
-		src := legacyTicket() + "## Комментарии\n" + tc.fc + "\n\n## Журнал\n- 2026-01-01 10:00 — тикет создан (я).\n"
+		src := legacyTicket() + "## Comments (Комментарии)\n" + tc.fc + "\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
 		tk, unknown, err := Parse([]byte(src))
 		if err != nil {
 			t.Fatalf("%s: Parse: %v", tc.name, err)
@@ -76,7 +76,7 @@ func TestUserSectionInjectedBeforeExistingFreeSection(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: Render: %v", tc.name, err)
 		}
-		want := legacyTicket() + "## Комментарии от пользователя\n" + userCommentsStub + "\n\n## Комментарии\n" + tc.fc + "\n\n## Журнал\n- 2026-01-01 10:00 — тикет создан (я).\n"
+		want := legacyTicket() + "## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n## Comments (Комментарии)\n" + tc.fc + "\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
 		if !bytes.Equal(got, []byte(want)) {
 			t.Errorf("%s: round trip mismatch:\n got %q\nwant %q", tc.name, got, want)
 		}
@@ -87,7 +87,7 @@ func TestUserSectionInjectedBeforeExistingFreeSection(t *testing.T) {
 // finish() path (manual tail after the journal) blanks a stub-only user
 // section exactly like the normal path; the round trip is byte-identical.
 func TestUnknownTailBlanksUserCommentsStub(t *testing.T) {
-	src := ucTicket(userCommentsStub, "") + "заметка вручную\nещё строка\n"
+	src := ucTicket(dictRU.userCommentsStub, "") + "заметка вручную\nещё строка\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)

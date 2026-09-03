@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"ticket/internal/domain"
 )
 
 // TestVersionLine pins the default-build version line: the version variable
@@ -76,11 +78,11 @@ func TestRunVersionIgnoresExtraArgs(t *testing.T) {
 func TestUsageStartsWithVersionLine(t *testing.T) {
 	cases := []struct {
 		name string
-		lang string
+		lang domain.Lang
 		text string
 	}{
-		{"ru", "ru", usageTextRU},
-		{"en", "en", usageTextEN},
+		{"ru", domain.LangRU, usageTextRU},
+		{"en", domain.LangEN, usageTextEN},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

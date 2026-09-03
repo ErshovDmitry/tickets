@@ -117,7 +117,7 @@ func TestArchive_TmpRemoveFails_RollsBackTarget(t *testing.T) {
 	if rerr != nil {
 		t.Fatalf("done file must survive rollback: %v", rerr)
 	}
-	if !strings.Contains(string(oldBody), "- Статус: done") {
+	if !strings.Contains(string(oldBody), "- Status (Статус): done") {
 		t.Errorf("done file was mutated:\n%s", oldBody)
 	}
 	assertNoTmpFiles(t, archiveDir)
