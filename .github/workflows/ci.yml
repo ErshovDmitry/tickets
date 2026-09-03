@@ -69,8 +69,9 @@ jobs:
 
       # coreutils checksum format (<hash>  <filename>, two spaces) so that
       # `sha256sum -c SHA256SUMS.txt` works on any OS. macOS runners ship no
-      # GNU coreutils, hence shasum (perl) there; Windows gets CRLF-free output
-      # via -NoNewline (pwsh would otherwise end the line with \r\n).
+      # GNU coreutils, hence shasum (perl) there; Windows embeds the trailing
+      # LF in the string (`n) and keeps -NoNewline: pwsh would otherwise end
+      # the line with \r\n, while the coreutils format requires \n at EOF.
       - name: Generate SHA256SUMS (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -84,7 +85,7 @@ jobs:
       - name: Generate SHA256SUMS (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Get-FileHash .\${{ matrix.bin }} -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  ${{ matrix.bin }}" } | Out-File -Encoding ascii -NoNewline SHA256SUMS.txt
+        run: Get-FileHash .\${{ matrix.bin }} -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  ${{ matrix.bin }}`n" } | Out-File -Encoding ascii -NoNewline SHA256SUMS.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
