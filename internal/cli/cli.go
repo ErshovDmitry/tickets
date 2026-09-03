@@ -27,10 +27,11 @@ import (
 //
 //	func cmdX(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int
 //
-// where cmdNew/cmdShow/cmdSet additionally take lang (the resolved ticket
+// where cmdNew/cmdShow/cmdSet/cmdList take lang (the resolved ticket
 // language: langFrom, TICKET_LANG → LC_ALL → LANG; new in T-0026, no bash
 // precedent; since T-0036 a domain.Lang that also selects the file format
-// of `new`) after project, and cmdList/cmdArchive omit it. st is built
+// of `new`; T-0040 added lang to cmdList for i18n noTickets/warnings),
+// and cmdArchive omits it. st is built
 // here from the tickets dir resolved ONCE, who is the resolved user
 // (TICKET_WHO → USER → USERNAME → agent, bash:12) and project is
 // filepath.Base(filepath.Dir(dir)) (bash:10).
@@ -56,8 +57,8 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 }
 
 // dispatch resolves the tickets dir once and invokes the command handler.
-// lang is passed only to the handlers that can print usage (new/show/set);
-// list/archive never print it.
+// lang is passed to handlers that print usage or i18n messages
+// (new/show/set/list); archive omits it.
 func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang, stdout, stderr io.Writer) int {
 	// Getwd/Executable failures are handled by paths.Resolve input checks.
 	cwd, _ := os.Getwd()
@@ -87,7 +88,7 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 	case "new":
 		return cmdNew(st, args, who, project, lang, stdout, stderr)
 	case "list":
-		return cmdList(st, args, who, project, stdout, stderr)
+		return cmdList(st, args, who, project, lang, stdout, stderr)
 	case "show":
 		return cmdShow(st, args, who, project, lang, stdout, stderr)
 	case "set":

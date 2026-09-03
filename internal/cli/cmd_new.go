@@ -14,14 +14,15 @@ import (
 
 // newFlags holds the parsed options of the `new` command.
 type newFlags struct {
-	title   string
-	typ     string
-	prio    string
-	details string
-	who     string
+	title           string
+	typ             string
+	prio            string
+	details         string
+	who             string
+	projectOverride string // -P value (T-0040)
 }
 
-// cmdNew implements `new "<кратко>" [-t T] [-p P] [-d D] [-w W]`.
+// cmdNew implements `new "<кратко>" [-t T] [-p P] [-d D] [-w W] [-P PROJECT]`.
 // The title must come before any flag (bash: title=$1; shift).
 // lang selects the usage text language for argument errors AND the file
 // format language of the created ticket (T-0036: both come from the same
@@ -35,6 +36,10 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	f, ok := parseNewFlags(args[0], args[1:], who, stderr)
 	if !ok {
 		return 1
+	}
+	// -P override (T-0040)
+	if f.projectOverride != "" {
+		project = f.projectOverride
 	}
 	// Empty/whitespace-only titles are rejected before Create, matching
 	// domain.Validate(Strict) ("краткое описание не может быть пустым").
@@ -52,15 +57,42 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		fmt.Fprintln(stderr, "ticket: приоритет — один из: low normal high")
 		return 1
 	}
+	// firstUse check BEFORE Create (T-0040): known projects = unique
+	// t.Project from List+ListArchive
+	firstUse := false
+	if project != "" {
+		known := make(map[string]bool)
+		allTickets, warnings := st.List()
+		for _, w := range warnings {
+			fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
+		}
+		for _, t := range allTickets {
+			known[t.Project] = true
+		}
+		archiveTickets, warnings2 := st.ListArchive()
+		for _, w := range warnings2 {
+			fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
+		}
+		for _, t := range archiveTickets {
+			known[t.Project] = true
+		}
+		if !known[project] {
+			firstUse = true
+		}
+	}
 	n, err := st.Create(newTicket(f, typ, prio, project, lang))
 	if err != nil {
 		return createError(stderr, st, err)
 	}
 	fmt.Fprintln(stdout, filepath.Join(st.Dir, domain.Filename(n, domain.StatusOpen)))
+	// Print warning to stderr if project is firstUse, exit 0 (T-0040)
+	if firstUse {
+		fmt.Fprintln(stderr, domain.WarnNewProject(lang, project))
+	}
 	return 0
 }
 
-// parseNewFlags consumes `-t/-p/-d/-w` value pairs exactly like bash:
+// parseNewFlags consumes `-t/-p/-d/-w/-P` value pairs exactly like bash:
 // blind value consumption, unknown flag dies at once, values are
 // validated after the loop. ok=false after printing the error.
 func parseNewFlags(title string, flags []string, who string, stderr io.Writer) (newFlags, bool) {
@@ -85,6 +117,12 @@ func parseNewFlags(title string, flags []string, who string, stderr io.Writer) (
 			f.details = flags[i]
 		case "-w":
 			f.who = flags[i]
+		case "-P":
+			if strings.TrimSpace(flags[i]) == "" {
+				fmt.Fprintln(stderr, "ticket: -P требует непустое имя проекта")
+				return f, false
+			}
+			f.projectOverride = flags[i]
 		}
 	}
 	return f, true
@@ -93,7 +131,7 @@ func parseNewFlags(title string, flags []string, who string, stderr io.Writer) (
 // isNewFlag reports whether arg is one of the value-taking flags of new.
 func isNewFlag(arg string) bool {
 	switch arg {
-	case "-t", "-p", "-d", "-w":
+	case "-t", "-p", "-d", "-w", "-P":
 		return true
 	}
 	return false

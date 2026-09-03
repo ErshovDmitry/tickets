@@ -44,6 +44,10 @@ type dict struct {
 	journalCreation   string
 	journalTransition string
 	journalArchive    string
+
+	// T-0040: multi-project support
+	warnNewProject string // 1 %s: project name
+	noTickets      string // 1 %s: filter description
 }
 
 //go:embed langs/*.json
@@ -148,6 +152,8 @@ func loadDict(data []byte) (*dict, error) {
 		JournalCreation   string          `json:"journalCreation"`
 		JournalTransition string          `json:"journalTransition"`
 		JournalArchive    string          `json:"journalArchive"`
+		WarnNewProject    string          `json:"warnNewProject"`
+		NoTickets         string          `json:"noTickets"`
 	}
 	if err := json.Unmarshal(data, &dj); err != nil {
 		return nil, err
@@ -219,6 +225,19 @@ func loadDict(data []byte) (*dict, error) {
 	if strings.Count(dj.JournalArchive, "%s") != 2 {
 		return nil, fmt.Errorf("journalArchive: expected 2 %%s, got %d", strings.Count(dj.JournalArchive, "%s"))
 	}
+	// Validate new fields (T-0040)
+	if dj.WarnNewProject == "" {
+		return nil, fmt.Errorf("warnNewProject: empty")
+	}
+	if strings.Count(dj.WarnNewProject, "%s") != 1 {
+		return nil, fmt.Errorf("warnNewProject: expected 1 %%s, got %d", strings.Count(dj.WarnNewProject, "%s"))
+	}
+	if dj.NoTickets == "" {
+		return nil, fmt.Errorf("noTickets: empty")
+	}
+	if strings.Count(dj.NoTickets, "%s") != 1 {
+		return nil, fmt.Errorf("noTickets: expected 1 %%s, got %d", strings.Count(dj.NoTickets, "%s"))
+	}
 
 	return &dict{
 		headers:           headers,
@@ -231,7 +250,19 @@ func loadDict(data []byte) (*dict, error) {
 		journalCreation:   dj.JournalCreation,
 		journalTransition: dj.JournalTransition,
 		journalArchive:    dj.JournalArchive,
+		warnNewProject:    dj.WarnNewProject,
+		noTickets:         dj.NoTickets,
 	}, nil
+}
+
+// WarnNewProject formats the first-use warning for a new project name.
+func WarnNewProject(lang Lang, project string) string {
+	return fmt.Sprintf(getDict(lang).warnNewProject, project)
+}
+
+// NoTickets formats the "no tickets found" message with filter description.
+func NoTickets(lang Lang, filter string) string {
+	return fmt.Sprintf(getDict(lang).noTickets, filter)
 }
 
 // getDict returns the dictionary for lang.

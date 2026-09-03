@@ -8,5 +8,7 @@
   "userCommentsStub": "_User remarks: write here — the agent reads this section before working on the ticket. The agent does not write here._",
   "journalCreation": "- %s — ticket created (%s).",
   "journalTransition": "- %s — status: %s → %s",
-  "journalArchive": "- %s — moved to archive (%s)"
+  "journalArchive": "- %s — moved to archive (%s)",
+  "warnNewProject": "ticket: warning: project '%s' is seen for the first time — verify the name is correct.",
+  "noTickets": "No tickets (%s)."
 }
