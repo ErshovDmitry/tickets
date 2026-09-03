@@ -16,10 +16,9 @@ type journalPatterns struct {
 	transition *regexp.Regexp
 }
 
-// journalDictPatterns caches compiled patterns per registered dict, built at
-// package init from allDicts (templates validated once by the same guards
-// the old per-call path applied).
-var journalDictPatterns = buildJournalPatterns()
+// journalDictPatterns caches compiled patterns per registered dict, built in
+// init() after dictionaries are loaded.
+var journalDictPatterns map[*dict]journalPatterns
 
 func buildJournalPatterns() map[*dict]journalPatterns {
 	m := make(map[*dict]journalPatterns, len(allDicts))

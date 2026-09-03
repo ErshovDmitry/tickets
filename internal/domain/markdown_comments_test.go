@@ -32,10 +32,12 @@ func legacyJournal() string {
 	return legacyTicket() + "## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
 }
 
-// canonEmptySections is the canonical byte layout of empty comment sections
-// (T-0035): UC with its stub, then the bare free header, one blank line
-// before "## Journal (Журнал)".
-var canonEmptySections = "## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n"
+// canonEmptySections returns the canonical byte layout of empty comment
+// sections (T-0035): UC with its stub, then the bare free header, one blank
+// line before "## Journal (Журнал)".
+func canonEmptySections() string {
+	return "## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n"
+}
 
 // TestNewTicketTemplateSectionOrder pins (a): the template emits the user
 // section (stub STRICTLY on the line after its header) and the bare free
@@ -46,7 +48,7 @@ func TestNewTicketTemplateSectionOrder(t *testing.T) {
 		t.Fatalf("RenderNewTicket: %v", err)
 	}
 	detailsIdx := bytes.Index(out, []byte("## Details (Подробности)\n"))
-	blockIdx := bytes.Index(out, []byte(canonEmptySections))
+	blockIdx := bytes.Index(out, []byte(canonEmptySections()))
 	if detailsIdx < 0 || blockIdx < 0 || detailsIdx > blockIdx {
 		t.Fatalf("canonical layout between Подробности and Журнал broken:\n%s", out)
 	}
@@ -91,7 +93,7 @@ func TestBothSectionsInjectedIntoLegacy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	want := legacyTicket() + canonEmptySections + "- 2026-01-01 10:00 — тикет создан (я).\n"
+	want := legacyTicket() + canonEmptySections() + "- 2026-01-01 10:00 — тикет создан (я).\n"
 	if !bytes.Equal(got, []byte(want)) {
 		t.Fatalf("legacy ticket did not gain both sections:\n got %q\nwant %q", got, want)
 	}
@@ -114,7 +116,7 @@ func TestCommentsLegacyWithUnknownTailRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	want := legacyTicket() + canonEmptySections + "- 2026-01-01 10:00 — тикет создан (я).\n" + tail
+	want := legacyTicket() + canonEmptySections() + "- 2026-01-01 10:00 — тикет создан (я).\n" + tail
 	if !bytes.Equal(got, []byte(want)) {
 		t.Fatalf("round trip mismatch:\n got %q\nwant %q", got, want)
 	}

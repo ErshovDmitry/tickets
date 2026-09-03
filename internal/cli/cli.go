@@ -130,17 +130,16 @@ func langFrom(env map[string]string) domain.Lang {
 
 // langPrefix maps a locale value to a domain.Lang: the prefix up to the
 // first '_' or '.' decides, case-insensitive ("en_US.UTF-8" → en,
-// "ru_RU" → ru). A known "ru"/"en" prefix selects that language; any
-// other non-empty locale falls back to LangEN (T-0036 deliberate change:
-// unknown locales used to get the Russian text).
+// "ru_RU" → ru). If the prefix matches a known language in the registry,
+// that language is selected; otherwise falls back to LangEN (T-0036
+// deliberate change: unknown locales used to get the Russian text).
 func langPrefix(v string) domain.Lang {
 	if i := strings.IndexAny(v, "_."); i >= 0 {
 		v = v[:i]
 	}
-	switch strings.ToLower(v) {
-	case "ru":
-		return domain.LangRU
-	default: // "en" and unknown locales
-		return domain.LangEN
+	lang := domain.Lang(strings.ToLower(v))
+	if domain.IsKnownLang(lang) {
+		return lang
 	}
+	return domain.LangEN // fallback for unknown locales
 }

@@ -1,6 +1,12 @@
 package domain
 
-import "strings"
+import (
+	"embed"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+)
 
 // Lang identifies the language of a ticket file's format (section headers,
 // meta labels, stubs, journal templates). It affects only: (1) emission of
@@ -40,67 +46,207 @@ type dict struct {
 	journalArchive    string
 }
 
+//go:embed langs/*.json
+var langsFS embed.FS
+
 var (
-	// dictRU is the Russian dictionary, byte-identical to the current
-	// bash-compatible format for all templates.
-	dictRU = dict{
-		headers: [5]string{
-			"## Summary (Кратко)",
-			"## Details (Подробности)",
-			"## User comments (Комментарии от пользователя)",
-			"## Comments (Комментарии)",
-			"## Journal (Журнал)",
-		},
-		statusFmt:         "- Status (Статус): %s",
-		priorityFmt:       "- Priority (Приоритет): %s",
-		projectFmt:        "- Project (Проект): %s",
-		createdFmt:        "- Created (Создан): %s · by (кем): %s",
-		detailsStub:       `<!-- что найдено, где (файл:строка), логи/вывод, как воспроизвести, предложение по исправлению -->`,
-		userCommentsStub:  `_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._`,
-		journalCreation:   "- %s — тикет создан (%s).",
-		journalTransition: "- %s — статус: %s → %s",
-		journalArchive:    "- %s — перенесён в архив (%s)",
+	// dictRU is the Russian dictionary, loaded from embedded langs/ru.json.
+	dictRU *dict
+
+	// dictEN is the English dictionary, loaded from embedded langs/en.json.
+	dictEN *dict
+
+	allDicts []struct {
+		lang Lang
+		d    *dict
 	}
 
-	// dictEN is the English dictionary.
-	dictEN = dict{
-		headers: [5]string{
-			"## Summary",
-			"## Details",
-			"## User comments",
-			"## Comments",
-			"## Journal",
-		},
-		statusFmt:         "- Status: %s",
-		priorityFmt:       "- Priority: %s",
-		projectFmt:        "- Project: %s",
-		createdFmt:        "- Created: %s · by: %s",
-		detailsStub:       `<!-- what was found, where (file:line), logs/output, how to reproduce, fix proposal -->`,
-		userCommentsStub:  `_User remarks: write here — the agent reads this section before working on the ticket. The agent does not write here._`,
-		journalCreation:   "- %s — ticket created (%s).",
-		journalTransition: "- %s — status: %s → %s",
-		journalArchive:    "- %s — moved to archive (%s)",
+	registry map[Lang]*dict
+)
+
+func init() {
+	registry = make(map[Lang]*dict)
+
+	// Auto-discover all embedded langs/*.json files
+	entries, err := langsFS.ReadDir("langs")
+	if err != nil {
+		panic(fmt.Errorf("read langs dir: %w", err))
 	}
 
+	// Track first-seen filename per lang code so we can panic with both
+	// filenames when a duplicate code is encountered (e.g. RU.json vs ru.json).
+	firstSeen := make(map[Lang]string)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		fname := "langs/" + entry.Name()
+		data, err := langsFS.ReadFile(fname)
+		if err != nil {
+			panic(fmt.Errorf("load %s: %w", fname, err))
+		}
+		d, err := loadDict(data)
+		if err != nil {
+			panic(fmt.Errorf("parse %s: %w", fname, err))
+		}
+		// Lang code = filename stem lowercased
+		code := strings.ToLower(strings.TrimSuffix(entry.Name(), ".json"))
+		lang := Lang(code)
+		if prior, dup := firstSeen[lang]; dup {
+			panic(fmt.Sprintf("i18n: duplicate language code %q from %s and %s", code, prior, fname))
+		}
+		firstSeen[lang] = fname
+		registry[lang] = d
+	}
+
+	// Assign package-level variables
+	dictRU = registry[LangRU]
+	dictEN = registry[LangEN]
+	if dictRU == nil || dictEN == nil {
+		panic("missing ru.json or en.json")
+	}
+
+	// Fixed order: RU first, then EN (LOCK), then rest in sorted order
 	allDicts = []struct {
 		lang Lang
 		d    *dict
 	}{
-		{LangRU, &dictRU},
-		{LangEN, &dictEN},
+		{LangRU, dictRU},
+		{LangEN, dictEN},
 	}
-)
+	// Append other languages in alphabetical order
+	var otherLangs []Lang
+	for code := range registry {
+		if code != LangRU && code != LangEN {
+			otherLangs = append(otherLangs, code)
+		}
+	}
+	// Sort otherLangs
+	sort.Slice(otherLangs, func(i, j int) bool { return otherLangs[i] < otherLangs[j] })
+	for _, code := range otherLangs {
+		allDicts = append(allDicts, struct {
+			lang Lang
+			d    *dict
+		}{code, registry[code]})
+	}
+
+	// Build journal patterns after allDicts is populated
+	journalDictPatterns = buildJournalPatterns()
+}
+
+// loadDict parses JSON data into a dict, with validation.
+func loadDict(data []byte) (*dict, error) {
+	var rawHeaders []string
+	var dj struct {
+		Headers           json.RawMessage `json:"headers"`
+		StatusFmt         string          `json:"statusFmt"`
+		PriorityFmt       string          `json:"priorityFmt"`
+		ProjectFmt        string          `json:"projectFmt"`
+		CreatedFmt        string          `json:"createdFmt"`
+		DetailsStub       string          `json:"detailsStub"`
+		UserCommentsStub  string          `json:"userCommentsStub"`
+		JournalCreation   string          `json:"journalCreation"`
+		JournalTransition string          `json:"journalTransition"`
+		JournalArchive    string          `json:"journalArchive"`
+	}
+	if err := json.Unmarshal(data, &dj); err != nil {
+		return nil, err
+	}
+
+	// Parse headers into slice first to validate length
+	if err := json.Unmarshal(dj.Headers, &rawHeaders); err != nil {
+		return nil, fmt.Errorf("headers: %w", err)
+	}
+	if len(rawHeaders) != 5 {
+		return nil, fmt.Errorf("headers: expected 5 elements, got %d", len(rawHeaders))
+	}
+	for i, h := range rawHeaders {
+		if h == "" {
+			return nil, fmt.Errorf("headers[%d]: empty string not allowed", i)
+		}
+	}
+	var headers [5]string
+	copy(headers[:], rawHeaders)
+
+	// Validate non-empty string fields
+	if dj.StatusFmt == "" {
+		return nil, fmt.Errorf("statusFmt: empty")
+	}
+	if dj.PriorityFmt == "" {
+		return nil, fmt.Errorf("priorityFmt: empty")
+	}
+	if dj.ProjectFmt == "" {
+		return nil, fmt.Errorf("projectFmt: empty")
+	}
+	if dj.CreatedFmt == "" {
+		return nil, fmt.Errorf("createdFmt: empty")
+	}
+	if dj.DetailsStub == "" {
+		return nil, fmt.Errorf("detailsStub: empty")
+	}
+	if dj.UserCommentsStub == "" {
+		return nil, fmt.Errorf("userCommentsStub: empty")
+	}
+	if dj.JournalCreation == "" {
+		return nil, fmt.Errorf("journalCreation: empty")
+	}
+	if dj.JournalTransition == "" {
+		return nil, fmt.Errorf("journalTransition: empty")
+	}
+	if dj.JournalArchive == "" {
+		return nil, fmt.Errorf("journalArchive: empty")
+	}
+
+	// Validate %s counts to catch typos
+	if strings.Count(dj.StatusFmt, "%s") != 1 {
+		return nil, fmt.Errorf("statusFmt: expected 1 %%s, got %d", strings.Count(dj.StatusFmt, "%s"))
+	}
+	if strings.Count(dj.PriorityFmt, "%s") != 1 {
+		return nil, fmt.Errorf("priorityFmt: expected 1 %%s, got %d", strings.Count(dj.PriorityFmt, "%s"))
+	}
+	if strings.Count(dj.ProjectFmt, "%s") != 1 {
+		return nil, fmt.Errorf("projectFmt: expected 1 %%s, got %d", strings.Count(dj.ProjectFmt, "%s"))
+	}
+	if strings.Count(dj.CreatedFmt, "%s") != 2 {
+		return nil, fmt.Errorf("createdFmt: expected 2 %%s, got %d", strings.Count(dj.CreatedFmt, "%s"))
+	}
+	if strings.Count(dj.JournalCreation, "%s") != 2 {
+		return nil, fmt.Errorf("journalCreation: expected 2 %%s, got %d", strings.Count(dj.JournalCreation, "%s"))
+	}
+	if strings.Count(dj.JournalTransition, "%s") != 3 {
+		return nil, fmt.Errorf("journalTransition: expected 3 %%s, got %d", strings.Count(dj.JournalTransition, "%s"))
+	}
+	if strings.Count(dj.JournalArchive, "%s") != 2 {
+		return nil, fmt.Errorf("journalArchive: expected 2 %%s, got %d", strings.Count(dj.JournalArchive, "%s"))
+	}
+
+	return &dict{
+		headers:           headers,
+		statusFmt:         dj.StatusFmt,
+		priorityFmt:       dj.PriorityFmt,
+		projectFmt:        dj.ProjectFmt,
+		createdFmt:        dj.CreatedFmt,
+		detailsStub:       dj.DetailsStub,
+		userCommentsStub:  dj.UserCommentsStub,
+		journalCreation:   dj.JournalCreation,
+		journalTransition: dj.JournalTransition,
+		journalArchive:    dj.JournalArchive,
+	}, nil
+}
 
 // getDict returns the dictionary for lang.
 func getDict(lang Lang) *dict {
-	switch lang {
-	case LangRU:
-		return &dictRU
-	case LangEN:
-		return &dictEN
-	default:
-		return &dictEN // fallback
+	if d, ok := registry[lang]; ok {
+		return d
 	}
+	return dictEN // fallback to EN for unknown languages
+}
+
+// IsKnownLang reports whether l was registered from a langs/*.json file
+// in init(). Used by langPrefix to validate language codes before lookup.
+func IsKnownLang(l Lang) bool {
+	_, ok := registry[l]
+	return ok
 }
 
 // sectionName is the canonical section identifier used internally and in raw

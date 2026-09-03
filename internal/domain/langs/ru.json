@@ -1,0 +1,12 @@
+{
+  "headers": ["## Summary (Кратко)", "## Details (Подробности)", "## User comments (Комментарии от пользователя)", "## Comments (Комментарии)", "## Journal (Журнал)"],
+  "statusFmt": "- Status (Статус): %s",
+  "priorityFmt": "- Priority (Приоритет): %s",
+  "projectFmt": "- Project (Проект): %s",
+  "createdFmt": "- Created (Создан): %s · by (кем): %s",
+  "detailsStub": "<!-- что найдено, где (файл:строка), логи/вывод, как воспроизвести, предложение по исправлению -->",
+  "userCommentsStub": "_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._",
+  "journalCreation": "- %s — тикет создан (%s).",
+  "journalTransition": "- %s — статус: %s → %s",
+  "journalArchive": "- %s — перенесён в архив (%s)"
+}
