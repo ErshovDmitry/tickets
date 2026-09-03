@@ -81,9 +81,9 @@ Write-Host "Binary: $TicketExe"
 
 # Ticket files use Russian UI text (bash-reference compatible). Build the only
 # Cyrillic fragment we assert on from Unicode code points so that this script
-# file stays pure ASCII: the body line checked below is "- <RU 'status'>: wip".
+# file stays pure ASCII: the body line checked below is "- Status (<RU 'status'>): wip".
 $statLabel = -join [char[]](0x0421, 0x0442, 0x0430, 0x0442, 0x0443, 0x0441)  # RU word for "status"
-$statWip = '- ' + $statLabel + ': wip'
+$statWip = '- Status (' + $statLabel + '): wip'
 
 # Clean TICKETS_DIR baseline for the whole run; restore the original at exit
 # (otherwise a pre-existing override would send smoke tickets elsewhere).
