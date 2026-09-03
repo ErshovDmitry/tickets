@@ -13,7 +13,7 @@ import (
 // commentsPlaceholder mirrors the domain commentsStub literal: unexported
 // there, so the byte-exact contract is restated here (kept in sync by the
 // pinned template/golden tests).
-const commentsPlaceholder = "<!-- Комментарии пользователя: пишите сюда замечания по тикету; агент прочитает их перед работой. -->"
+const commentsPlaceholder = `_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом._`
 
 // TestCommentsSurviveSetCycle runs (i): new → placeholder → user text →
 // set wip → set done → the section and the text are intact, and `show`

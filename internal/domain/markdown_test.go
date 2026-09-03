@@ -2,6 +2,7 @@ package domain
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 	"time"
 )
@@ -20,7 +21,7 @@ const ticketT0001 = `# T-0001 · ENH: Реализовать Go-версию tic
 Bootstrap завершён 2026-09-02: схема project_tickets, AGENTS.md, AGENTS_ARCHITECTURE.md, локальные тикеты. Реализация: cmd/ticket + internal/{domain,store,lock,paths,cli}, шаблоны через go:embed. Гейт: план в wiki -> план-ревью -> код.
 
 ## Комментарии
-<!-- Комментарии пользователя: пишите сюда замечания по тикету; агент прочитает их перед работой. -->
+_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом._
 
 ## Журнал
 - 2026-09-02 03:24 — тикет создан (erdmitry).
@@ -257,5 +258,36 @@ func TestRenderJournalLineFormats(t *testing.T) {
 		if !bytes.Contains(got, []byte("## Комментарии\n"+commentsStub+"\n")) {
 			t.Errorf("%s: render output misses the comments stub:\n%s", tc.name, got)
 		}
+	}
+}
+
+// TestParseCommentsStubCollision documents the known T-0034 limitation (by
+// design): user text in "## Комментарии" byte-identical to commentsStub is
+// indistinguishable from the placeholder and blanks to "" on Parse; Render
+// then re-emits the stub, keeping the round trip byte-stable. Control: text
+// differing from the stub (stub + an extra line) survives verbatim.
+func TestParseCommentsStubCollision(t *testing.T) {
+	tk, _, err := Parse([]byte(ticketT0001))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if tk.Comments != "" {
+		t.Errorf("Comments = %q, want empty (stub blanked)", tk.Comments)
+	}
+
+	src := strings.Replace(ticketT0001, commentsStub+"\n", commentsStub+"\nдоп. строка\n", 1)
+	tk, _, err = Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if want := commentsStub + "\nдоп. строка"; tk.Comments != want {
+		t.Errorf("Comments = %q, want %q", tk.Comments, want)
+	}
+	got, err := Render(tk, nil)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if !bytes.Equal(got, []byte(src)) {
+		t.Errorf("round trip mismatch:\n got %q\nwant %q", got, src)
 	}
 }

@@ -15,10 +15,16 @@ const tsLayout = "2006-01-02 15:04"
 // detailsStub is the placeholder bash writes when Details are empty.
 const detailsStub = `<!-- что найдено, где (файл:строка), логи/вывод, как воспроизвести, предложение по исправлению -->`
 
-// commentsStub is the placeholder line under "## Комментарии" inviting user
-// remarks. Like detailsStub it means "empty" once parsed back. The section
-// has no bash counterpart (T-0032 divergence).
-const commentsStub = `<!-- Комментарии пользователя: пишите сюда замечания по тикету; агент прочитает их перед работой. -->`
+// commentsStub is the visible (italic) placeholder under "## Комментарии"
+// inviting user remarks (T-0034: the old HTML comment rendered invisibly).
+// Like detailsStub it means "empty" once parsed back: a section holding
+// exactly this one line blanks to "" on Parse, and Render emits the stub
+// only for an empty section — user text is kept verbatim, so the placeholder
+// never duplicates and parse→render round trips stay byte-stable. Known
+// limitation (by design): user text byte-identical to the stub is
+// indistinguishable from the placeholder and blanks to "" as well. The
+// section has no bash counterpart (T-0032 divergence).
+const commentsStub = `_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом._`
 
 var (
 	h1Re           = regexp.MustCompile(`^# T-(\d+) · (\S+): (.*)$`)
@@ -59,7 +65,10 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 		}
 		t.Comments = strings.Join(trimTrailingEmpty(comments), "\n")
 		if t.Comments == commentsStub {
-			t.Comments = "" // placeholder means no user remarks
+			// Placeholder means no user remarks. Known limitation (by
+			// design): user text byte-identical to the stub is treated
+			// the same — see commentsStub.
+			t.Comments = ""
 		}
 	}
 	for pos := 0; pos < len(data); {
