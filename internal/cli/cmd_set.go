@@ -12,6 +12,8 @@ import (
 
 // cmdSet implements `set <номер> <статус> ["комментарий"]`. The comment
 // is the whitespace-join of all remaining arguments (bash ${*:-}).
+// A same-status set with a non-empty comment appends a journal-only
+// entry (status and file name unchanged); without one it exits 1.
 // lang selects the usage text language for argument errors.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
 func cmdSet(st *store.Store, args []string, who, project, lang string, stdout, stderr io.Writer) int {
@@ -37,7 +39,9 @@ func cmdSet(st *store.Store, args []string, who, project, lang string, stdout, s
 		// verbatim instead of being masked as not-found.
 		return setError(stderr, numArg, err)
 	}
-	if cur.Status == next {
+	// Same status without a comment is refused; with a comment the
+	// store appends a journal-only entry and the unchanged path prints.
+	if cur.Status == next && comment == "" {
 		fmt.Fprintf(stderr, "ticket: тикет уже в статусе %s\n", stArg)
 		return 1
 	}

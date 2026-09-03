@@ -19,6 +19,9 @@ const ticketT0001 = `# T-0001 · ENH: Реализовать Go-версию tic
 ## Подробности
 Bootstrap завершён 2026-09-02: схема project_tickets, AGENTS.md, AGENTS_ARCHITECTURE.md, локальные тикеты. Реализация: cmd/ticket + internal/{domain,store,lock,paths,cli}, шаблоны через go:embed. Гейт: план в wiki -> план-ревью -> код.
 
+## Комментарии
+<!-- Комментарии пользователя: пишите сюда замечания по тикету; агент прочитает их перед работой. -->
+
 ## Журнал
 - 2026-09-02 03:24 — тикет создан (erdmitry).
 `
@@ -43,6 +46,10 @@ func TestParseT0001Fields(t *testing.T) {
 	}
 	if !tk.Created.Equal(time.Date(2026, 9, 2, 3, 24, 0, 0, time.UTC)) {
 		t.Errorf("Created = %v, want 2026-09-02 03:24", tk.Created)
+	}
+	// The placeholder under "## Комментарии" means empty (T-0032).
+	if tk.Comments != "" {
+		t.Errorf("Comments = %q, want empty (stub blanked)", tk.Comments)
 	}
 	if len(tk.Journal) != 1 {
 		t.Fatalf("len(Journal) = %d, want 1", len(tk.Journal))
@@ -203,13 +210,16 @@ func TestParseTolerantNeverErrors(t *testing.T) {
 }
 
 func TestParseUnknownDetailsKept(t *testing.T) {
-	src := "# T-0001 · BUG: x\n\n- Статус: open\n- Приоритет: low\n- Создан: 2026-01-01 10:00 · кем: я\n- Проект: p\n\n## Кратко\nx\n\n## Подробности\nстрока1\n\nстрока2\n\n## Журнал\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	src := "# T-0001 · BUG: x\n\n- Статус: open\n- Приоритет: low\n- Создан: 2026-01-01 10:00 · кем: я\n- Проект: p\n\n## Кратко\nx\n\n## Подробности\nстрока1\n\nстрока2\n\n## Комментарии\n" + commentsStub + "\n\n## Журнал\n- 2026-01-01 10:00 — тикет создан (я).\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
 	if want := "строка1\n\nстрока2"; tk.Details != want {
 		t.Errorf("Details = %q, want %q", tk.Details, want)
+	}
+	if tk.Comments != "" {
+		t.Errorf("Comments = %q, want empty (stub blanked)", tk.Comments)
 	}
 	got, err := Render(tk, unknown)
 	if err != nil {
@@ -242,6 +252,10 @@ func TestRenderJournalLineFormats(t *testing.T) {
 		}
 		if !bytes.Contains(got, []byte(tc.want)) {
 			t.Errorf("%s: render output %q misses %q", tc.name, got, tc.want)
+		}
+		// Empty Comments always renders the placeholder (T-0032).
+		if !bytes.Contains(got, []byte("## Комментарии\n"+commentsStub+"\n")) {
+			t.Errorf("%s: render output misses the comments stub:\n%s", tc.name, got)
 		}
 	}
 }

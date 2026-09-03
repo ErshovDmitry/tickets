@@ -13,10 +13,12 @@ import (
 // TestGoldenRawBytes pins §7.3: RenderNewTicket over the FIXED golden
 // ticket must equal the immutable fixture
 // internal/cli/testdata/golden-T-0001-open.md byte-for-byte — no
-// normalization, no transformation, no trimming. The fixture is a byte
-// copy of the bash-created tickets/T-0001-open.md (sha256
-// f48d2ac99426b56ef1955b4c19d2174808123446e2cebdc24b0180be55724607) and is
-// NEVER regenerated; any drift is a renderer bug.
+// normalization, no transformation, no trimming. The fixture is the
+// canonical output of the GO renderer: originally a byte copy of the
+// bash-created tickets/T-0001-open.md, deliberately regenerated when the
+// renderer layout changes by design — T-0032 added the "## Комментарии"
+// section, intentionally breaking bash byte-compat of `new`. Any other
+// drift is a renderer bug.
 func TestGoldenRawBytes(t *testing.T) {
 	created := time.Date(2026, 9, 2, 3, 24, 0, 0, time.UTC)
 	tk := &domain.Ticket{

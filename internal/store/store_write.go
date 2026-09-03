@@ -33,6 +33,13 @@ import (
 //     rollback (os.Remove(target)); failures =>
 //     errors.Join(removeOldErr, rollbackErr, breach).
 //
+// A same-status set with a non-empty comment takes the journal-only
+// path of appendSameStatusLocked instead: the file name and directory
+// never change, one From==To journal entry is appended, and the commit
+// is a rename-over through the renameFile hook (see there for the
+// POSIX/Windows semantics and the lost-update-window caveat).
+// Same-status without a comment stays the "already in status" error.
+//
 // On success the on-disk state contains ONLY the new file. The link
 // commit is atomic no-replace on POSIX (link(2) fails with EEXIST) and
 // on Windows (CreateHardLink fails with ERROR_ALREADY_EXISTS, mapped by
@@ -67,7 +74,10 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 		return "", err
 	}
 	if cur.Status == next {
-		return "", fmt.Errorf("store: ticket %d already in status %s", n, next)
+		if comment == "" {
+			return "", fmt.Errorf("store: ticket %d already in status %s", n, next)
+		}
+		return s.appendSameStatusLocked(n, cur, curDir, who, comment)
 	}
 
 	// Determine target directory: reopen from archive stays in archive,
@@ -169,30 +179,44 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 	return target, nil
 }
 
-// findLocked scans s.Dir then s.Dir/archive for ticket n, returning the
-// fileEntry and the directory where it was found. Used by SetStatus and
-// Archive to handle archived tickets.
-func (s *Store) findLocked(n int) (fileEntry, string, error) {
-	entries, _, dirErr := s.scan()
-	if dirErr != nil {
-		return fileEntry{}, "", fmt.Errorf("store: read dir %s: %w", s.Dir, dirErr)
+// appendSameStatusLocked journals a same-status set (comment != "") in
+// place: the file name and directory never change (target == old), one
+// From==To==cur.Status journal entry is appended, and the commit is a
+// rename-over via the renameFile hook. The rename-over replaces the
+// existing file atomically on POSIX (rename(2)); on Windows
+// MoveFileEx(MOVEFILE_REPLACE_EXISTING) replaces it non-atomically, and
+// a sharing violation (target held open without FILE_SHARE_DELETE)
+// fails the commit with the old file intact and the tmp removed. Any
+// rename error is joined with the tmp cleanup; no rollback is needed
+// because old == target stays alive. Caveat: a journal append written
+// out of lock between readTicketFile and the rename is silently lost —
+// the same lost-update window the cross-status path has.
+func (s *Store) appendSameStatusLocked(n int, cur fileEntry, curDir, who, comment string) (string, error) {
+	old := filepath.Join(curDir, cur.Name)
+	tk, _, unknown, err := readTicketFile(old, cur.Number)
+	if err != nil {
+		return "", fmt.Errorf("store: read %s: %w", cur.Name, err)
 	}
-	for _, e := range entries {
-		if e.Number == n {
-			return e, s.Dir, nil
-		}
+	tk.Status = cur.Status
+	tk.Journal = append(tk.Journal, domain.JournalEntry{
+		From:    cur.Status,
+		To:      cur.Status,
+		Comment: comment,
+		Who:     who,
+		At:      time.Now(),
+	})
+	rendered, err := domain.Render(tk, unknown)
+	if err != nil {
+		return "", fmt.Errorf("store: render: %w", err)
 	}
-	// Check archive/.
-	archiveDir := filepath.Join(s.Dir, "archive")
-	if _, err := os.Stat(archiveDir); err == nil {
-		archiveEntries, _, _ := scanDir(archiveDir)
-		for _, e := range archiveEntries {
-			if e.Number == n {
-				return e, archiveDir, nil
-			}
-		}
+	tmpPath, err := s.writeTmp(n, cur.Status, rendered, curDir)
+	if err != nil {
+		return "", err
 	}
-	return fileEntry{}, "", ErrNotFound
+	if err := renameFile(tmpPath, old); err != nil {
+		return "", errors.Join(fmt.Errorf("store: rename commit: %w", err), removeTmp(tmpPath))
+	}
+	return old, nil
 }
 
 // MaxTmpAttempts caps writeTmp's O_EXCL name-collision retries (§5).
@@ -252,9 +276,12 @@ func (s *Store) writeTmp(n int, next domain.Status, body []byte, dir string) (st
 // implementations call into the os package directly. removeTmp removes the
 // post-commit tmp name (initial removal, link-fail cleanup, best-effort
 // retry); removeFile stays reserved for old/rollback removals so swapRemove
-// call-counts remain unchanged.
+// call-counts remain unchanged; renameFile is the same-status journal-only
+// rename-over commit (replaces the existing target: atomic on POSIX, on
+// Windows MoveFileEx(MOVEFILE_REPLACE_EXISTING) non-atomically).
 var (
 	linkFile   = os.Link
+	renameFile = os.Rename
 	removeFile = os.Remove
 	removeTmp  = os.Remove
 	nanoNow    = func() int64 { return time.Now().UnixNano() }

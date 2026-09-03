@@ -15,6 +15,11 @@ const tsLayout = "2006-01-02 15:04"
 // detailsStub is the placeholder bash writes when Details are empty.
 const detailsStub = `<!-- что найдено, где (файл:строка), логи/вывод, как воспроизвести, предложение по исправлению -->`
 
+// commentsStub is the placeholder line under "## Комментарии" inviting user
+// remarks. Like detailsStub it means "empty" once parsed back. The section
+// has no bash counterpart (T-0032 divergence).
+const commentsStub = `<!-- Комментарии пользователя: пишите сюда замечания по тикету; агент прочитает их перед работой. -->`
+
 var (
 	h1Re           = regexp.MustCompile(`^# T-(\d+) · (\S+): (.*)$`)
 	statusRe       = regexp.MustCompile(`^- Статус: (.*)$`)
@@ -29,10 +34,11 @@ var (
 type section uint8
 
 const (
-	secHead    section = iota // H1 + metadata block
-	secBrief                  // inside "## Кратко" (duplicates Title — ignored)
-	secDetails                // inside "## Подробности"
-	secJournal                // inside "## Журнал"
+	secHead     section = iota // H1 + metadata block
+	secBrief                   // inside "## Кратко" (duplicates Title — ignored)
+	secDetails                 // inside "## Подробности"
+	secComments                // inside "## Комментарии" (T-0032, no bash counterpart)
+	secJournal                 // inside "## Журнал"
 )
 
 // Parse reads ticket markdown tolerantly: it never fails, missing or
@@ -44,12 +50,16 @@ const (
 // design so manual edits survive parse/render round trips intact.
 func Parse(data []byte) (*Ticket, []byte, error) {
 	t := &Ticket{}
-	var details []string
+	var details, comments []string
 	sec := secHead
 	finish := func() {
 		t.Details = strings.Join(trimTrailingEmpty(details), "\n")
 		if t.Details == detailsStub {
 			t.Details = "" // bash placeholder means empty Details
+		}
+		t.Comments = strings.Join(trimTrailingEmpty(comments), "\n")
+		if t.Comments == commentsStub {
+			t.Comments = "" // placeholder means no user remarks
 		}
 	}
 	for pos := 0; pos < len(data); {
@@ -68,7 +78,7 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 			}
 			continue
 		}
-		sec = absorbLine(t, &details, sec, line)
+		sec = absorbLine(t, &details, &comments, sec, line)
 	}
 	finish()
 	return t, t.Unknown, nil
@@ -91,6 +101,12 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	} else {
 		b.WriteString(t.Details)
 	}
+	b.WriteString("\n\n## Комментарии\n")
+	if t.Comments == "" {
+		b.WriteString(commentsStub)
+	} else {
+		b.WriteString(t.Comments)
+	}
 	b.WriteString("\n\n## Журнал\n")
 	for _, e := range t.Journal {
 		writeJournalLine(&b, e)
@@ -101,13 +117,25 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 
 // absorbLine consumes one line outside the journal section, updating the
 // ticket and returning the new section.
-func absorbLine(t *Ticket, details *[]string, sec section, line string) section {
+func absorbLine(t *Ticket, details, comments *[]string, sec section, line string) section {
 	switch sec {
 	case secDetails:
-		if line == "## Журнал" {
+		switch line {
+		case "## Комментарии":
+			return secComments
+		case "## Журнал":
 			return secJournal
 		}
 		*details = append(*details, line)
+		return sec
+	case secComments:
+		// Only the journal header ends the section: stray lines — other
+		// headers and duplicate "## Комментарии" included — stay verbatim
+		// (content-preserving policy, mirrors secDetails).
+		if line == "## Журнал" {
+			return secJournal
+		}
+		*comments = append(*comments, line)
 		return sec
 	case secBrief:
 		if h, ok := headerName(line); ok {
@@ -212,6 +240,8 @@ func sectionFor(name string) section {
 		return secBrief
 	case "Подробности":
 		return secDetails
+	case "Комментарии":
+		return secComments
 	case "Журнал":
 		return secJournal
 	default:

@@ -27,6 +27,10 @@ func createTestTicket(t *testing.T, dir string) {
 // carries no TICKET_WHO/USER, so whoFrom resolves to "agent".
 var setJournalRe = regexp.MustCompile(`(?m)^- ` + tsPattern + ` — статус: open → wip · комментарий \(agent\)$`)
 
+// sameStatusJournalRe matches the T-0031 journal-only line a same-status
+// set with a comment appends: "- <ts> — статус: open → open · заметка (agent)".
+var sameStatusJournalRe = regexp.MustCompile(`(?m)^- ` + tsPattern + ` — статус: open → open · заметка \(agent\)$`)
+
 // TestSetHappyPath pins plan §6 item 7(e): set rewrites the status line,
 // appends the bash-shaped journal entry, prints the NEW path to stdout,
 // and removes the old-status file.
@@ -64,7 +68,9 @@ func TestSetHappyPath(t *testing.T) {
 }
 
 // TestSetSameStatusFails pins plan §6 item 7(e): setting the status the
-// ticket already has exits 1 with the pinned message and keeps the file.
+// ticket already has WITHOUT a comment exits 1 with the pinned message
+// and keeps the file. With a comment it is the T-0031 journal-only
+// append instead (TestSetSameStatusWithComment).
 func TestSetSameStatusFails(t *testing.T) {
 	dir := t.TempDir()
 	env := map[string]string{"TICKETS_DIR": dir}
@@ -82,6 +88,39 @@ func TestSetSameStatusFails(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "T-0001-open.md")); err != nil {
 		t.Errorf("file should remain untouched: %v", err)
+	}
+}
+
+// TestSetSameStatusWithComment pins T-0031: a same-status set with a
+// non-empty comment exits 0, prints the unchanged file path, keeps the
+// file name, and appends a From==To journal line with the comment.
+func TestSetSameStatusWithComment(t *testing.T) {
+	env, dir := newTicketDir(t)
+	wantPath := filepath.Join(dir, "T-0001-open.md") + "\n"
+
+	var stdout, stderr bytes.Buffer
+	if code := cli.Run([]string{"set", "1", "open", "заметка"}, env, &stdout, &stderr); code != 0 {
+		t.Fatalf("Run(set same with comment) = %d, want 0; stderr: %q", code, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("stderr = %q, want empty", stderr.String())
+	}
+	if got := stdout.String(); got != wantPath {
+		t.Errorf("stdout = %q, want %q", got, wantPath)
+	}
+	matches, err := filepath.Glob(filepath.Join(dir, "T-0001-*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || filepath.Base(matches[0]) != "T-0001-open.md" {
+		t.Fatalf("file must keep its name, got %v", matches)
+	}
+	body, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !sameStatusJournalRe.MatchString(string(body)) {
+		t.Errorf("body missing open → open journal line with comment:\n%s", body)
 	}
 }
 

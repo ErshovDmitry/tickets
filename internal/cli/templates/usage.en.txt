@@ -9,6 +9,8 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       show a ticket (the archive is searched too)
   ticket set <number> <status> ["comment"]
       change the status (renames the file itself and appends a line to the ticket journal);
+      re-setting the same status with a comment appends a journal entry
+      (status and file name unchanged), without a comment it is an error;
       moving an archived ticket back to open/wip restores it from the archive into work
   ticket archive [<number>]
       move closed tickets (done/closed) into archive/;

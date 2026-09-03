@@ -41,7 +41,8 @@ func TestParseArchiveLine(t *testing.T) {
 
 // TestRenderArchiveLineByteExact pins the bash printf shape: the archive
 // entry renders as "- TS — перенесён в архив (who)\n" and must NOT gain a
-// trailing dot (the dot would diverge from tickets/bin/ticket:177).
+// trailing dot (the dot would diverge from tickets/bin/ticket:177). The
+// always-emitted comments section (T-0032) must not disturb the line.
 func TestRenderArchiveLineByteExact(t *testing.T) {
 	at := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 	tk := &Ticket{
@@ -60,6 +61,10 @@ func TestRenderArchiveLineByteExact(t *testing.T) {
 	}
 	if bytes.Contains(got, []byte("(система).\n")) {
 		t.Errorf("archive line must NOT end with a dot:\n%s", got)
+	}
+	// T-0032: a ticket without comments still renders the section+stub.
+	if !bytes.Contains(got, []byte("## Комментарии\n"+commentsStub+"\n")) {
+		t.Errorf("render output misses the comments stub:\n%s", got)
 	}
 }
 

@@ -80,3 +80,29 @@ func (s *Store) FindNamed(n int) (domain.Ticket, string, error) {
 	tk, name, _, err := s.FindRaw(n)
 	return tk, name, err
 }
+
+// findLocked scans s.Dir then s.Dir/archive for ticket n, returning the
+// fileEntry and the directory where it was found. Used by SetStatus and
+// Archive to handle archived tickets.
+func (s *Store) findLocked(n int) (fileEntry, string, error) {
+	entries, _, dirErr := s.scan()
+	if dirErr != nil {
+		return fileEntry{}, "", fmt.Errorf("store: read dir %s: %w", s.Dir, dirErr)
+	}
+	for _, e := range entries {
+		if e.Number == n {
+			return e, s.Dir, nil
+		}
+	}
+	// Check archive/.
+	archiveDir := filepath.Join(s.Dir, "archive")
+	if _, err := os.Stat(archiveDir); err == nil {
+		archiveEntries, _, _ := scanDir(archiveDir)
+		for _, e := range archiveEntries {
+			if e.Number == n {
+				return e, archiveDir, nil
+			}
+		}
+	}
+	return fileEntry{}, "", ErrNotFound
+}
