@@ -20,8 +20,10 @@ const ticketT0001 = `# T-0001 · ENH: Реализовать Go-версию tic
 ## Подробности
 Bootstrap завершён 2026-09-02: схема project_tickets, AGENTS.md, AGENTS_ARCHITECTURE.md, локальные тикеты. Реализация: cmd/ticket + internal/{domain,store,lock,paths,cli}, шаблоны через go:embed. Гейт: план в wiki -> план-ревью -> код.
 
+## Комментарии от пользователя
+_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._
+
 ## Комментарии
-_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом._
 
 ## Журнал
 - 2026-09-02 03:24 — тикет создан (erdmitry).
@@ -48,9 +50,9 @@ func TestParseT0001Fields(t *testing.T) {
 	if !tk.Created.Equal(time.Date(2026, 9, 2, 3, 24, 0, 0, time.UTC)) {
 		t.Errorf("Created = %v, want 2026-09-02 03:24", tk.Created)
 	}
-	// The placeholder under "## Комментарии" means empty (T-0032).
-	if tk.Comments != "" {
-		t.Errorf("Comments = %q, want empty (stub blanked)", tk.Comments)
+	// The stubs under both comment sections mean empty (T-0032, T-0035).
+	if tk.UserComments != "" || tk.Comments != "" {
+		t.Errorf("UserComments/Comments = %q/%q, want both empty (stubs blanked)", tk.UserComments, tk.Comments)
 	}
 	if len(tk.Journal) != 1 {
 		t.Fatalf("len(Journal) = %d, want 1", len(tk.Journal))
@@ -211,7 +213,7 @@ func TestParseTolerantNeverErrors(t *testing.T) {
 }
 
 func TestParseUnknownDetailsKept(t *testing.T) {
-	src := "# T-0001 · BUG: x\n\n- Статус: open\n- Приоритет: low\n- Создан: 2026-01-01 10:00 · кем: я\n- Проект: p\n\n## Кратко\nx\n\n## Подробности\nстрока1\n\nстрока2\n\n## Комментарии\n" + commentsStub + "\n\n## Журнал\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	src := "# T-0001 · BUG: x\n\n- Статус: open\n- Приоритет: low\n- Создан: 2026-01-01 10:00 · кем: я\n- Проект: p\n\n## Кратко\nx\n\n## Подробности\nстрока1\n\nстрока2\n\n## Комментарии от пользователя\n" + userCommentsStub + "\n\n## Комментарии\n\n## Журнал\n- 2026-01-01 10:00 — тикет создан (я).\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -219,8 +221,8 @@ func TestParseUnknownDetailsKept(t *testing.T) {
 	if want := "строка1\n\nстрока2"; tk.Details != want {
 		t.Errorf("Details = %q, want %q", tk.Details, want)
 	}
-	if tk.Comments != "" {
-		t.Errorf("Comments = %q, want empty (stub blanked)", tk.Comments)
+	if tk.UserComments != "" || tk.Comments != "" {
+		t.Errorf("UserComments/Comments = %q/%q, want both empty (stubs blanked)", tk.UserComments, tk.Comments)
 	}
 	got, err := Render(tk, unknown)
 	if err != nil {
@@ -254,34 +256,35 @@ func TestRenderJournalLineFormats(t *testing.T) {
 		if !bytes.Contains(got, []byte(tc.want)) {
 			t.Errorf("%s: render output %q misses %q", tc.name, got, tc.want)
 		}
-		// Empty Comments always renders the placeholder (T-0032).
-		if !bytes.Contains(got, []byte("## Комментарии\n"+commentsStub+"\n")) {
-			t.Errorf("%s: render output misses the comments stub:\n%s", tc.name, got)
+		// Canonical two-section layout for empty sections (T-0035).
+		if !bytes.Contains(got, []byte("## Комментарии от пользователя\n"+userCommentsStub+"\n\n## Комментарии\n\n## Журнал\n")) {
+			t.Errorf("%s: render output misses the canonical layout:\n%s", tc.name, got)
 		}
 	}
 }
 
-// TestParseCommentsStubCollision documents the known T-0034 limitation (by
-// design): user text in "## Комментарии" byte-identical to commentsStub is
-// indistinguishable from the placeholder and blanks to "" on Parse; Render
-// then re-emits the stub, keeping the round trip byte-stable. Control: text
-// differing from the stub (stub + an extra line) survives verbatim.
-func TestParseCommentsStubCollision(t *testing.T) {
+// TestParseUserCommentsStubCollision documents the known T-0035 limitation
+// (by design): user text in "## Комментарии от пользователя" byte-identical
+// to userCommentsStub is indistinguishable from the placeholder and blanks
+// to "" on Parse; Render then re-emits the stub, keeping the round trip
+// byte-stable. Control: text differing from the stub (stub + an extra line)
+// survives verbatim.
+func TestParseUserCommentsStubCollision(t *testing.T) {
 	tk, _, err := Parse([]byte(ticketT0001))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if tk.Comments != "" {
-		t.Errorf("Comments = %q, want empty (stub blanked)", tk.Comments)
+	if tk.UserComments != "" {
+		t.Errorf("UserComments = %q, want empty (stub blanked)", tk.UserComments)
 	}
 
-	src := strings.Replace(ticketT0001, commentsStub+"\n", commentsStub+"\nдоп. строка\n", 1)
+	src := strings.Replace(ticketT0001, userCommentsStub+"\n", userCommentsStub+"\nдоп. строка\n", 1)
 	tk, _, err = Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if want := commentsStub + "\nдоп. строка"; tk.Comments != want {
-		t.Errorf("Comments = %q, want %q", tk.Comments, want)
+	if want := userCommentsStub + "\nдоп. строка"; tk.UserComments != want {
+		t.Errorf("UserComments = %q, want %q", tk.UserComments, want)
 	}
 	got, err := Render(tk, nil)
 	if err != nil {

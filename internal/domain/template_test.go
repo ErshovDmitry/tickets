@@ -37,7 +37,8 @@ func TestRenderNewTicketWithDetails(t *testing.T) {
 		"- Проект: tickets\n\n" +
 		"## Кратко\nЛомается\n\n" +
 		"## Подробности\nдетали\n\n" +
-		"## Комментарии\n" + commentsStub + "\n\n" +
+		"## Комментарии от пользователя\n" + userCommentsStub + "\n\n" +
+		"## Комментарии\n\n" +
 		"## Журнал\n- 2026-09-02 03:24 — тикет создан (agent).\n"
 	if !bytes.Equal(out, []byte(want)) {
 		t.Errorf("RenderNewTicket mismatch:\n got %q\nwant %q", out, want)
@@ -58,7 +59,8 @@ func TestRenderNewTicketEmptyDetailsStub(t *testing.T) {
 		"- Проект: tickets\n\n" +
 		"## Кратко\nЛомается\n\n" +
 		"## Подробности\n" + detailsStub + "\n\n" +
-		"## Комментарии\n" + commentsStub + "\n\n" +
+		"## Комментарии от пользователя\n" + userCommentsStub + "\n\n" +
+		"## Комментарии\n\n" +
 		"## Журнал\n- 2026-09-02 03:24 — тикет создан (agent).\n"
 	if !bytes.Equal(out, []byte(want)) {
 		t.Errorf("RenderNewTicket mismatch:\n got %q\nwant %q", out, want)

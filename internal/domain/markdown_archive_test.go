@@ -62,9 +62,9 @@ func TestRenderArchiveLineByteExact(t *testing.T) {
 	if bytes.Contains(got, []byte("(система).\n")) {
 		t.Errorf("archive line must NOT end with a dot:\n%s", got)
 	}
-	// T-0032: a ticket without comments still renders the section+stub.
-	if !bytes.Contains(got, []byte("## Комментарии\n"+commentsStub+"\n")) {
-		t.Errorf("render output misses the comments stub:\n%s", got)
+	// T-0035: empty sections still render UC+stub and the bare free header.
+	if !bytes.Contains(got, []byte("## Комментарии от пользователя\n"+userCommentsStub+"\n\n## Комментарии\n\n## Журнал\n")) {
+		t.Errorf("render output misses the canonical two-section layout:\n%s", got)
 	}
 }
 

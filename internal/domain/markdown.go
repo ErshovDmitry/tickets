@@ -15,36 +15,33 @@ const tsLayout = "2006-01-02 15:04"
 // detailsStub is the placeholder bash writes when Details are empty.
 const detailsStub = `<!-- что найдено, где (файл:строка), логи/вывод, как воспроизвести, предложение по исправлению -->`
 
-// commentsStub is the visible (italic) placeholder under "## Комментарии"
-// inviting user remarks (T-0034: the old HTML comment rendered invisibly).
+// userCommentsStub is the visible (italic) placeholder under
+// "## Комментарии от пользователя" (T-0035) inviting user remarks.
 // Like detailsStub it means "empty" once parsed back: a section holding
 // exactly this one line blanks to "" on Parse, and Render emits the stub
 // only for an empty section — user text is kept verbatim, so the placeholder
 // never duplicates and parse→render round trips stay byte-stable. Known
 // limitation (by design): user text byte-identical to the stub is
-// indistinguishable from the placeholder and blanks to "" as well. The
-// section has no bash counterpart (T-0032 divergence).
-const commentsStub = `_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом._`
+// indistinguishable from the placeholder and blanks to "" as well.
+const userCommentsStub = `_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._`
 
 var (
-	h1Re           = regexp.MustCompile(`^# T-(\d+) · (\S+): (.*)$`)
-	statusRe       = regexp.MustCompile(`^- Статус: (.*)$`)
-	priorityRe     = regexp.MustCompile(`^- Приоритет: (.*)$`)
-	createdRe      = regexp.MustCompile(`^- Создан: (.+) · кем: (.*)$`)
-	projectRe      = regexp.MustCompile(`^- Проект: (.*)$`)
-	createdEntryRe = regexp.MustCompile(`^- (.+) — тикет создан \((.*)\)\.$`)
-	transitionRe   = regexp.MustCompile(`^- (.+) — статус: (\S+) → (\S+)(?: · (.*))? \((.*)\)$`)
-	archiveRe      = regexp.MustCompile(`^- (.+) — перенесён в архив \((.*)\)$`)
+	h1Re       = regexp.MustCompile(`^# T-(\d+) · (\S+): (.*)$`)
+	statusRe   = regexp.MustCompile(`^- Статус: (.*)$`)
+	priorityRe = regexp.MustCompile(`^- Приоритет: (.*)$`)
+	createdRe  = regexp.MustCompile(`^- Создан: (.+) · кем: (.*)$`)
+	projectRe  = regexp.MustCompile(`^- Проект: (.*)$`)
 )
 
 type section uint8
 
 const (
-	secHead     section = iota // H1 + metadata block
-	secBrief                   // inside "## Кратко" (duplicates Title — ignored)
-	secDetails                 // inside "## Подробности"
-	secComments                // inside "## Комментарии" (T-0032, no bash counterpart)
-	secJournal                 // inside "## Журнал"
+	secHead         section = iota // H1 + metadata block
+	secBrief                       // inside "## Кратко" (duplicates Title — ignored)
+	secDetails                     // inside "## Подробности"
+	secUserComments                // inside "## Комментарии от пользователя" (T-0035)
+	secComments                    // inside "## Комментарии" (T-0032, no bash counterpart)
+	secJournal                     // inside "## Журнал"
 )
 
 // Parse reads ticket markdown tolerantly: it never fails, missing or
@@ -56,20 +53,23 @@ const (
 // design so manual edits survive parse/render round trips intact.
 func Parse(data []byte) (*Ticket, []byte, error) {
 	t := &Ticket{}
-	var details, comments []string
+	var details, userComments, comments []string
 	sec := secHead
 	finish := func() {
 		t.Details = strings.Join(trimTrailingEmpty(details), "\n")
 		if t.Details == detailsStub {
 			t.Details = "" // bash placeholder means empty Details
 		}
-		t.Comments = strings.Join(trimTrailingEmpty(comments), "\n")
-		if t.Comments == commentsStub {
+		t.UserComments = strings.Join(trimTrailingEmpty(userComments), "\n")
+		if t.UserComments == userCommentsStub {
 			// Placeholder means no user remarks. Known limitation (by
 			// design): user text byte-identical to the stub is treated
-			// the same — see commentsStub.
-			t.Comments = ""
+			// the same — see userCommentsStub.
+			t.UserComments = ""
 		}
+		// The free-form "## Комментарии" section has no stub: its bytes are
+		// kept verbatim with no blanking (T-0035).
+		t.Comments = strings.Join(trimTrailingEmpty(comments), "\n")
 	}
 	for pos := 0; pos < len(data); {
 		start, end := lineBounds(data, pos)
@@ -87,7 +87,7 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 			}
 			continue
 		}
-		sec = absorbLine(t, &details, &comments, sec, line)
+		sec = absorbLine(t, &details, &userComments, &comments, sec, line)
 	}
 	finish()
 	return t, t.Unknown, nil
@@ -110,13 +110,24 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	} else {
 		b.WriteString(t.Details)
 	}
-	b.WriteString("\n\n## Комментарии\n")
-	if t.Comments == "" {
-		b.WriteString(commentsStub)
+	b.WriteString("\n\n## Комментарии от пользователя\n")
+	if t.UserComments == "" {
+		b.WriteString(userCommentsStub)
 	} else {
+		b.WriteString(t.UserComments)
+	}
+	b.WriteString("\n\n## Комментарии\n")
+	if t.Comments != "" {
 		b.WriteString(t.Comments)
 	}
-	b.WriteString("\n\n## Журнал\n")
+	// Conditional journal separator (review fix c2, T-0035): with an empty
+	// free section the output must be "## Комментарии\n\n## Журнал\n" —
+	// exactly one blank line, never "\n\n\n".
+	if t.Comments == "" {
+		b.WriteString("\n## Журнал\n")
+	} else {
+		b.WriteString("\n\n## Журнал\n")
+	}
 	for _, e := range t.Journal {
 		writeJournalLine(&b, e)
 	}
@@ -126,16 +137,30 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 
 // absorbLine consumes one line outside the journal section, updating the
 // ticket and returning the new section.
-func absorbLine(t *Ticket, details, comments *[]string, sec section, line string) section {
+func absorbLine(t *Ticket, details, userComments, comments *[]string, sec section, line string) section {
 	switch sec {
 	case secDetails:
 		switch line {
+		case "## Комментарии от пользователя":
+			return secUserComments
 		case "## Комментарии":
 			return secComments
 		case "## Журнал":
 			return secJournal
 		}
 		*details = append(*details, line)
+		return sec
+	case secUserComments:
+		// Only the next section's header ends the user-remarks section:
+		// anything else — stray headers and a duplicate own header included —
+		// stays verbatim (content-preserving policy, mirrors secComments).
+		switch line {
+		case "## Комментарии":
+			return secComments
+		case "## Журнал":
+			return secJournal
+		}
+		*userComments = append(*userComments, line)
 		return sec
 	case secComments:
 		// Only the journal header ends the section: stray lines — other
@@ -189,56 +214,6 @@ func applyHeadMeta(t *Ticket, line string) bool {
 	return false
 }
 
-// appendJournalLine parses one journal line into t.Journal. It reports
-// whether the line was a recognized creation, transition or archive entry.
-// The three patterns are mutually exclusive alternatives, hence the
-// else-if chain: at most one can match a given line.
-func appendJournalLine(t *Ticket, line string) bool {
-	if m := createdEntryRe.FindStringSubmatch(line); m != nil {
-		t.Journal = append(t.Journal, JournalEntry{
-			At:   parseTS(m[1]),
-			From: StatusOpen,
-			To:   StatusOpen,
-			Who:  m[2],
-		})
-		return true
-	} else if m := transitionRe.FindStringSubmatch(line); m != nil {
-		t.Journal = append(t.Journal, JournalEntry{
-			At:      parseTS(m[1]),
-			From:    Status(m[2]),
-			To:      Status(m[3]),
-			Comment: m[4],
-			Who:     m[5],
-		})
-		return true
-	} else if m := archiveRe.FindStringSubmatch(line); m != nil {
-		t.Journal = append(t.Journal, JournalEntry{
-			At:       parseTS(m[1]),
-			Who:      m[2],
-			Archived: true,
-		})
-		return true
-	}
-	return false
-}
-
-// writeJournalLine emits one journal entry in the bash-compatible format:
-// creation "- TS — тикет создан (who)." and
-// transition "- TS — статус: <from> → <to>[ · comment] (who)".
-func writeJournalLine(b *bytes.Buffer, e JournalEntry) {
-	ts := e.At.Format(tsLayout)
-	switch {
-	case e.Archived:
-		fmt.Fprintf(b, "- %s — перенесён в архив (%s)\n", ts, e.Who)
-	case e.From == StatusOpen && e.To == StatusOpen && e.Comment == "":
-		fmt.Fprintf(b, "- %s — тикет создан (%s).\n", ts, e.Who)
-	case e.Comment == "":
-		fmt.Fprintf(b, "- %s — статус: %s → %s (%s)\n", ts, e.From, e.To, e.Who)
-	default:
-		fmt.Fprintf(b, "- %s — статус: %s → %s · %s (%s)\n", ts, e.From, e.To, e.Comment, e.Who)
-	}
-}
-
 func headerName(line string) (string, bool) {
 	return strings.CutPrefix(line, "## ")
 }
@@ -249,6 +224,8 @@ func sectionFor(name string) section {
 		return secBrief
 	case "Подробности":
 		return secDetails
+	case "Комментарии от пользователя":
+		return secUserComments
 	case "Комментарии":
 		return secComments
 	case "Журнал":

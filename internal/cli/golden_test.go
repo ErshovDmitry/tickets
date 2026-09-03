@@ -17,8 +17,10 @@ import (
 // canonical output of the GO renderer: originally a byte copy of the
 // bash-created tickets/T-0001-open.md, deliberately regenerated when the
 // renderer layout changes by design — T-0032 added the "## Комментарии"
-// section, intentionally breaking bash byte-compat of `new`. Any other
-// drift is a renderer bug.
+// section and T-0035 split it into the stubbed
+// "## Комментарии от пользователя" plus the free-form "## Комментарии",
+// intentionally breaking bash byte-compat of `new`. Any other drift is a
+// renderer bug.
 func TestGoldenRawBytes(t *testing.T) {
 	created := time.Date(2026, 9, 2, 3, 24, 0, 0, time.UTC)
 	tk := &domain.Ticket{

@@ -13,9 +13,10 @@ import (
 
 // Golden reference ticket: canonical output of the Go renderer
 // (internal/cli/testdata/golden-T-0001-open.md); bash byte-compat of `new`
-// is intentionally broken by T-0032 (the "## Комментарии" section). Title/
-// type/priority/details must match the golden file exactly for the byte
-// comparison to hold.
+// is intentionally broken by T-0032 + T-0035 (two comment sections: the
+// stubbed "## Комментарии от пользователя" and the free-form
+// "## Комментарии"). Title/type/priority/details must match the golden
+// file exactly for the byte comparison to hold.
 const (
 	goldenTitle   = "Реализовать Go-версию ticket по AGENTS_ARCHITECTURE.md"
 	goldenDetails = "Bootstrap завершён 2026-09-02: схема project_tickets, AGENTS.md, AGENTS_ARCHITECTURE.md, локальные тикеты. Реализация: cmd/ticket + internal/{domain,store,lock,paths,cli}, шаблоны через go:embed. Гейт: план в wiki -> план-ревью -> код."

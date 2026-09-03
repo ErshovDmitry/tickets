@@ -1,8 +1,9 @@
 // Package domain holds the ticket model and its markdown/filename codecs.
 // The layout is byte-compatible with the bash reference tickets/bin/ticket
-// except for the "## Комментарии" section (T-0032): the Go implementation
-// emits it on every ticket it renders, while bash has no such section —
-// bash byte-compat of `new` is intentionally diverged for new tickets.
+// except for the "## Комментарии от пользователя" and "## Комментарии"
+// sections (T-0032, T-0035): the Go implementation emits them on every
+// ticket it renders, while bash has no such sections — bash byte-compat of
+// `new` is intentionally diverged for new tickets.
 package domain
 
 import (
@@ -30,7 +31,12 @@ type Ticket struct {
 	Priority Priority
 	Title    string
 	Details  string
-	Comments string // "## Комментарии" user text; empty renders the placeholder
+	// "## Комментарии от пользователя" user remarks; empty renders the stub.
+	// The agent reads it before working on the ticket and never writes here.
+	UserComments string
+	// "## Комментарии" free-form notes (agent working notes etc.); empty
+	// renders a bare header.
+	Comments string
 	Who      string
 	Project  string
 	Created  time.Time
