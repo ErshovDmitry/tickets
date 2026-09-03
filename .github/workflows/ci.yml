@@ -67,9 +67,30 @@ jobs:
           VER=${VER:-dev}
           go build -ldflags "-X ticket/internal/cli.version=$VER" -o "${{ matrix.bin }}" ./cmd/ticket
 
+      # coreutils checksum format (<hash>  <filename>, two spaces) so that
+      # `sha256sum -c SHA256SUMS.txt` works on any OS. macOS runners ship no
+      # GNU coreutils, hence shasum (perl) there; Windows gets CRLF-free output
+      # via -NoNewline (pwsh would otherwise end the line with \r\n).
+      - name: Generate SHA256SUMS (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: sha256sum ticket* > SHA256SUMS.txt
+
+      - name: Generate SHA256SUMS (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: shasum -a 256 ticket* > SHA256SUMS.txt
+
+      - name: Generate SHA256SUMS (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Get-FileHash .\${{ matrix.bin }} -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  ${{ matrix.bin }}" } | Out-File -Encoding ascii -NoNewline SHA256SUMS.txt
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ticket-${{ matrix.os }}
-          path: ${{ matrix.bin }}
+          path: |
+            ${{ matrix.bin }}
+            SHA256SUMS.txt
           if-no-files-found: error
