@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: 'stable'
 
@@ -48,12 +48,12 @@ jobs:
             bin: ticket
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: 'stable'
 
@@ -88,7 +88,7 @@ jobs:
         run: Get-FileHash .\${{ matrix.bin }} -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  ${{ matrix.bin }}`n" } | Out-File -Encoding ascii -NoNewline SHA256SUMS.txt
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ticket-${{ matrix.os }}
           path: |
