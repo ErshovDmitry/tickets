@@ -138,7 +138,7 @@ func TestParseCreatedRawRoundTrip(t *testing.T) {
 	src := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): low\n" +
 		"- Created: 2026-01-02 03:04 · by: alice\n- Project (Проект): p\n\n" +
 		"## Summary (Кратко)\nx\n\n## Details (Подробности)\ndetail\n\n" +
-		"## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n" +
+		"## User comments (Комментарии от пользователя)\n\n" +
 		"## Comments (Комментарии)\n\n## Journal (Журнал)\n- 2026-01-02 03:04 — тикет создан (alice).\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {

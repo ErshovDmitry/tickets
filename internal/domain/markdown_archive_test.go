@@ -63,8 +63,9 @@ func TestRenderArchiveLineByteExact(t *testing.T) {
 	if bytes.Contains(got, []byte("(система).\n")) {
 		t.Errorf("archive line must NOT end with a dot:\n%s", got)
 	}
-	// T-0035: empty sections still render UC+stub and the bare free header.
-	if !bytes.Contains(got, []byte("## User comments (Комментарии от пользователя)\n"+dictRU.userCommentsStub+"\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n")) {
+	// T-0035: empty sections render the bare UC header and the bare free
+	// header (the placeholder is no longer emitted).
+	if !bytes.Contains(got, []byte(canonEmptySections())) {
 		t.Errorf("render output misses the canonical two-section layout:\n%s", got)
 	}
 }
@@ -105,7 +106,7 @@ func TestArchiveReopenJournalRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if !bytes.Equal(got, []byte(src)) {
+	if !bytes.Equal(got, []byte(legacyRoundTripWant(src))) {
 		t.Errorf("round trip mismatch (chronology lost):\n got %q\nwant %q", got, src)
 	}
 }

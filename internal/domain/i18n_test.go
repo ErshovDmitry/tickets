@@ -21,7 +21,6 @@ test
 details
 
 ## User comments (Комментарии от пользователя)
-_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._
 
 ## Comments (Комментарии)
 
@@ -62,7 +61,6 @@ test
 details
 
 ## User comments
-_User remarks: write here — the agent reads this section before working on the ticket. The agent does not write here._
 
 ## Comments
 

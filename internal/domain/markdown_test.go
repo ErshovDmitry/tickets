@@ -67,8 +67,8 @@ func TestParseT0001Fields(t *testing.T) {
 }
 
 func TestParseRenderRoundTripT0001(t *testing.T) {
-	want := []byte(ticketT0001)
-	tk, unknown, err := Parse(want)
+	want := []byte(legacyRoundTripWant(ticketT0001))
+	tk, unknown, err := Parse([]byte(ticketT0001))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestUnknownPreservedAfterJournal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if !bytes.Equal(got, []byte(src)) {
+	if !bytes.Equal(got, []byte(legacyRoundTripWant(src))) {
 		t.Errorf("unknown re-emit mismatch:\n got %q\nwant %q", got, src)
 	}
 }
@@ -132,7 +132,7 @@ func TestUnknownBlankLinesPreservedAfterJournal(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Render(%s): %v", tc.name, err)
 		}
-		if !bytes.Equal(got, []byte(src)) {
+		if !bytes.Equal(got, []byte(legacyRoundTripWant(src))) {
 			t.Errorf("%s: round trip mismatch:\n got %q\nwant %q", tc.name, got, src)
 		}
 	}
@@ -213,7 +213,7 @@ func TestParseTolerantNeverErrors(t *testing.T) {
 }
 
 func TestParseUnknownDetailsKept(t *testing.T) {
-	src := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): low\n- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n## Summary (Кратко)\nx\n\n## Details (Подробности)\nстрока1\n\nстрока2\n\n## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	src := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): low\n- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n## Summary (Кратко)\nx\n\n## Details (Подробности)\nстрока1\n\nстрока2\n\n## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -260,7 +260,7 @@ func TestRenderJournalLineFormats(t *testing.T) {
 			t.Errorf("%s: render output %q misses %q", tc.name, got, tc.want)
 		}
 		// Canonical two-section layout for empty sections (T-0035).
-		if !bytes.Contains(got, []byte("## User comments (Комментарии от пользователя)\n"+dictRU.userCommentsStub+"\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n")) {
+		if !bytes.Contains(got, []byte("## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n")) {
 			t.Errorf("%s: render output misses the canonical layout:\n%s", tc.name, got)
 		}
 	}

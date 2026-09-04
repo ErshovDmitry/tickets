@@ -1,11 +1,13 @@
 package cli_test
 
 // T-0035 integration: the user-remarks section ("## User comments
-// (Комментарии от пользователя)", stub placeholder) and the free-form
+// (Комментарии от пользователя)") and the free-form
 // "## Comments (Комментарии)" section survive set cycles and are injected
-// by set/archive on section-less legacy tickets. T-0036: fixtures use the
-// ru-bilingual file format ("Legacy" = no comment sections, T-0035
-// semantics — not the retired Russian-only format).
+// by set/archive on section-less legacy tickets. The placeholder is no
+// longer emitted: new tickets create the section EMPTY and a legacy stub
+// blanks to "" on parse (dropped on the next render). T-0036: fixtures
+// use the ru-bilingual file format ("Legacy" = no comment sections,
+// T-0035 semantics — not the retired Russian-only format).
 
 import (
 	"os"
@@ -63,10 +65,10 @@ func assertCommentsIntact(t *testing.T, body []byte, remark, label string) {
 	}
 }
 
-// TestUserCommentsSurviveSetCycle runs: new → stub under the user section
-// → a user remark replaces the stub in place → set wip → set done → the
-// remark survives with no stub residue, and `show` prints the done file
-// bytes. Everything happens in a TempDir sandbox.
+// TestUserCommentsSurviveSetCycle runs: new → the user section is EMPTY
+// (no placeholder) → a user remark is written under the header → set wip
+// → set done → the remark survives with no stub residue, and `show`
+// prints the done file bytes. Everything happens in a TempDir sandbox.
 func TestUserCommentsSurviveSetCycle(t *testing.T) {
 	tickets := t.TempDir()
 	cwd := t.TempDir()
@@ -82,14 +84,17 @@ func TestUserCommentsSurviveSetCycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read created ticket: %v", err)
 	}
-	if !strings.Contains(string(data), "## User comments (Комментарии от пользователя)\n"+userCommentsPlaceholder+"\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n") {
-		t.Fatalf("new ticket missing the stubbed user section before the free one:\n%s", data)
+	// A new ticket creates the user section EMPTY — no placeholder.
+	if !strings.Contains(string(data), "## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n") {
+		t.Fatalf("new ticket user section is not empty:\n%s", data)
 	}
-	// The user writes a remark in place of the stub inside the user section.
+	// The user writes a remark right under the section header.
 	const remark = "Пользователь: сначала проверь регрессию в модуле X"
-	edited := strings.Replace(string(data), userCommentsPlaceholder, remark, 1)
+	edited := strings.Replace(string(data),
+		"## User comments (Комментарии от пользователя)\n\n",
+		"## User comments (Комментарии от пользователя)\n"+remark+"\n", 1)
 	if edited == string(data) {
-		t.Fatalf("stub not found for replacement:\n%s", data)
+		t.Fatalf("user section header not found for remark insertion:\n%s", data)
 	}
 	if err := os.WriteFile(path, []byte(edited), 0o644); err != nil {
 		t.Fatalf("write user remark: %v", err)
@@ -125,21 +130,22 @@ func TestUserCommentsSurviveSetCycle(t *testing.T) {
 }
 
 // assertFreeCommentsIntact fails unless body keeps the free-form text
-// verbatim under "## Comments (Комментарии)" and exactly one user stub.
+// verbatim under "## Comments (Комментарии)" and carries no placeholder
+// (the seeded legacy stub blanks to "" on parse and is not re-emitted).
 func assertFreeCommentsIntact(t *testing.T, body []byte, freeText, label string) {
 	t.Helper()
 	if !strings.Contains(string(body), "## Comments (Комментарии)\n"+freeText+"\n") {
 		t.Fatalf("%s: free comments text lost:\n%s", label, body)
 	}
-	if n := strings.Count(string(body), userCommentsPlaceholder); n != 1 {
-		t.Fatalf("%s: user stub count = %d, want 1:\n%s", label, n, body)
+	if n := strings.Count(string(body), userCommentsPlaceholder); n != 0 {
+		t.Fatalf("%s: user stub count = %d, want 0 (legacy stub blanked):\n%s", label, n, body)
 	}
 }
 
 // TestFreeCommentsSurviveSetCycle: free-form text written directly into
-// the bare "## Comments (Комментарии)" section of a seeded open ticket survives
-// set wip → set done; the user stub is not duplicated and `show` matches
-// the done file bytes.
+// the "## Comments (Комментарии)" section of a seeded open ticket survives
+// set wip → set done; the seeded legacy stub blanks to "" (not re-emitted)
+// and `show` matches the done file bytes.
 func TestFreeCommentsSurviveSetCycle(t *testing.T) {
 	tickets := t.TempDir()
 	cwd := t.TempDir()
@@ -178,7 +184,7 @@ func TestFreeCommentsSurviveSetCycle(t *testing.T) {
 
 // TestSetInjectsUserSectionIntoLegacyWithComments: a section-less legacy
 // ticket with text in the bare "## Comments (Комментарии)" section gains
-// the stubbed "## User comments (Комментарии от пользователя)" BEFORE the
+// the EMPTY "## User comments (Комментарии от пользователя)" BEFORE the
 // free section on the first set; the free text stays verbatim and `show`
 // matches the file bytes.
 func TestSetInjectsUserSectionIntoLegacyWithComments(t *testing.T) {
@@ -196,7 +202,7 @@ func TestSetInjectsUserSectionIntoLegacyWithComments(t *testing.T) {
 		t.Fatalf("read wip ticket: %v", err)
 	}
 	body := string(wipData)
-	userIdx := strings.Index(body, "## User comments (Комментарии от пользователя)\n"+userCommentsPlaceholder+"\n")
+	userIdx := strings.Index(body, "## User comments (Комментарии от пользователя)\n\n")
 	freeIdx := strings.Index(body, "## Comments (Комментарии)\n"+freeText+"\n")
 	if userIdx < 0 || freeIdx < 0 {
 		t.Fatalf("wip ticket missing the injected user section or the free text:\n%s", body)
@@ -204,8 +210,8 @@ func TestSetInjectsUserSectionIntoLegacyWithComments(t *testing.T) {
 	if userIdx > freeIdx {
 		t.Fatalf("user section must precede the free one:\n%s", body)
 	}
-	if n := strings.Count(body, userCommentsPlaceholder); n != 1 {
-		t.Fatalf("stub duplicated (count=%d):\n%s", n, body)
+	if n := strings.Count(body, userCommentsPlaceholder); n != 0 {
+		t.Fatalf("placeholder re-emitted (count=%d):\n%s", n, body)
 	}
 	showOut, stderr, code := runBin(t, ticketBin, cwd, tickets, "show", "1")
 	if code != 0 {
@@ -217,7 +223,7 @@ func TestSetInjectsUserSectionIntoLegacyWithComments(t *testing.T) {
 }
 
 // TestArchiveInjectsBothSections: a section-less legacy done ticket,
-// archived by `archive`, gains BOTH sections — the stubbed user one
+// archived by `archive`, gains BOTH sections — the empty user one
 // before the bare free one — while the original body is preserved.
 func TestArchiveInjectsBothSections(t *testing.T) {
 	tickets := t.TempDir()
@@ -235,7 +241,7 @@ func TestArchiveInjectsBothSections(t *testing.T) {
 		t.Fatalf("read archived ticket: %v", err)
 	}
 	body := string(archived)
-	userIdx := strings.Index(body, "## User comments (Комментарии от пользователя)\n"+userCommentsPlaceholder+"\n")
+	userIdx := strings.Index(body, "## User comments (Комментарии от пользователя)\n\n")
 	freeIdx := strings.Index(body, "## Comments (Комментарии)\n\n## Journal (Журнал)\n")
 	if userIdx < 0 || freeIdx < 0 {
 		t.Fatalf("archived ticket missing the injected sections:\n%s", archived)

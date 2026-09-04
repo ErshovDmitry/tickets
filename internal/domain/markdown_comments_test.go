@@ -33,10 +33,11 @@ func legacyJournal() string {
 }
 
 // canonEmptySections returns the canonical byte layout of empty comment
-// sections (T-0035): UC with its stub, then the bare free header, one blank
-// line before "## Journal (Журнал)".
+// sections (T-0035; the placeholder emission was dropped by the empty-UC
+// plan): bare UC header, bare free header, one blank line before
+// "## Journal (Журнал)".
 func canonEmptySections() string {
-	return "## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n"
+	return "## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n"
 }
 
 // TestNewTicketTemplateSectionOrder pins (a): the template emits the user
@@ -225,9 +226,9 @@ func TestUserCommentsStrayLinesPolicy(t *testing.T) {
 
 // TestUserCommentsPlaceholderMeansEmpty pins (#5, re-targeted from
 // TestCommentsPlaceholderMeansEmpty): a user section holding exactly the
-// stub — or zero lines — parses to empty UserComments and renders the stub
-// back. The stub literal is pinned byte-exact per spec (T-0035): changing
-// the constant must fail this test.
+// stub — or zero lines — parses to empty UserComments and renders the bare
+// header (the placeholder is not re-emitted). The stub literal is pinned
+// byte-exact per spec (T-0035): changing the constant must fail this test.
 func TestUserCommentsPlaceholderMeansEmpty(t *testing.T) {
 	const stub = "_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._"
 	if dictRU.userCommentsStub != stub {
@@ -248,8 +249,11 @@ func TestUserCommentsPlaceholderMeansEmpty(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: Render: %v", tc.name, err)
 		}
-		if !strings.Contains(string(got), "## User comments (Комментарии от пользователя)\n"+stub+"\n") {
-			t.Errorf("%s: empty user section must render the stub:\n%s", tc.name, got)
+		if strings.Contains(string(got), stub) {
+			t.Errorf("%s: placeholder must not be re-emitted:\n%s", tc.name, got)
+		}
+		if !strings.Contains(string(got), "## User comments (Комментарии от пользователя)\n\n") {
+			t.Errorf("%s: empty user section must render the bare header:\n%s", tc.name, got)
 		}
 	}
 }

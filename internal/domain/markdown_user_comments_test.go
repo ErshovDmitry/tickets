@@ -53,8 +53,8 @@ func TestFreeCommentsEmptyRendersBareHeader(t *testing.T) {
 
 // TestUserSectionInjectedBeforeExistingFreeSection pins (#3): a legacy
 // ticket WITH text in the free section (including the old T-0034 stub
-// text) gains the user section with its stub ABOVE it; free text stays
-// verbatim and is NOT blanked.
+// text) gains the user section header-only ABOVE it (the placeholder is
+// no longer emitted); free text stays verbatim and is NOT blanked.
 func TestUserSectionInjectedBeforeExistingFreeSection(t *testing.T) {
 	oldStub := "_Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом._"
 	for _, tc := range []struct{ name, fc string }{
@@ -76,16 +76,28 @@ func TestUserSectionInjectedBeforeExistingFreeSection(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: Render: %v", tc.name, err)
 		}
-		want := legacyTicket() + "## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n## Comments (Комментарии)\n" + tc.fc + "\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
+		want := legacyTicket() + "## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n" + tc.fc + "\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
 		if !bytes.Equal(got, []byte(want)) {
 			t.Errorf("%s: round trip mismatch:\n got %q\nwant %q", tc.name, got, want)
 		}
 	}
 }
 
+// legacyRoundTripWant returns src with the legacy UC placeholder line
+// removed (any known dictionary, mirroring isStubLine): Parse blanks the
+// stub to "" and Render drops it (Option A), so a byte-stable round trip
+// compares against src minus the stub line.
+func legacyRoundTripWant(src string) string {
+	for _, entry := range allDicts {
+		src = strings.Replace(src, entry.d.userCommentsStub+"\n", "", 1)
+	}
+	return src
+}
+
 // TestUnknownTailBlanksUserCommentsStub pins (#7): the early-return
 // finish() path (manual tail after the journal) blanks a stub-only user
-// section exactly like the normal path; the round trip is byte-identical.
+// section exactly like the normal path; the render drops the placeholder
+// (bare header) and the tail survives verbatim.
 func TestUnknownTailBlanksUserCommentsStub(t *testing.T) {
 	src := ucTicket(dictRU.userCommentsStub, "") + "заметка вручную\nещё строка\n"
 	tk, unknown, err := Parse([]byte(src))
@@ -102,7 +114,8 @@ func TestUnknownTailBlanksUserCommentsStub(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if !bytes.Equal(got, []byte(src)) {
-		t.Fatalf("round trip mismatch:\n got %q\nwant %q", got, src)
+	// Legacy stub input: parses to "" and renders the bare header.
+	if want := legacyRoundTripWant(src); !bytes.Equal(got, []byte(want)) {
+		t.Fatalf("round trip mismatch:\n got %q\nwant %q", got, want)
 	}
 }

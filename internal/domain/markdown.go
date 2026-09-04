@@ -146,12 +146,21 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	} else {
 		b.WriteString(d.headers[2] + "\n")
 	}
-	if t.UserComments == "" {
-		b.WriteString(d.userCommentsStub)
-	} else {
+	// Empty section renders the bare header: the long placeholder is no
+	// longer emitted (plan "User comments" Option A) — new tickets create
+	// the section empty. Legacy files holding the placeholder still parse
+	// to "" via isStubLine. Note: the shorter T-0034 stub variant is NOT
+	// an isStubLine match and stays content by design.
+	if t.UserComments != "" {
 		b.WriteString(t.UserComments)
 	}
-	b.WriteString("\n\n")
+	// Conditional separator mirrors the Comments section: an empty section
+	// yields exactly one blank line before the next header — never "\n\n\n".
+	if t.UserComments == "" {
+		b.WriteString("\n")
+	} else {
+		b.WriteString("\n\n")
+	}
 
 	if raw, ok := t.RawTemplates.Headers[secNameComments]; ok {
 		b.WriteString(raw + "\n")

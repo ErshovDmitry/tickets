@@ -20,7 +20,9 @@ import (
 // section and T-0035 split it into the stubbed
 // "## Комментарии от пользователя" plus the free-form "## Комментарии",
 // intentionally breaking bash byte-compat of `new`; T-0036 re-pinned it to
-// the ru-bilingual renderer output. Any other drift is a renderer bug.
+// the ru-bilingual renderer output; the empty-UC plan (Option A) dropped
+// the placeholder line — new tickets create the section empty. Any other
+// drift is a renderer bug.
 func TestGoldenRawBytes(t *testing.T) {
 	created := time.Date(2026, 9, 2, 3, 24, 0, 0, time.UTC)
 	tk := &domain.Ticket{

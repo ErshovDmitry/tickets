@@ -54,7 +54,7 @@ func TestRenderNewTicketGolden(t *testing.T) {
 				"- Project (Проект): tickets\n\n" +
 				"## Summary (Кратко)\nЛомается\n\n" +
 				"## Details (Подробности)\nдетали\n\n" +
-				"## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n" +
+				"## User comments (Комментарии от пользователя)\n\n" +
 				"## Comments (Комментарии)\n\n" +
 				"## Journal (Журнал)\n- 2026-09-02 03:24 — тикет создан (agent).\n",
 		},
@@ -67,7 +67,7 @@ func TestRenderNewTicketGolden(t *testing.T) {
 				"- Project: tickets\n\n" +
 				"## Summary\nЛомается\n\n" +
 				"## Details\nдетали\n\n" +
-				"## User comments\n" + dictEN.userCommentsStub + "\n\n" +
+				"## User comments\n\n" +
 				"## Comments\n\n" +
 				"## Journal\n- 2026-09-02 03:24 — ticket created (agent).\n",
 		},
@@ -98,7 +98,7 @@ func TestRenderNewTicketEmptyDetailsStub(t *testing.T) {
 				"- Project (Проект): tickets\n\n" +
 				"## Summary (Кратко)\nЛомается\n\n" +
 				"## Details (Подробности)\n" + dictRU.detailsStub + "\n\n" +
-				"## User comments (Комментарии от пользователя)\n" + dictRU.userCommentsStub + "\n\n" +
+				"## User comments (Комментарии от пользователя)\n\n" +
 				"## Comments (Комментарии)\n\n" +
 				"## Journal (Журнал)\n- 2026-09-02 03:24 — тикет создан (agent).\n",
 		},
@@ -111,7 +111,7 @@ func TestRenderNewTicketEmptyDetailsStub(t *testing.T) {
 				"- Project: tickets\n\n" +
 				"## Summary\nЛомается\n\n" +
 				"## Details\n" + dictEN.detailsStub + "\n\n" +
-				"## User comments\n" + dictEN.userCommentsStub + "\n\n" +
+				"## User comments\n\n" +
 				"## Comments\n\n" +
 				"## Journal\n- 2026-09-02 03:24 — ticket created (agent).\n",
 		},

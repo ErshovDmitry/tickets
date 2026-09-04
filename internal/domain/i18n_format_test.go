@@ -12,8 +12,9 @@ import (
 // legacy RU-only file: the i18n codec must Parse and Render it back to the
 // exact original bytes.
 func TestByteStabilityRUBilingual(t *testing.T) {
-	want := []byte(ticketT0001)
-	tk, unknown, err := Parse(want)
+	// Legacy stub parses to "" and is dropped by Render (Option A).
+	want := []byte(legacyRoundTripWant(ticketT0001))
+	tk, unknown, err := Parse([]byte(ticketT0001))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
@@ -29,8 +30,9 @@ func TestByteStabilityRUBilingual(t *testing.T) {
 	}
 }
 
-// TestByteStabilityENPlain tests that a plain EN ticket round-trips
-// byte-identically.
+// TestByteStabilityENPlain tests that a plain EN ticket with the legacy
+// User comments placeholder round-trips like the RU path: the stub parses
+// to "" and Render drops it (Option A, bare header).
 func TestByteStabilityENPlain(t *testing.T) {
 	src := `# T-0002 · ENH: English ticket
 
@@ -57,12 +59,15 @@ _User remarks: write here — the agent reads this section before working on the
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
+	if len(unknown) != 0 {
+		t.Errorf("unknown = %q, want empty", unknown)
+	}
 	got, err := Render(tk, unknown)
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if string(got) != src {
-		t.Errorf("EN plain round trip failed:\n got %q\nwant %q", got, src)
+	if want := legacyRoundTripWant(src); string(got) != want {
+		t.Errorf("EN plain round trip failed:\n got %q\nwant %q", got, want)
 	}
 }
 
