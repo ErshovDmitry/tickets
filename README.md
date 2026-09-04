@@ -204,6 +204,10 @@ Paste the block below into the `AGENTS.md` of the project that uses `tickets/` (
 - Do NOT write secrets (passwords, tokens, keys) into tickets.
 ```
 
+## Agent skill
+
+The repo ships an agent skill at `skills/ticket-cli/` (`SKILL.md` + `reference.md`) that teaches AI agents the ticket workflow — commands, lifecycle, and pitfalls. Install by copying the directory to `~/.agents/skills/`.
+
 ## Development
 
 ```bash
