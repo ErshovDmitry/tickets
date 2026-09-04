@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -196,4 +197,20 @@ func assertEmptyDir(t *testing.T, dir, label string) {
 		}
 		t.Fatalf("%s is not empty: %v", label, names)
 	}
+}
+
+// TestNewHelpDoesNotCreateTicket runs the real binary (T-0041 regression:
+// `ticket new --help` used to create a ticket titled "--help"): in a fresh
+// temp TICKETS_DIR it must print usage to stdout, exit 0 and leave the dir
+// empty.
+func TestNewHelpDoesNotCreateTicket(t *testing.T) {
+	dir := t.TempDir()
+	stdout, stderr, code := runBin(t, ticketBin, dir, dir, "new", "--help")
+	if code != 0 {
+		t.Fatalf("new --help exit = %d, want 0; stderr: %q", code, stderr)
+	}
+	if !strings.HasPrefix(stdout, "ticket version dev\n") {
+		t.Fatalf("stdout %q does not start with the usage text", stdout)
+	}
+	assertEmptyDir(t, dir, "tickets dir")
 }

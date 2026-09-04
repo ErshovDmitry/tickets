@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	_ "embed"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -68,6 +69,56 @@ func TestRunHelpRouting(t *testing.T) {
 			}
 			if stderr.Len() != 0 {
 				t.Fatalf("stderr = %q, want empty", stderr.String())
+			}
+		})
+	}
+}
+
+// TestSubcommandHelp pins the T-0041 central interception: -h/--help as
+// the first argument of any subcommand prints the usage text byte-for-byte
+// to stdout, exits 0 and creates no ticket. Boundary cases: `new --help
+// extra` still intercepts (only args[1] matters), while `new -` is NOT a
+// help flag — it falls through to the dash-title rejection (T-0041).
+func TestSubcommandHelp(t *testing.T) {
+	cases := []struct {
+		name      string
+		args      []string
+		wantCode  int
+		wantUsage bool
+	}{
+		{"new short", []string{"new", "-h"}, 0, true},
+		{"new long", []string{"new", "--help"}, 0, true},
+		{"list short", []string{"list", "-h"}, 0, true},
+		{"list long", []string{"list", "--help"}, 0, true},
+		{"show short", []string{"show", "-h"}, 0, true},
+		{"show long", []string{"show", "--help"}, 0, true},
+		{"set short", []string{"set", "-h"}, 0, true},
+		{"set long", []string{"set", "--help"}, 0, true},
+		{"archive short", []string{"archive", "-h"}, 0, true},
+		{"archive long", []string{"archive", "--help"}, 0, true},
+		{"help extra arg", []string{"new", "--help", "extra"}, 0, true},
+		{"dash is not help", []string{"new", "-"}, 1, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			var stdout, stderr bytes.Buffer
+			code := cli.Run(tc.args, map[string]string{"TICKETS_DIR": dir}, &stdout, &stderr)
+			if code != tc.wantCode {
+				t.Fatalf("Run(%q) = %d, want %d; stderr: %q", tc.args, code, tc.wantCode, stderr.String())
+			}
+			if tc.wantUsage {
+				if got := stdout.String(); got != wantUsage(usageFixture) {
+					t.Fatalf("stdout is not the version line + verbatim usage text (got %d bytes)", len(got))
+				}
+				if stderr.Len() != 0 {
+					t.Fatalf("stderr = %q, want empty", stderr.String())
+				}
+			} else if !strings.Contains(stderr.String(), "не может начинаться с '-'") {
+				t.Fatalf("stderr %q missing the dash-title error", stderr.String())
+			}
+			if created, _ := filepath.Glob(filepath.Join(dir, "T-*.md")); len(created) != 0 {
+				t.Fatalf("ticket file created: %v", created)
 			}
 		})
 	}

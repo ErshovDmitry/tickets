@@ -20,7 +20,9 @@ import (
 // given means help (bash:147 cmd="${1:-help}"); an unknown command prints
 // usage to stdout and exits 1 (bash:154). "version", "--version" and "-v"
 // print the version line to stdout and exit 0 without dispatch: like help,
-// they skip tickets-dir resolution and work outside a project.
+// they skip tickets-dir resolution and work outside a project; by the same
+// token, the subcommand -h/--help interception (T-0041) below returns
+// before dispatch and thus also skips tickets-dir resolution.
 //
 // Command handlers (cmd_new.go, cmd_list.go, cmd_show.go, cmd_set.go,
 // cmd_archive.go) share the common shape
@@ -43,6 +45,17 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	lang := langFrom(env)
 	switch cmd {
 	case "new", "list", "show", "set", "archive":
+		// Subcommand help interception (T-0041): -h/--help as the FIRST
+		// argument is never a valid positional (new: title; show/set/archive:
+		// ticket number; list: filter), so print usage and exit 0. Only
+		// args[1] is checked: flag values (-d text, -P project) and the
+		// subsequent positionals (incl. the set comment) all land in args[2+],
+		// so a --help there must NOT trigger help ("new Тикет -d \"see
+		// --help\"" stays a real ticket creation).
+		if len(args) > 1 && (args[1] == "-h" || args[1] == "--help") {
+			usage(stdout, lang)
+			return 0
+		}
 		return dispatch(cmd, args[1:], env, lang, stdout, stderr)
 	case "help", "-h", "--help":
 		usage(stdout, lang)

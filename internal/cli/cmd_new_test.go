@@ -254,3 +254,44 @@ func TestNewWhoResolution(t *testing.T) {
 		})
 	}
 }
+
+// TestNewTitleStartingWithDash pins the T-0041 validation: a title starting
+// with '-' (a mistyped flag) is rejected with exit 1 and no ticket file;
+// the bare "-" argument is a subcase. ("new --help" never reaches cmdNew —
+// it is intercepted centrally in Run, see TestSubcommandHelp.)
+func TestNewTitleStartingWithDash(t *testing.T) {
+	for _, title := range []string{"-foo", "-"} {
+		t.Run(title, func(t *testing.T) {
+			dir := t.TempDir()
+			var stdout, stderr bytes.Buffer
+			code := cli.Run([]string{"new", title}, map[string]string{"TICKETS_DIR": dir}, &stdout, &stderr)
+			if code != 1 {
+				t.Fatalf("Run(new %q) = %d, want 1; stderr: %q", title, code, stderr.String())
+			}
+			if !strings.Contains(stderr.String(), "ticket: краткое описание не может начинаться с '-'") {
+				t.Fatalf("stderr %q missing the dash-title error", stderr.String())
+			}
+			if created, _ := filepath.Glob(filepath.Join(dir, "T-*.md")); len(created) != 0 {
+				t.Fatalf("ticket file created despite dash title: %v", created)
+			}
+		})
+	}
+}
+
+// TestNewHelpInComment guards the args[1]-only interception: --help inside
+// a -d comment value (args[3]) must not trigger help — the ticket is
+// created and no usage text is printed.
+func TestNewHelpInComment(t *testing.T) {
+	dir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	args := []string{"new", "Тикет", "-d", "see --help"}
+	if code := cli.Run(args, map[string]string{"TICKETS_DIR": dir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("Run(%q) = %d, want 0; stderr: %q", args, code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "ticket version") {
+		t.Fatalf("usage printed for a real ticket creation: %q", stdout.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "T-0001-open.md")); err != nil {
+		t.Fatalf("ticket not created: %v", err)
+	}
+}

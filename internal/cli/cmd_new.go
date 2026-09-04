@@ -33,6 +33,12 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		usage(stdout, lang)
 		return 1
 	}
+	// Deliberate deviation from bash parity (T-0041): reject titles
+	// starting with '-' to prevent accidental flag-as-title bugs.
+	if strings.HasPrefix(args[0], "-") {
+		fmt.Fprintln(stderr, "ticket: краткое описание не может начинаться с '-'")
+		return 1
+	}
 	f, ok := parseNewFlags(args[0], args[1:], who, stderr)
 	if !ok {
 		return 1
