@@ -226,3 +226,7 @@ Local build — see [Build from source](#build-from-source). For Windows: cross-
 ## Status
 
 **v1 done.**
+
+## What's next
+
+There are ideas for further development of ticket, but they will be published later in a complete form. When there is something to show, a link will appear here.
