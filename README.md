@@ -10,7 +10,7 @@ Cross-platform (Windows / Linux / macOS) CLI ticket system in Go.
 
 - [YouTube](https://youtu.be/UW6O2zhEPwc)
 - [Dzen](https://dzen.ru/video/watch/6a9a61d4b6339503daf3830e)
-- Rutube — coming soon
+- [Rutube](https://rutube.ru/video/29ab80e52b2d3c7afaef1eae0d0a0565/)
 
 ## What is it
 
