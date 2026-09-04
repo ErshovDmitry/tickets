@@ -4,6 +4,14 @@
 
 Cross-platform (Windows / Linux / macOS) CLI ticket system in Go.
 
+## 🎬 Video
+
+[![Watch on YouTube](https://img.youtube.com/vi/UW6O2zhEPwc/hqdefault.jpg)](https://youtu.be/UW6O2zhEPwc)
+
+- [YouTube](https://youtu.be/UW6O2zhEPwc)
+- [Dzen](https://dzen.ru/video/watch/6a9a61d4b6339503daf3830e)
+- Rutube — coming soon
+
 ## What is it
 
 - Tickets are plain Markdown files `T-NNNN-<status>.md` in the project's `tickets/` directory. Files are the single source of truth: readable by a human without any tools (`cat`, editor, `git diff`), no database required.

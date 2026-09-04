@@ -4,6 +4,14 @@
 
 Кроссплатформенная (Windows / Linux / macOS) CLI-система тикетов на Go.
 
+## 🎬 Видео
+
+[![Смотреть на YouTube](https://img.youtube.com/vi/UW6O2zhEPwc/hqdefault.jpg)](https://youtu.be/UW6O2zhEPwc)
+
+- [YouTube](https://youtu.be/UW6O2zhEPwc)
+- [Дзен](https://dzen.ru/video/watch/6a9a61d4b6339503daf3830e)
+- Rutube — скоро
+
 ## Что это
 
 - Тикеты — обычные Markdown-файлы `T-NNNN-<status>.md` в каталоге `tickets/` проекта. Единственный источник правды — файлы: читаются человеком без инструментов (`cat`, редактор, `git diff`), база данных не нужна.
