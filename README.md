@@ -178,7 +178,6 @@ Broken export
 <!-- what was found, where (file:line), logs/output, how to reproduce, fix proposal -->
 
 ## User comments
-_User remarks: write here — the agent reads this section before working on the ticket. The agent does not write here._
 
 ## Comments
 
