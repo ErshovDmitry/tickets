@@ -10,5 +10,6 @@
   "journalTransition": "- %s — status: %s → %s",
   "journalArchive": "- %s — moved to archive (%s)",
   "warnNewProject": "ticket: warning: project '%s' is seen for the first time — verify the name is correct.",
-  "noTickets": "No tickets (%s)."
+  "noTickets": "No tickets (%s).",
+  "errTitleNewline": "ticket: title must not contain a line break"
 }

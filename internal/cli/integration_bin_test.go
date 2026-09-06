@@ -23,6 +23,7 @@ import (
 // a foreign working directory: artifacts land under TICKETS_DIR, never in
 // the CWD (§7.2). Fresh empty TempDir per mutating test.
 func TestForeignCWDNewListShowSet(t *testing.T) {
+	requireBin(t)
 	tickets := t.TempDir()
 	cwd := t.TempDir()
 	ticketsEval := mustEval(t, tickets)
@@ -100,6 +101,7 @@ func installCopy(t *testing.T, src, dst string) {
 // it through a symlink: exe resolution must follow the real executable to
 // the bin/.. layout (§7.2).
 func TestSymlinkInvocation(t *testing.T) {
+	requireBin(t)
 	root := t.TempDir()
 	tickets := filepath.Join(root, "tickets")
 	binDir := filepath.Join(tickets, "bin")
@@ -138,6 +140,7 @@ const parallelNew = 8
 // processes against one fresh empty tickets dir and asserts unique AND
 // contiguous numbers 1..N (no gaps, no duplicates).
 func TestParallelNewUniqueContiguous(t *testing.T) {
+	requireBin(t)
 	tickets := t.TempDir()
 	cwd := t.TempDir()
 

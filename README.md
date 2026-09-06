@@ -83,6 +83,8 @@ ticket list all        # including done/closed
 ticket list archive    # archive only
 ticket list all -P otherproj   # filter by project (exact match, case-sensitive)
 
+Parse warnings are printed to stderr; the command returns exit code 0 and shows successfully parsed tickets.
+
 # show a ticket (searches the archive too)
 ticket show 7
 

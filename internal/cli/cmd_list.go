@@ -45,6 +45,10 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	if len(positional) >= 1 && positional[0] != "" {
 		want = positional[0]
 	}
+	if len(positional) > 1 {
+		fmt.Fprintln(stderr, "ticket: список принимает не более одного аргумента (фильтр)")
+		return 1
+	}
 	if !isListFilter(want) {
 		fmt.Fprintln(stderr, "ticket: фильтр — один из: active open wip done closed archive all")
 		return 1
@@ -59,6 +63,7 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 		tickets, warnings = st.List()
 	}
 
+	// Parse warnings are non-fatal: list shows successfully parsed tickets and returns 0. Broken ticket files are logged to stderr but do not block shell pipelines or automation.
 	for _, w := range warnings {
 		fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
 	}

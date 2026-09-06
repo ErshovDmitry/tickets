@@ -48,6 +48,9 @@ type dict struct {
 	// T-0040: multi-project support
 	warnNewProject string // 1 %s: project name
 	noTickets      string // 1 %s: filter description
+
+	// T-0044: verbatim CLI error messages (no placeholders).
+	errTitleNewline string
 }
 
 //go:embed langs/*.json
@@ -154,6 +157,7 @@ func loadDict(data []byte) (*dict, error) {
 		JournalArchive    string          `json:"journalArchive"`
 		WarnNewProject    string          `json:"warnNewProject"`
 		NoTickets         string          `json:"noTickets"`
+		ErrTitleNewline   string          `json:"errTitleNewline"`
 	}
 	if err := json.Unmarshal(data, &dj); err != nil {
 		return nil, err
@@ -238,6 +242,10 @@ func loadDict(data []byte) (*dict, error) {
 	if strings.Count(dj.NoTickets, "%s") != 1 {
 		return nil, fmt.Errorf("noTickets: expected 1 %%s, got %d", strings.Count(dj.NoTickets, "%s"))
 	}
+	// T-0044: verbatim message, no %s slots — non-empty check only.
+	if dj.ErrTitleNewline == "" {
+		return nil, fmt.Errorf("errTitleNewline: empty")
+	}
 
 	return &dict{
 		headers:           headers,
@@ -252,6 +260,7 @@ func loadDict(data []byte) (*dict, error) {
 		journalArchive:    dj.JournalArchive,
 		warnNewProject:    dj.WarnNewProject,
 		noTickets:         dj.NoTickets,
+		errTitleNewline:   dj.ErrTitleNewline,
 	}, nil
 }
 
@@ -263,6 +272,14 @@ func WarnNewProject(lang Lang, project string) string {
 // NoTickets formats the "no tickets found" message with filter description.
 func NoTickets(lang Lang, filter string) string {
 	return fmt.Sprintf(getDict(lang).noTickets, filter)
+}
+
+// ErrTitleNewline returns the localized rejection message for a ticket
+// title containing CR or LF (T-0044): `new` prints it before any file is
+// created, because a multiline H1 loses everything past the first line on
+// the next re-render.
+func ErrTitleNewline(lang Lang) string {
+	return getDict(lang).errTitleNewline
 }
 
 // getDict returns the dictionary for lang.

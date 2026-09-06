@@ -25,10 +25,17 @@ func (s *Store) scan() ([]fileEntry, []ParseWarning, error) {
 	return scanDir(s.Dir)
 }
 
+// readDir is the swappable directory-read primitive for failure-path
+// tests (same package-level hook idiom as linkFile & co. in
+// store_write.go). The production zero value is os.ReadDir; the hook
+// exists so tests can inject a read failure portably (chmod tricks do
+// not work on Windows).
+var readDir = os.ReadDir
+
 // scanDir reads dirPath and returns parsed file entries (sorted by number)
 // plus warnings. Extracted for archive/ support.
 func scanDir(dirPath string) ([]fileEntry, []ParseWarning, error) {
-	raw, err := os.ReadDir(dirPath)
+	raw, err := readDir(dirPath)
 	if err != nil {
 		return nil, nil, err
 	}

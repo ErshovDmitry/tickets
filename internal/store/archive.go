@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"ticket/internal/domain"
@@ -40,6 +41,24 @@ func (e *CollisionError) Error() string {
 // Unwrap exposes the ErrCollision sentinel.
 func (e *CollisionError) Unwrap() error { return ErrCollision }
 
+// ScanWarningsError reports ticket-directory entries the scanner
+// rejected (broken names, non-.md files, non-regular entries). Warnings
+// carries the raw scan findings; the cli renders them. Rejected entries
+// can never be archive candidates (status is filename-derived), so the
+// move of valid done/closed tickets proceeds and the warnings are
+// reported alongside the result.
+type ScanWarningsError struct{ Warnings []ParseWarning }
+
+// Error renders the internal (non-UI) description: every warning on one
+// joined line.
+func (e *ScanWarningsError) Error() string {
+	msgs := make([]string, len(e.Warnings))
+	for i, w := range e.Warnings {
+		msgs[i] = w.Error()
+	}
+	return fmt.Sprintf("store: scan warnings: %s", strings.Join(msgs, "; "))
+}
+
 // Archive moves ticket n from tickets/ to tickets/archive/, appending a
 // "перенесён в архив" journal line, and returns the full path of the
 // archived file (the cli prints it, mirroring bash `echo "$target"`).
@@ -68,9 +87,20 @@ func (s *Store) Archive(n int, who string) (string, error) {
 // tickets/archive/ and returns the full paths of the moved files in the
 // bash glob order: all done files first, then all closed files, each
 // group in ticket-number order (bash cmd_archive iterates the two globs
-// back to back). No closed tickets is NOT an error (bash rc=0): the
-// result is an empty slice with a nil error, and the cli prints the
+// back to back). No closed tickets is NOT an error (bash rc=0) — but
+// only when the scan produced no warnings: the result is an empty slice
+// with a nil error, and the cli prints the
 // "Нет закрытых тикетов для архивации." line.
+//
+// Scan warnings (broken names, non-.md files, non-regular entries) do
+// not block archiving: those entries can never be done/closed
+// candidates (status is filename-derived), so valid moves proceed.
+// Errors:
+//   - the directory itself is unreadable: "store: scan: %w", nothing
+//     is moved;
+//   - *ScanWarningsError after the loop when any entry was rejected;
+//   - a mid-run archiveOneLocked failure joined with the
+//     *ScanWarningsError accumulated so far (warnings are never lost).
 //
 // On failure the paths archived before the error are still returned, so
 // the caller can report the work that did land (bash echoes each target
@@ -78,7 +108,14 @@ func (s *Store) Archive(n int, who string) (string, error) {
 func (s *Store) ArchiveClosed(who string) ([]string, error) {
 	var moved []string
 	err := s.withLock(func() error {
-		entries, _, _ := s.scan()
+		entries, warnings, dirErr := s.scan()
+		if dirErr != nil {
+			return fmt.Errorf("store: scan: %w", dirErr)
+		}
+		var warnErr error
+		if len(warnings) > 0 {
+			warnErr = &ScanWarningsError{Warnings: warnings}
+		}
 		// Two passes over the number-sorted entries mirror the bash
 		// glob sequence T-NNNN-done.md then T-NNNN-closed.md.
 		for _, want := range []domain.Status{domain.StatusDone, domain.StatusClosed} {
@@ -88,12 +125,12 @@ func (s *Store) ArchiveClosed(who string) ([]string, error) {
 				}
 				target, aerr := s.archiveOneLocked(e.Number, who)
 				if aerr != nil {
-					return aerr
+					return errors.Join(aerr, warnErr)
 				}
 				moved = append(moved, target)
 			}
 		}
-		return nil
+		return warnErr
 	})
 	return moved, err
 }

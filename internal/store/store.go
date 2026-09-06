@@ -162,6 +162,19 @@ func (s *Store) Find(n int) (domain.Ticket, error) {
 //
 // Mutations on a read-only Store (NewReadOnly) are rejected by withLock
 // with ErrReadOnly.
+//
+// Mutation contract: Create mutates *t in place as follows.
+//   - If t.Status is empty it is set to open before the lock is taken;
+//     this assignment persists even when Create later returns an error.
+//   - On success t.Number holds the assigned number.
+//   - Early-out errors (a nil ticket or a non-open status) leave t
+//     untouched.
+//   - Errors from createLocked after a numbering attempt (including
+//     ErrCollision) leave t.Number holding the last attempted number;
+//     callers must not rely on it. The number-limit error (n > 9999)
+//     is the exception in that it returns before that attempt's
+//     assignment, so t.Number keeps whatever a previous attempt left
+//     (untouched only when the first attempt hits the limit).
 func (s *Store) Create(t *domain.Ticket) (int, error) {
 	if t == nil {
 		return 0, errors.New("store: Create: ticket is nil")

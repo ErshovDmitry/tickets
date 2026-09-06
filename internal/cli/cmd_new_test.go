@@ -66,10 +66,7 @@ func TestNewGoldenBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("created ticket is not readable: %v", err)
 	}
-	golden, err := os.ReadFile(filepath.Join("testdata", "golden-T-0001-open.md"))
-	if err != nil {
-		t.Fatalf("golden fixture is not readable: %v", err)
-	}
+	golden := goldenFixture(t)
 	if !bytes.Equal(normalizeVolatile(created), normalizeVolatile(golden)) {
 		t.Fatalf("created ticket differs from golden:\n--- created ---\n%s\n--- golden ---\n%s", created, golden)
 	}

@@ -53,6 +53,13 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		fmt.Fprintln(stderr, "ticket: краткое описание не может быть пустым")
 		return 1
 	}
+	// T-0044: a title with a line break corrupts the H1 — a later `set`
+	// re-render keeps only the first line (data loss). Reject CR/LF before
+	// any store access or file creation.
+	if strings.ContainsAny(f.title, "\r\n") {
+		fmt.Fprintln(stderr, domain.ErrTitleNewline(lang))
+		return 1
+	}
 	typ, okType := typeByName(f.typ)
 	prio, okPrio := priorityByName(f.prio)
 	if !okType {

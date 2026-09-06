@@ -10,6 +10,27 @@ import (
 	"ticket/internal/domain"
 )
 
+// goldenFixture reads the immutable golden fixture used by the raw-bytes
+// golden tests. An absent testdata/ directory means the test binary runs
+// outside the source tree (e.g. a compiled cli.test invoked from an
+// arbitrary CWD without a checkout), which is a legitimate environment —
+// such runs skip instead of failing. A present but unreadable fixture is
+// a repository regression and must fail hard.
+func goldenFixture(t *testing.T) []byte {
+	t.Helper()
+	if _, err := os.Stat("testdata"); err != nil {
+		if os.IsNotExist(err) {
+			t.Skipf("testdata/ not found: golden tests run only inside the source tree (run go test from the repo root)")
+		}
+		t.Fatalf("testdata/ not accessible: %v", err)
+	}
+	b, err := os.ReadFile(filepath.Join("testdata", "golden-T-0001-open.md"))
+	if err != nil {
+		t.Fatalf("golden fixture unreadable: %v", err)
+	}
+	return b
+}
+
 // TestGoldenRawBytes pins §7.3: RenderNewTicket over the FIXED golden
 // ticket must equal the immutable fixture
 // internal/cli/testdata/golden-T-0001-open.md byte-for-byte — no
@@ -47,10 +68,7 @@ func TestGoldenRawBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderNewTicket: %v", err)
 	}
-	want, err := os.ReadFile(filepath.Join("testdata", "golden-T-0001-open.md"))
-	if err != nil {
-		t.Fatalf("golden fixture unreadable: %v", err)
-	}
+	want := goldenFixture(t)
 	if !bytes.Equal(got, want) {
 		t.Fatalf("RenderNewTicket != golden (raw bytes):\n--- got ---\n%q\n--- want ---\n%q", got, want)
 	}

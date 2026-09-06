@@ -3,6 +3,7 @@ package lock
 import (
 	"bytes"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -155,6 +156,26 @@ func TestCompileMatrix(t *testing.T) {
 		{"lock_unix_test.go", "//go:build unix"},
 		{"lock_windows.go", "//go:build windows"},
 	}
+
+	// When every expected source file is reported missing by os.ReadFile
+	// (errors.Is wraps fs.ErrNotExist), the test binary is running
+	// outside the package source tree — e.g. a CI host that only carries
+	// prebuilt artifacts. The build-tag structural guarantee is
+	// meaningless without sources to inspect, so skip rather than fail.
+	// Any non-NotExist error or a partial absence is treated as a real
+	// defect and falls through to the t.Fatalf branch below.
+	allMissing := true
+	for _, c := range cases {
+		_, err := os.ReadFile(c.file)
+		if err == nil || !errors.Is(err, fs.ErrNotExist) {
+			allMissing = false
+			break
+		}
+	}
+	if allMissing {
+		t.Skip("source files missing; test binary is running outside the package source tree")
+	}
+
 	for _, c := range cases {
 		data, err := os.ReadFile(c.file)
 		if err != nil {

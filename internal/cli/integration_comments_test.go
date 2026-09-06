@@ -70,6 +70,7 @@ func assertCommentsIntact(t *testing.T, body []byte, remark, label string) {
 // → set done → the remark survives with no stub residue, and `show`
 // prints the done file bytes. Everything happens in a TempDir sandbox.
 func TestUserCommentsSurviveSetCycle(t *testing.T) {
+	requireBin(t)
 	tickets := t.TempDir()
 	cwd := t.TempDir()
 	out, stderr, code := runBin(t, ticketBin, cwd, tickets, "new", "Комментарии цикл", "-d", "детали цикла")
@@ -147,6 +148,7 @@ func assertFreeCommentsIntact(t *testing.T, body []byte, freeText, label string)
 // set wip → set done; the seeded legacy stub blanks to "" (not re-emitted)
 // and `show` matches the done file bytes.
 func TestFreeCommentsSurviveSetCycle(t *testing.T) {
+	requireBin(t)
 	tickets := t.TempDir()
 	cwd := t.TempDir()
 	const freeText = "заметки агента: воспроизведение в песочнице"
@@ -188,6 +190,7 @@ func TestFreeCommentsSurviveSetCycle(t *testing.T) {
 // free section on the first set; the free text stays verbatim and `show`
 // matches the file bytes.
 func TestSetInjectsUserSectionIntoLegacyWithComments(t *testing.T) {
+	requireBin(t)
 	tickets := t.TempDir()
 	cwd := t.TempDir()
 	const freeText = "заметки агента"
@@ -226,6 +229,7 @@ func TestSetInjectsUserSectionIntoLegacyWithComments(t *testing.T) {
 // archived by `archive`, gains BOTH sections — the empty user one
 // before the bare free one — while the original body is preserved.
 func TestArchiveInjectsBothSections(t *testing.T) {
+	requireBin(t)
 	tickets := t.TempDir()
 	seedTicket(t, tickets, "T-0001-done.md", legacyBody("done", ""))
 	out, stderr, code := runBin(t, ticketBin, t.TempDir(), tickets, "archive")

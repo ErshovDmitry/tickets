@@ -93,6 +93,49 @@ func TestCreate_NilTicket(t *testing.T) {
 	}
 }
 
+// TestCreate_MutationContract pins the documented in-place mutation
+// behaviour of Create: Status defaults to open before the lock, Number
+// is overwritten by the assigned value on success, and early-out errors
+// leave the ticket untouched.
+func TestCreate_MutationContract(t *testing.T) {
+	s, _ := newStore(t)
+
+	// Success: empty Status defaults to open, Number is assigned.
+	tk := fakeTicket(0)
+	tk.Status = ""
+	n, err := s.Create(tk)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if tk.Number != n {
+		t.Fatalf("want t.Number == %d, got %d", n, tk.Number)
+	}
+	if tk.Status != domain.StatusOpen {
+		t.Fatalf("want Status == %q, got %q", domain.StatusOpen, tk.Status)
+	}
+
+	// Overwrite: a pre-set Number is replaced by the assigned one.
+	over := fakeTicket(777)
+	over.Status = ""
+	n2, err := s.Create(over)
+	if err != nil {
+		t.Fatalf("Create (overwrite): %v", err)
+	}
+	if over.Number != n2 {
+		t.Fatalf("want t.Number == %d, got %d", n2, over.Number)
+	}
+
+	// Early-out: a non-open status errors and leaves the ticket untouched.
+	early := fakeTicket(777)
+	early.Status = domain.StatusWip
+	if _, err := s.Create(early); err == nil {
+		t.Fatal("expected error for non-open status")
+	}
+	if early.Number != 777 {
+		t.Fatalf("want untouched Number == 777, got %d", early.Number)
+	}
+}
+
 // ----------------------------------------------------------------------------
 // Create — concurrent numbering (c)
 // ----------------------------------------------------------------------------

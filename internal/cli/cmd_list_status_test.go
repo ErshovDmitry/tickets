@@ -41,6 +41,18 @@ func writeTamperedTicket(t *testing.T, claimed string) (dir string, body []byte)
 // TestList_BodyStatusCannotFakeFilter is the V19 regression: a crafted
 // "- Статус: done" line inside T-0001-open.md must not move the ticket
 // into the done bucket. The scan-matched filename status drives List.
+func TestList_RejectExtraPositionals(t *testing.T) {
+	dir, _ := writeTamperedTicket(t, "open")
+	var stdout, stderr bytes.Buffer
+	code := cli.Run([]string{"list", "active", "extra"}, map[string]string{"TICKETS_DIR": dir}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("list active extra = %d, want 1", code)
+	}
+	if !strings.Contains(stderr.String(), "список принимает не более одного аргумента") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func TestList_BodyStatusCannotFakeFilter(t *testing.T) {
 	dir, _ := writeTamperedTicket(t, "done")
 	env := map[string]string{"TICKETS_DIR": dir}
