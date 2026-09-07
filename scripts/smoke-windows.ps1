@@ -10,6 +10,7 @@
 #     5. global flag: -C / --tickets-dir= from a foreign CWD
 #     6. TICKETS_DIR env override
 #     7. parallel new x5 -> 5 unique sequential numbers (OS lock)
+#     8. init  -> tickets/ + tickets/archive/; repeat no-op; file conflict (exit 1, stderr)
 #   Runs entirely inside a temp sandbox; repo and user data are untouched.
 #
 # Usage (manually over SSH on the Windows host):
@@ -26,6 +27,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Decode native-command output as UTF-8 (Go binary writes UTF-8; PS 5.1 otherwise decodes via OEM code page).
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $script:passes = 0
 $script:fails  = 0
@@ -79,11 +82,15 @@ if (-not (Test-Path -LiteralPath $TicketExe -PathType Leaf)) {
 Write-Host "Windows smoke test for ticket.exe"
 Write-Host "Binary: $TicketExe"
 
-# Ticket files use Russian UI text (bash-reference compatible). Build the only
-# Cyrillic fragment we assert on from Unicode code points so that this script
+# Ticket files use Russian UI text (bash-reference compatible). Build the
+# Cyrillic fragments we assert on from Unicode code points so that this script
 # file stays pure ASCII: the body line checked below is "- Status (<RU 'status'>): wip".
 $statLabel = -join [char[]](0x0421, 0x0442, 0x0430, 0x0442, 0x0443, 0x0441)  # RU word for "status"
 $statWip = '- Status (' + $statLabel + '): wip'
+# Step 8 (init) asserts two more Russian fragments (cmd_init.go): success label
+# printed by `ticket init` + conflict label on stderr when a file blocks init.
+$initOkMsg = (-join [char[]](0x0418, 0x043D, 0x0438, 0x0446, 0x0438, 0x0430, 0x043B, 0x0438, 0x0437, 0x0438, 0x0440, 0x043E, 0x0432, 0x0430, 0x043D, 0x043E)) + ':'  # RU "initialized:"
+$conflictMsg = (-join [char[]](0x041A, 0x043E, 0x043D, 0x0444, 0x043B, 0x0438, 0x043A, 0x0442)) + ':'  # RU "conflict:"
 
 # Clean TICKETS_DIR baseline for the whole run; restore the original at exit
 # (otherwise a pre-existing override would send smoke tickets elsewhere).
@@ -259,6 +266,67 @@ try {
         Write-Pass 'parallel new x5: all exit 0, 5 unique numbers, files exist'
     } catch {
         Write-Fail ('parallel new: ' + $_.Exception.Message)
+    }
+
+    # ---- Step 8: init (create tree / no-op repeat / conflict on file) ----
+    try {
+        # Sub-case 1: clean dir -> tickets/ + archive/ created, usable for new/list.
+        $initDir = Join-Path $env:TEMP ('ticket-smoke-init-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $initDir -Force | Out-Null
+        $cleanup += $initDir
+        $r = Invoke-Ticket -ExePath $exe -Arguments @('init') -WorkingDirectory $initDir
+        Assert-True ($r.ExitCode -eq 0) ("init exit code " + $r.ExitCode + " (expected 0)")
+        Assert-True ($r.Stdout -match $initOkMsg) ("init stdout missing RU 'initialized' label: '" + $r.Stdout + "'")
+        $initTickets = Join-Path $initDir 'tickets'
+        $initArchive = Join-Path $initTickets 'archive'
+        Assert-True (Test-Path -LiteralPath $initTickets -PathType Container) ("tickets dir not created: " + $initTickets)
+        Assert-True (Test-Path -LiteralPath $initArchive -PathType Container) ("archive dir not created: " + $initArchive)
+        $r = Invoke-Ticket -ExePath $exe -Arguments @('new', 'smoke init ticket', '-t', 'OPS', '-p', 'low', '-d', 'init smoke') -WorkingDirectory $initDir
+        Assert-True ($r.ExitCode -eq 0) ("init-tree new exit code " + $r.ExitCode + " (expected 0)")
+        Assert-True (Test-Path -LiteralPath (Join-Path $initTickets 'T-0001-open.md')) 'T-0001-open.md not created in init tree'
+        $r = Invoke-Ticket -ExePath $exe -Arguments @('list') -WorkingDirectory $initDir
+        Assert-True ($r.ExitCode -eq 0) ("init-tree list exit code " + $r.ExitCode + " (expected 0)")
+        Assert-True ($r.Stdout -match 'T-0001') 'T-0001 not visible in init tree listing'
+        Write-Pass 'init: clean dir -> tickets/ + archive/ created, new/list see T-0001'
+
+        # Sub-case 2: repeat init is a no-op - still exit 0, same message.
+        $r = Invoke-Ticket -ExePath $exe -Arguments @('init') -WorkingDirectory $initDir
+        Assert-True ($r.ExitCode -eq 0) ("repeat init exit code " + $r.ExitCode + " (expected 0)")
+        Assert-True ($r.Stdout -match $initOkMsg) ("repeat init stdout missing RU 'initialized' label: '" + $r.Stdout + "'")
+        Write-Pass 'init: repeat run is a no-op, exit 0'
+
+        # Sub-case 3: a regular file named 'tickets' blocks init - exit 1,
+        # empty stdout, conflict label on stderr, file untouched. Direct .NET
+        # Process APIs (as in step 7): Invoke-Ticket captures only stdout.
+        $confDir = Join-Path $env:TEMP ('ticket-smoke-initc-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $confDir -Force | Out-Null
+        $cleanup += $confDir
+        $confFile = Join-Path $confDir 'tickets'
+        Set-Content -LiteralPath $confFile -Value 'existing' -Encoding Ascii -NoNewline
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $exe
+        $psi.Arguments = 'init'
+        $psi.WorkingDirectory = $confDir
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+        $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+        $p = [System.Diagnostics.Process]::Start($psi)
+        if (-not $p.WaitForExit(30000)) {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            throw 'init process did not exit within 30 s'
+        }
+        $confOut = $p.StandardOutput.ReadToEnd().Trim()
+        $confErr = $p.StandardError.ReadToEnd().Trim()
+        Assert-True ($p.ExitCode -eq 1) ("conflict init exit code " + $p.ExitCode + " (expected 1)")
+        Assert-True ($confOut.Length -eq 0) ("conflict init stdout not empty: '" + $confOut + "'")
+        Assert-True ($confErr -match $conflictMsg) ("conflict init stderr missing RU 'conflict' label: '" + $confErr + "'")
+        Assert-True ((Get-Content -LiteralPath $confFile -Raw) -ceq 'existing') 'conflicting tickets file was modified by init'
+        Write-Pass 'init: file named tickets -> exit 1, stderr conflict label, file untouched'
+    } catch {
+        Write-Fail ('init: ' + $_.Exception.Message)
     }
 
     # ---- Summary ----
