@@ -48,7 +48,7 @@ func usage(w io.Writer, lang domain.Lang) {
 		// The error is possible when a language is registered (its data
 		// file exists) but templates/usage.<lang>.txt is missing. The panic
 		// is a deliberate fast stop: a new language must ship its usage
-		// file (see the checklist in docs/add-language.md).
+		// file (see the checklist in docs_api/add-language.md).
 		panic(fmt.Sprintf("usage: read %s: %v", fname, err))
 	}
 	_, _ = io.WriteString(w, string(data))
