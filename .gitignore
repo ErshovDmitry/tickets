@@ -9,5 +9,5 @@
 # Агентские файлы и локальная документация (не пушим)
 /AGENTS.md
 /AGENTS_ARCHITECTURE.md
-/docs/
+/docs_api/
 /DEPLOY.md
