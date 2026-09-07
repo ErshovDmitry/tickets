@@ -37,16 +37,28 @@ func mkdirTemp(t *testing.T, dir string) string {
 	return dir
 }
 
-// TestResolveEnv covers Tier 1: the $TICKETS_DIR override, including
-// ErrEnvNotDir discrimination for missing paths and regular files.
-// Assumption: no ancestor of t.TempDir() contains a directory named
-// "tickets" (relevant for the empty-env fall-through rows).
+// assertInvalidDir checks ErrInvalidDir discrimination: the sentinel, the
+// source label ("(TICKETS_DIR)" or "(--tickets-dir)") and the human hint.
+func assertInvalidDir(t *testing.T, err error, label, hint string) {
+	t.Helper()
+	if !errors.Is(err, ErrInvalidDir) {
+		t.Fatalf("err = %v, want errors.Is ErrInvalidDir", err)
+	}
+	if !strings.Contains(err.Error(), "("+label+")") {
+		t.Errorf("err = %q, want source label (%s)", err, label)
+	}
+	if !strings.Contains(err.Error(), hint) {
+		t.Errorf("err = %q, want hint %q", err, hint)
+	}
+}
+
+// TestResolveEnv covers the $TICKETS_DIR tier: a valid dir resolves, while
+// a missing path or a regular file yields ErrInvalidDir carrying the
+// (TICKETS_DIR) source label. Assumption: no ancestor of t.TempDir()
+// contains a directory named "tickets" (empty-env rows below).
 func TestResolveEnv(t *testing.T) {
 	root := t.TempDir()
-	tickets := filepath.Join(root, "tickets")
-	mkdirTemp(t, tickets)
-	want := mustEvalSymlinks(t, tickets)
-
+	tickets := mkdirTemp(t, filepath.Join(root, "tickets"))
 	file := filepath.Join(root, "plain.txt")
 	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -55,42 +67,21 @@ func TestResolveEnv(t *testing.T) {
 	tests := []struct {
 		name    string
 		env     string
-		cwd     string
 		want    string
 		wantErr error
 		hint    string
 	}{
-		{
-			name: "existing dir",
-			env:  tickets,
-			cwd:  t.TempDir(),
-			want: want,
-		},
-		{
-			name:    "missing path",
-			env:     filepath.Join(root, "nope"),
-			cwd:     t.TempDir(),
-			wantErr: ErrEnvNotDir,
-			hint:    "path does not exist: " + mustAbs(t, filepath.Join(root, "nope")),
-		},
-		{
-			name:    "regular file",
-			env:     file,
-			cwd:     t.TempDir(),
-			wantErr: ErrEnvNotDir,
-			hint:    "not a directory: " + mustEvalSymlinks(t, file),
-		},
+		{name: "existing dir", env: tickets, want: mustEvalSymlinks(t, tickets)},
+		{name: "missing path", env: filepath.Join(root, "nope"), wantErr: ErrInvalidDir,
+			hint: "path does not exist: " + mustAbs(t, filepath.Join(root, "nope"))},
+		{name: "regular file", env: file, wantErr: ErrInvalidDir,
+			hint: "not a directory: " + mustEvalSymlinks(t, file)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Resolve(map[string]string{envTicketsDir: tt.env}, tt.cwd, "")
+			got, err := Resolve(map[string]string{envTicketsDir: tt.env}, t.TempDir(), "")
 			if tt.wantErr != nil {
-				if !errors.Is(err, tt.wantErr) {
-					t.Fatalf("err = %v, want errors.Is %v", err, tt.wantErr)
-				}
-				if !strings.Contains(err.Error(), tt.hint) {
-					t.Errorf("err = %q, want hint %q", err, tt.hint)
-				}
+				assertInvalidDir(t, err, srcEnv, tt.hint)
 				return
 			}
 			if err != nil {
@@ -104,7 +95,7 @@ func TestResolveEnv(t *testing.T) {
 }
 
 // TestResolveEmptyEnvFallsThrough covers the empty/unset $TICKETS_DIR
-// fall-through to the Tier-2 upward scan.
+// fall-through to the upward scan.
 func TestResolveEmptyEnvFallsThrough(t *testing.T) {
 	root := t.TempDir()
 	tickets := mkdirTemp(t, filepath.Join(root, "tickets"))
@@ -189,105 +180,27 @@ func TestScanUpwardParentSymlink(t *testing.T) {
 	}
 }
 
-// TestResolveExeRelative covers Tier 3: the tickets/bin/ticket layout,
-// ErrNoExePath for an empty exe path, and ErrNotResolved for failures.
-func TestResolveExeRelative(t *testing.T) {
-	root := t.TempDir()
-	tickets := mkdirTemp(t, filepath.Join(root, "tickets"))
-	bin := mkdirTemp(t, filepath.Join(tickets, "bin"))
-	exe := filepath.Join(bin, "ticket")
-	if err := os.WriteFile(exe, []byte{0x7f}, 0o755); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	want := filepath.Dir(filepath.Dir(mustEvalSymlinks(t, exe)))
-
-	bareRoot := t.TempDir()
-	strayExe := filepath.Join(mkdirTemp(t, filepath.Join(bareRoot, "other")), "ticket")
-	if err := os.WriteFile(strayExe, []byte{0x7f}, 0o755); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-
-	tests := []struct {
-		name    string
-		exePath string
-		want    string
-		wantErr error
-		hint    string
-	}{
-		{
-			name:    "bin layout",
-			exePath: exe,
-			want:    want,
-		},
-		{
-			name:    "empty exe path",
-			exePath: "",
-			wantErr: ErrNoExePath,
-		},
-		{
-			name:    "missing exe",
-			exePath: filepath.Join(bareRoot, "ghost"),
-			wantErr: ErrNotResolved,
-			hint:    filepath.Join(bareRoot, "ghost"),
-		},
-		{
-			name:    "bin dot-dot is not tickets",
-			exePath: strayExe,
-			wantErr: ErrNotResolved,
-			hint:    strayExe,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// cwd without any tickets ancestor: Tier 2 must miss so the
-			// exe tier is reached (see TestScanUpward assumption).
-			got, err := Resolve(map[string]string{}, t.TempDir(), tt.exePath)
-			if tt.wantErr != nil {
-				if !errors.Is(err, tt.wantErr) {
-					t.Fatalf("err = %v, want errors.Is %v", err, tt.wantErr)
-				}
-				if tt.hint != "" && !strings.Contains(err.Error(), tt.hint) {
-					t.Errorf("err = %q, want hint %q", err, tt.hint)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Resolve: %v", err)
-			}
-			if got != tt.want {
-				t.Errorf("Resolve = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-// TestResolveNotResolvedHints checks the diagnostic message of the final
-// ErrNotResolved error. Plan §4 step 5: hints are unquoted,
-// "$TICKETS_DIR=, cwd=<abs>, exe=<abs>".
+// TestResolveNotResolvedHints checks the final ErrNotResolved diagnostics
+// (plan T-0057 §C1-3): unquoted hints cover the flag, the env var and the
+// cwd — with no "exe=" remnant of the removed exe-relative tier.
 func TestResolveNotResolvedHints(t *testing.T) {
 	cwd := t.TempDir()
-	_, err := Resolve(map[string]string{}, cwd, "some-exe")
+	_, err := Resolve(map[string]string{}, cwd, "")
 	if !errors.Is(err, ErrNotResolved) {
 		t.Fatalf("err = %v, want errors.Is ErrNotResolved", err)
 	}
-	for _, hint := range []string{"set TICKETS_DIR", cwd, "some-exe"} {
+	for _, hint := range []string{"--tickets-dir", "-C", "TICKETS_DIR", cwd} {
 		if !strings.Contains(err.Error(), hint) {
 			t.Errorf("err = %q, want hint %q", err, hint)
 		}
 	}
-	// Plan format (unquoted): $TICKETS_DIR=, cwd=<abs>, exe=<abs>.
-	wantFragment := fmt.Sprintf("$TICKETS_DIR=, cwd=%s, exe=some-exe", cwd)
-	if !strings.Contains(err.Error(), wantFragment) {
-		t.Errorf("err = %q, want fragment %q", err, wantFragment)
+	// Plan format (unquoted): --tickets-dir=, $TICKETS_DIR=, cwd=<abs>.
+	if want := fmt.Sprintf("--tickets-dir=, $TICKETS_DIR=, cwd=%s", cwd); !strings.Contains(err.Error(), want) {
+		t.Errorf("err = %q, want fragment %q", err, want)
 	}
-	// No quoted forms (plan §4 step 5 unquoted).
-	for _, bad := range []string{
-		fmt.Sprintf(`$TICKETS_DIR=%q`, ""),
-		fmt.Sprintf(`cwd=%q`, cwd),
-		`exe="some-exe"`,
-	} {
+	for _, bad := range []string{"exe=", fmt.Sprintf("cwd=%q", cwd)} {
 		if strings.Contains(err.Error(), bad) {
-			t.Errorf("err = %q must not contain quoted fragment %q", err, bad)
+			t.Errorf("err = %q must not contain %q", err, bad)
 		}
 	}
 }

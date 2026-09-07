@@ -144,6 +144,8 @@ func TestUsageFixtureENCompleteness(t *testing.T) {
 		"Types:",
 		"Secrets (passwords",
 		"Migrating old tickets",
+		"--tickets-dir",
+		"Tickets dir discovery",
 	} {
 		if !bytes.Contains(usageFixtureEN, []byte(want)) {
 			t.Errorf("usageFixtureEN is missing %q", want)

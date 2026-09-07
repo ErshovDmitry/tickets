@@ -20,11 +20,34 @@ Cross-platform (Windows / Linux / macOS) CLI ticket system in Go.
 
 ## Installation
 
-The ready binary goes into `<project>/tickets/bin/` — from there it locates the tickets directory itself and works from any current directory. Resolution order (first match wins):
+Put the binary on your `PATH` (`~/bin/ticket`; `%USERPROFILE%\bin\ticket.exe` on Windows). It locates the tickets directory itself from any current directory. Resolution order (first match wins):
 
-1. `$TICKETS_DIR` — explicit override;
-2. upward scan from the current directory for a child directory named `tickets` (git-style);
-3. exe-relative: `<dir-of-exe>/..` — the standard layout `tickets/bin/ticket`.
+1. `-C <path>` / `--tickets-dir <path>` — per-invocation override, path to the tickets directory itself;
+2. `$TICKETS_DIR`;
+3. upward scan from the current directory for a child directory named `tickets` (git-style).
+
+> **Migration note.** Projects created by older versions keep a binary or symlink at `tickets/bin/` — they keep working when invoked from inside the project tree (upward scan). What no longer works: calling that binary by absolute path from an unrelated directory and relying on its location. Use `-C <tickets-dir>` or `TICKETS_DIR`. The stale `tickets/bin/` copy can be deleted at your convenience.
+
+### Quick start
+
+From the project root:
+
+```bash
+ticket init
+```
+
+This creates `tickets/` and `tickets/archive/`. Idempotent. It does NOT install the binary — keep one `ticket` on your `PATH`.
+
+### One binary, many projects
+
+One binary on your `PATH` serves all projects: build it once into `~/bin/ticket`, then run `ticket init` in each project to create its tickets structure:
+
+```bash
+VER=$(git describe --tags --always 2>/dev/null | sed 's/^v//'); VER=${VER:-dev}
+CGO_ENABLED=0 go build -ldflags "-X ticket/internal/cli.version=$VER" -o ~/bin/ticket ./cmd/ticket
+cd <project>
+ticket init
+```
 
 ### Configuration (env)
 
@@ -33,6 +56,8 @@ The ready binary goes into `<project>/tickets/bin/` — from there it locates th
 | `TICKETS_DIR` | explicit tickets directory override |
 | `TICKET_WHO` | ticket author; chain `TICKET_WHO → USER → USERNAME → agent` |
 | `TICKET_LANG` | language of `ticket help` and of files created by `ticket new`; chain `TICKET_LANG → LC_ALL → LANG`, default **RU** (EN is opt-in: `TICKET_LANG=en`) |
+
+The `-C`/`--tickets-dir` flag (see [Installation](#installation)) overrides `TICKETS_DIR` for a single invocation.
 
 ## Build from source
 
@@ -47,7 +72,7 @@ VER=$(git describe --tags --always 2>/dev/null | sed 's/^v//'); VER=${VER:-dev}
 Current platform:
 
 ```bash
-CGO_ENABLED=0 go build -ldflags "-X ticket/internal/cli.version=$VER" -o tickets/bin/ticket ./cmd/ticket
+CGO_ENABLED=0 go build -ldflags "-X ticket/internal/cli.version=$VER" -o ~/bin/ticket ./cmd/ticket
 ```
 
 Cross-compilation (all with `CGO_ENABLED=0`, format `GOOS=... GOARCH=... go build -o dist/<name> ./cmd/ticket`):
@@ -120,6 +145,8 @@ Full command reference — verbatim output of `ticket help` (`TICKET_LANG=en`; t
 ticket version dev
 ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
 
+  ticket init
+      create the tickets structure in the current directory: tickets/ and tickets/archive/ (idempotent)
   ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who] [-P <project>]
       create a ticket (status open), prints the file path;
       -P overrides the project (default = basename of tickets/ parent);
@@ -204,12 +231,12 @@ Paste the block below into the `AGENTS.md` of the project that uses `tickets/` (
 ```markdown
 ## Tickets (`tickets/`)
 
-- At session start: `./tickets/bin/ticket list` — if there are open tickets, briefly remind the user about them in your first reply.
-- Found a problem, bug, or anything suspicious while working — create a ticket IMMEDIATELY: `./tickets/bin/ticket new "<brief>" -t BUG|OPS|TD|ENH -p low|normal|high -d "<details>"`. Do not stay silent, even if you worked around or fixed it on the spot. Put file:line into the details.
-- Status changes — only via `./tickets/bin/ticket set <number> <status> "<comment>"` (the binary renames the file itself and appends the ticket journal); never rename ticket files manually.
+- At session start: `ticket list` — if there are open tickets, briefly remind the user about them in your first reply.
+- Found a problem, bug, or anything suspicious while working — create a ticket IMMEDIATELY: `ticket new "<brief>" -t BUG|OPS|TD|ENH -p low|normal|high -d "<details>"`. Do not stay silent, even if you worked around or fixed it on the spot. Put file:line into the details.
+- Status changes — only via `ticket set <number> <status> "<comment>"` (the binary renames the file itself and appends the ticket journal); never rename ticket files manually.
 - Before working on a ticket, read its `User comments` section — the user leaves remarks there; the agent does not write there. Free-form working notes go to `Comments`.
 - Tests/smoke runs of `ticket` — only in a sandbox (a temp directory via `$TICKETS_DIR`), NEVER in the live `tickets/`.
-- Many closed tickets (`done`/`closed`) — move them into the archive: `./tickets/bin/ticket archive`. Archived tickets are not lost: `ticket list archive`, `show`/`set` work with them, reopening returns a ticket into work.
+- Many closed tickets (`done`/`closed`) — move them into the archive: `ticket archive`. Archived tickets are not lost: `ticket list archive`, `show`/`set` work with them, reopening returns a ticket into work.
 - Do NOT write secrets (passwords, tokens, keys) into tickets.
 ```
 
@@ -224,7 +251,7 @@ gofmt -l . && go vet ./...      # must be clean before commit
 go test ./...                   # must be green before marking done
 ```
 
-Local build — see [Build from source](#build-from-source). For Windows: cross-compile `dist/ticket.exe` (windows/amd64, see the table above) and run `scripts/smoke-windows.ps1` on a Windows host (manually over SSH). The smoke script verifies `new`/`list`/`show`/`set`, exe-relative resolution from a foreign working directory, the `TICKETS_DIR` override, and parallel `new` ×5 (five unique sequential numbers via OS lock) — entirely inside a temp sandbox, the repo and user data are untouched.
+Local build — see [Build from source](#build-from-source). For Windows: cross-compile `dist/ticket.exe` (windows/amd64, see the table above) and run `scripts/smoke-windows.ps1` on a Windows host (manually over SSH). The smoke script verifies `new`/`list`/`show`/`set`, the global `-C`/`--tickets-dir` flag from a foreign working directory, the `TICKETS_DIR` override, and parallel `new` ×5 (five unique sequential numbers via OS lock) — entirely inside a temp sandbox, the repo and user data are untouched.
 
 ## Links
 

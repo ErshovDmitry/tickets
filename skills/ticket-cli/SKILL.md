@@ -1,8 +1,8 @@
 ---
 name: ticket-cli
-version: "1.1"
+version: "1.2"
 created: 2026-09-04
-modified: 2026-09-04
+modified: 2026-09-07
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets."
@@ -15,12 +15,24 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 ## Context
 
 - Tickets are plain files `tickets/T-NNNN-<status>.md`; files are the single source of truth; there is NO database.
-- In this repo the CLI is `./tickets/bin/ticket` (bash reference). The Go binary `ticket` (when built/installed) has the same commands plus a `-P <project>` flag (see README).
+- The CLI is `ticket` on your `PATH` (`~/bin/ticket`; `%USERPROFILE%\bin\ticket.exe` on Windows); `-P <project>` flag: see README.
 - Numbers are issued atomically via OS locks and are never reused. Status lives in the file name — NEVER rename ticket files manually.
-- Ticket directory discovery: env `TICKETS_DIR` overrides; otherwise the binary scans upward from cwd for `tickets/` (see README Installation).
+- Ticket directory discovery, first match wins: `-C`/`--tickets-dir` → `$TICKETS_DIR` → upward scan from cwd for `tickets/` (see README Installation).
 - i18n: language chain `TICKET_LANG → LC_ALL → LANG`, default **RU**; `TICKET_LANG=en` opts into English help and English-label ticket files.
 
 ## Commands
+
+### Global flag
+
+`-C <path>` / `-C<path>` / `--tickets-dir <path>` / `--tickets-dir=<path>` — the value is the path to the tickets directory itself (not a parent). Overrides `TICKETS_DIR`. Works with every command except `init` (which creates, never resolves).
+
+### `init`
+
+```
+ticket init
+```
+
+Creates `tickets/` and `tickets/archive/` in the current directory. Idempotent: repeat runs do nothing. Exit 1 if `tickets` exists as a non-directory (file/FIFO/broken link) — never overwrites. It does NOT install the binary.
 
 ### `new`
 
@@ -89,7 +101,7 @@ Labels are bilingual under the RU default locale:
 ## Pitfalls
 
 1. 🔴 `ticket new --help` is NOT a help flag — it CREATES a garbage ticket titled `--help` (known bug T-0041). NEVER pass flags as the title; after `new`, check the created file.
-2. 🔴 Test/smoke runs ONLY in a sandbox: copy the script to `/tmp` (bash version) or set `TICKETS_DIR` (Go version). NEVER experiment in the live `tickets/` dir (incident T-0023).
+2. 🔴 Test/smoke runs ONLY in a sandbox: set `TICKETS_DIR` or pass `-C /tmp/…` (Go version); copy the script to `/tmp` (bash version). NEVER experiment in the live `tickets/` dir (incident T-0023).
 3. 🔴 NEVER write secrets (passwords, tokens, keys) into tickets.
 4. 🔴 Closing gate: verify the fix FIRST, then IMMEDIATELY `ticket set N done "<comment with evidence>"`. The comment MUST state what was checked: command + result, file:line. `done` without evidence is forbidden; NEVER batch status flips "for later".
 5. 🔴 BEFORE working on a ticket, read its `## User comments` section — the user leaves remarks there; the agent NEVER writes there. The agent's working notes go to `## Comments`.
@@ -121,3 +133,4 @@ ticket-cli/
 |------|-------|-------------|---------|
 | 2026-09-04 | Initial version | Created workflow skill from `ticket` CLI help | 1.0 |
 | 2026-09-04 | Review round 1: bilingual file format missing, type non-canonical, no See also | Added bilingual/EN label forms, TICKET_LANG + dir discovery notes, type: guide, See also | 1.1 |
+| 2026-09-07 | T-0057: global flag + 3-tier discovery, init simplified | — | 1.2 |

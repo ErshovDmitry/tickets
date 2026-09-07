@@ -1,13 +1,13 @@
 package cli_test
 
-// §7.2 binary-level integration scenarios: foreign-CWD full cycle,
-// symlink invocation, and N=8 parallel OS-process numbering.
+// §7.2 binary-level integration scenarios: foreign-CWD full cycle and
+// N=8 parallel OS-process numbering; `ticket init` scenarios (T-0057:
+// init creates only tickets/ + tickets/archive/, no bin/, no symlink).
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -75,62 +75,6 @@ func TestForeignCWDNewListShowSet(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(ticketsEval, "T-0001-wip.md")); err != nil {
 		t.Fatalf("T-0001-wip.md missing: %v", err)
 	}
-}
-
-// installCopy copies src to dst with mode 0o755.
-func installCopy(t *testing.T, src, dst string) {
-	t.Helper()
-	in, err := os.Open(src)
-	if err != nil {
-		t.Fatalf("open %s: %v", src, err)
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
-	if err != nil {
-		t.Fatalf("create %s: %v", dst, err)
-	}
-	if _, err := io.Copy(out, in); err != nil {
-		t.Fatalf("copy: %v", err)
-	}
-	if err := out.Close(); err != nil {
-		t.Fatalf("close %s: %v", dst, err)
-	}
-}
-
-// TestSymlinkInvocation installs the binary as tickets/bin/ticket and runs
-// it through a symlink: exe resolution must follow the real executable to
-// the bin/.. layout (§7.2).
-func TestSymlinkInvocation(t *testing.T) {
-	requireBin(t)
-	root := t.TempDir()
-	tickets := filepath.Join(root, "tickets")
-	binDir := filepath.Join(tickets, "bin")
-	if err := os.MkdirAll(binDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	// Both the installed name and the symlink name carry the OS exe
-	// suffix: on Windows the launcher only executes "*.exe" files.
-	installed := filepath.Join(binDir, "ticket"+exeSuffix())
-	installCopy(t, ticketBin, installed)
-	link := filepath.Join(root, "ticket-link"+exeSuffix())
-	if err := os.Symlink(installed, link); err != nil {
-		t.Skipf("symlink unavailable on this host: %v", err)
-	}
-	cwd := t.TempDir()
-	ticketsEval := mustEval(t, tickets)
-
-	out, stderr, code := runBin(t, link, cwd, "", "new", "Симлинк тикет")
-	if code != 0 {
-		t.Fatalf("new via symlink: code=%d stderr=%q", code, stderr)
-	}
-	wantPath := filepath.Join(ticketsEval, "T-0001-open.md") + "\n"
-	if out != wantPath {
-		t.Fatalf("new stdout = %q, want %q", out, wantPath)
-	}
-	if _, err := os.Stat(strings.TrimSuffix(wantPath, "\n")); err != nil {
-		t.Fatalf("ticket not created in exe-relative dir: %v", err)
-	}
-	assertEmptyDir(t, cwd, "foreign cwd")
 }
 
 // parallelNew is the §7.2 concurrency width: N parallel OS processes.
@@ -202,5 +146,94 @@ func TestParallelNewUniqueContiguous(t *testing.T) {
 	}
 	if files != parallelNew {
 		t.Fatalf("tickets dir holds %d files, want %d", files, parallelNew)
+	}
+}
+
+// TestInitCreatesStructure verifies `ticket init` creates tickets/ and
+// tickets/archive/ (no bin/, no symlink) and that a subsequent new/list
+// cycle lands in the created tree via the upward scan. Cross-platform:
+// no symlinks are involved anymore (T-0057 removed the deploy model).
+func TestInitCreatesStructure(t *testing.T) {
+	requireBin(t)
+	root := t.TempDir()
+	cwd := root
+
+	out, stderr, code := runBin(t, ticketBin, cwd, "", "init")
+	if code != 0 {
+		t.Fatalf("init: code=%d stderr=%q", code, stderr)
+	}
+	if !strings.Contains(out, "Инициализировано:") {
+		t.Errorf("init stdout=%q missing initialized message", out)
+	}
+	tickets := filepath.Join(root, "tickets")
+	for _, dir := range []string{tickets, filepath.Join(tickets, "archive")} {
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			t.Fatalf("init did not create %s as a directory (err=%v)", dir, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(tickets, "bin")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("tickets/bin must not exist after init (err=%v)", err)
+	}
+
+	ticketsEval := mustEval(t, tickets)
+	out, stderr, code = runBin(t, ticketBin, cwd, "", "new", "Via init")
+	if code != 0 {
+		t.Fatalf("new after init: code=%d stderr=%q", code, stderr)
+	}
+	if want := filepath.Join(ticketsEval, "T-0001-open.md") + "\n"; out != want {
+		t.Fatalf("new stdout=%q want %q", out, want)
+	}
+
+	out, _, code = runBin(t, ticketBin, cwd, "", "list")
+	if code != 0 {
+		t.Fatalf("list after init: code=%d", code)
+	}
+	if !strings.Contains(out, "T-0001") {
+		t.Errorf("list output=%q missing T-0001", out)
+	}
+}
+
+// TestInitIdempotent verifies repeat init is no-op exit 0 (§B3: the same
+// "Инициализировано:" line both times — no separate already-text).
+func TestInitIdempotent(t *testing.T) {
+	requireBin(t)
+	root := t.TempDir()
+
+	if _, stderr, code := runBin(t, ticketBin, root, "", "init"); code != 0 {
+		t.Fatalf("first init: code=%d stderr=%q", code, stderr)
+	}
+
+	out, stderr, code := runBin(t, ticketBin, root, "", "init")
+	if code != 0 {
+		t.Fatalf("second init: code=%d stderr=%q", code, stderr)
+	}
+	if !strings.Contains(out, "Инициализировано:") {
+		t.Errorf("second init stdout=%q missing initialized message", out)
+	}
+}
+
+// TestInitConflictRealFile verifies init fails gracefully when tickets
+// itself is a regular file: exit 1, empty stdout, bytes untouched.
+func TestInitConflictRealFile(t *testing.T) {
+	requireBin(t)
+	root := t.TempDir()
+	dst := filepath.Join(root, "tickets")
+	origContent := []byte("existing-file-content")
+	os.WriteFile(dst, origContent, 0644)
+
+	out, stderr, code := runBin(t, ticketBin, root, "", "init")
+	if code != 1 {
+		t.Fatalf("init conflict regular file: code=%d want 1", code)
+	}
+	if !strings.Contains(stderr, "Конфликт:") {
+		t.Errorf("stderr=%q missing Конфликт", stderr)
+	}
+	if out != "" {
+		t.Errorf("stdout=%q want empty on conflict", out)
+	}
+
+	data, _ := os.ReadFile(dst)
+	if !bytes.Equal(data, origContent) {
+		t.Errorf("conflict overwrote file: got %q want %q", data, origContent)
 	}
 }

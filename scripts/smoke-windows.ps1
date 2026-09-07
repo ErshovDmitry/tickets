@@ -7,7 +7,7 @@
 #     2. list  -> shows the ticket
 #     3. show  -> prints the ticket body
 #     4. set   -> renames to T-0001-wip.md, updates status line + journal
-#     5. exe-relative resolution: run by absolute path from a foreign CWD
+#     5. global flag: -C / --tickets-dir= from a foreign CWD
 #     6. TICKETS_DIR env override
 #     7. parallel new x5 -> 5 unique sequential numbers (OS lock)
 #   Runs entirely inside a temp sandbox; repo and user data are untouched.
@@ -96,18 +96,19 @@ if ($prevTicketsDir) {
 $cleanup = @()
 $sb = $null
 try {
-    # Sandbox: <temp>\ticket-smoke-<guid>\tickets\bin\ticket.exe
+    # Sandbox: <temp>\ticket-smoke-<guid>\bin\ticket.exe
     try {
         $sb = Join-Path $env:TEMP ('ticket-smoke-' + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Path (Join-Path $sb 'tickets\bin') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $sb 'tickets') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $sb 'bin') -Force | Out-Null
         $cleanup += $sb
-        Copy-Item -LiteralPath $TicketExe -Destination (Join-Path $sb 'tickets\bin\ticket.exe')
+        Copy-Item -LiteralPath $TicketExe -Destination (Join-Path $sb 'bin\ticket.exe')
     } catch {
         Write-Host ("[FAIL] sandbox setup: " + $_.Exception.Message)
         Write-Host "SMOKE RESULT: FAIL (sandbox setup)"
         exit 1
     }
-    $exe = Join-Path $sb 'tickets\bin\ticket.exe'
+    $exe = Join-Path $sb 'bin\ticket.exe'
     $ticketsDir = Join-Path $sb 'tickets'
     Write-Host "Sandbox: $sb"
     Write-Host ''
@@ -160,14 +161,19 @@ try {
         Write-Fail ('set: ' + $_.Exception.Message)
     }
 
-    # ---- Step 5: foreign CWD, absolute exe path (exe-relative resolution) ----
+    # ---- Step 5: foreign CWD + global flag (-C / --tickets-dir) ----
+    # NOTE: the real Windows run on the test host is tracked by T-0055,
+    # not by this change; this script only encodes the expected scenario.
     try {
-        $r = Invoke-Ticket -ExePath $exe -Arguments @('list') -WorkingDirectory $env:TEMP
-        Assert-True ($r.ExitCode -eq 0) ("exit code " + $r.ExitCode + " (expected 0)")
-        Assert-True ($r.Stdout -match 'T-0001') 'ticket not visible from a foreign CWD'
-        Write-Pass 'foreign CWD: exe-relative tickets dir resolution works'
+        $r = Invoke-Ticket -ExePath $exe -Arguments @('-C', $ticketsDir, 'list') -WorkingDirectory $env:TEMP
+        Assert-True ($r.ExitCode -eq 0) ("-C exit code " + $r.ExitCode + " (expected 0)")
+        Assert-True ($r.Stdout -match 'T-0001') 'ticket not visible via -C from a foreign CWD'
+        $r2 = Invoke-Ticket -ExePath $exe -Arguments @(("--tickets-dir=" + $ticketsDir), 'list') -WorkingDirectory $env:TEMP
+        Assert-True ($r2.ExitCode -eq 0) ("--tickets-dir= exit code " + $r2.ExitCode + " (expected 0)")
+        Assert-True ($r2.Stdout -match 'T-0001') 'ticket not visible via --tickets-dir= from a foreign CWD'
+        Write-Pass 'foreign CWD: -C and --tickets-dir resolve the tickets dir'
     } catch {
-        Write-Fail ('foreign CWD: ' + $_.Exception.Message)
+        Write-Fail ('foreign CWD flag: ' + $_.Exception.Message)
     }
 
     # ---- Step 6: TICKETS_DIR override ----
@@ -181,6 +187,14 @@ try {
         $envFile = Join-Path $envT 'T-0001-open.md'
         Assert-True (Test-Path -LiteralPath $envFile) ("file not created in TICKETS_DIR: " + $envFile)
         Write-Pass 'TICKETS_DIR: new ticket created in override directory'
+        # Priority: flag must beat the env override. With TICKETS_DIR still
+        # pointing at $envT, -C $ticketsDir must list the sandbox ticket
+        # (status wip / title 'smoke test ticket'); a bare T-0001 match would
+        # not discriminate (the env ticket is T-0001 too, inside $envT).
+        $r = Invoke-Ticket -ExePath $exe -Arguments @('-C', $ticketsDir, 'list') -WorkingDirectory $sb
+        Assert-True ($r.ExitCode -eq 0) ("flag>env exit code " + $r.ExitCode + " (expected 0)")
+        Assert-True (($r.Stdout -match 'wip') -or ($r.Stdout -match 'smoke test ticket')) 'flag > TICKETS_DIR: sandbox ticket not listed via -C while env override is set'
+        Write-Pass 'flag > env: -C wins over TICKETS_DIR'
     } catch {
         Write-Fail ('TICKETS_DIR: ' + $_.Exception.Message)
     } finally {

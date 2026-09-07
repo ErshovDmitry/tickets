@@ -14,9 +14,9 @@ import (
 	"ticket/internal/store"
 )
 
-// Run dispatches args[0] to the command handler and returns the process
-// exit code. args must not include argv[0]: main passes os.Args[1:], unit
-// callers pass the command name and its arguments directly. No command
+// Run extracts a leading global tickets-dir flag, then dispatches args[0] to the command handler and returns the process
+// exit code. args must not include the program name (main strips argv[0]);
+// unit callers pass the command name and its arguments directly. No command
 // given means help (bash:147 cmd="${1:-help}"); an unknown command prints
 // usage to stdout and exits 1 (bash:154). "version", "--version" and "-v"
 // print the version line to stdout and exit 0 without dispatch: like help,
@@ -37,13 +37,47 @@ import (
 // here from the tickets dir resolved ONCE, who is the resolved user
 // (TICKET_WHO → USER → USERNAME → agent, bash:12) and project is
 // filepath.Base(filepath.Dir(dir)) (bash:10).
+func extractGlobalDir(args []string) (dir string, rest []string) {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case a == "--tickets-dir" || a == "-C":
+			if i+1 < len(args) {
+				dir = args[i+1]
+				i++
+			}
+			continue
+		case strings.HasPrefix(a, "--tickets-dir="):
+			dir = strings.SplitN(a, "=", 2)[1]
+			continue
+		case strings.HasPrefix(a, "-C") && len(a) > 2:
+			dir = a[2:]
+			continue
+		default:
+			return dir, args[i:]
+		}
+	}
+	return dir, args[len(args):]
+}
+
 func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
+	flagDir, args := extractGlobalDir(args)
 	cmd := "help"
 	if len(args) > 0 {
 		cmd = args[0]
 	}
 	lang := langFrom(env)
 	switch cmd {
+	case "init":
+		if len(args) > 1 {
+			if args[1] == "-h" || args[1] == "--help" {
+				usage(stdout, lang)
+				return 0
+			}
+			usage(stdout, lang)
+			return 1
+		}
+		return cmdInit(stdout, stderr)
 	case "new", "list", "show", "set", "archive":
 		// Subcommand help interception (T-0041): -h/--help as the FIRST
 		// argument is never a valid positional (new: title; show/set/archive:
@@ -56,7 +90,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 			usage(stdout, lang)
 			return 0
 		}
-		return dispatch(cmd, args[1:], env, lang, stdout, stderr)
+		return dispatch(cmd, args[1:], env, lang, flagDir, stdout, stderr)
 	case "help", "-h", "--help":
 		usage(stdout, lang)
 		return 0
@@ -69,14 +103,13 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	}
 }
 
-// dispatch resolves the tickets dir once and invokes the command handler.
+// dispatch resolves the tickets dir once using flag, environment, then cwd.
 // lang is passed to handlers that print usage or i18n messages
 // (new/show/set/list); archive omits it.
-func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang, stdout, stderr io.Writer) int {
+func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang, flagDir string, stdout, stderr io.Writer) int {
 	// Getwd/Executable failures are handled by paths.Resolve input checks.
 	cwd, _ := os.Getwd()
-	exe, _ := os.Executable()
-	dir, err := paths.Resolve(env, cwd, exe)
+	dir, err := paths.Resolve(env, cwd, flagDir)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

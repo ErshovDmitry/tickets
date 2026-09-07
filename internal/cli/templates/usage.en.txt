@@ -1,5 +1,7 @@
 ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
 
+  ticket init
+      create the tickets structure in the current directory: tickets/ and tickets/archive/ (idempotent)
   ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who] [-P <project>]
       create a ticket (status open), prints the file path;
       -P overrides the project (default = basename of tickets/ parent);
@@ -19,6 +21,12 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
   ticket archive [<number>]
       move closed tickets (done/closed) into archive/;
       without a number — all closed ones, with a number — only the given one
+
+Global flag (before the command, every command except init):
+  -C <path>, --tickets-dir <path>
+      path to the tickets directory itself (not the project root); works from any current directory
+
+Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → upward scan for tickets/ from the current directory.
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
