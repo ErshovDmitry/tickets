@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"ticket/internal/domain"
 	"ticket/internal/store"
 )
 
@@ -13,17 +14,17 @@ import (
 // archived; with an argument only the named one. Each moved file's path
 // is echoed, mirroring bash cmd_archive (tickets/bin/ticket:161–188).
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
-func cmdArchive(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int {
+func cmdArchive(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		return archiveAll(st, who, stdout, stderr)
+		return archiveAll(st, who, lang, stdout, stderr)
 	}
 	n, ok := parseTicketNumber(args[0])
 	if !ok {
-		return notFound(stderr, args[0])
+		return notFound(stderr, lang, args[0])
 	}
 	target, err := st.Archive(n, who)
 	if err != nil {
-		return archiveError(stderr, args[0], err)
+		return archiveError(stderr, lang, args[0], err)
 	}
 	fmt.Fprintln(stdout, target)
 	return 0
@@ -33,16 +34,16 @@ func cmdArchive(st *store.Store, args []string, who, project string, stdout, std
 // success (bash rc=0) with the pinned notice on stdout. Paths archived
 // before a mid-run failure are still printed, as bash echoes each target
 // as it goes.
-func archiveAll(st *store.Store, who string, stdout, stderr io.Writer) int {
+func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io.Writer) int {
 	moved, err := st.ArchiveClosed(who)
 	for _, path := range moved {
 		fmt.Fprintln(stdout, path)
 	}
 	if err != nil {
-		return archiveError(stderr, "", err)
+		return archiveError(stderr, lang, "", err)
 	}
 	if len(moved) == 0 {
-		fmt.Fprintln(stdout, "Нет закрытых тикетов для архивации.")
+		fmt.Fprintln(stdout, domain.ErrNoClosedTicketsToArchive(lang))
 	}
 	return 0
 }
@@ -51,18 +52,18 @@ func archiveAll(st *store.Store, who string, stdout, stderr io.Writer) int {
 // (tickets/bin/ticket:166–171). The store never spells out UI text: it
 // returns sentinels and typed errors that this function renders with the
 // single «ticket: » prefix.
-func archiveError(stderr io.Writer, numArg string, err error) int {
+func archiveError(stderr io.Writer, lang domain.Lang, numArg string, err error) int {
 	var notClosed *store.NotClosedError
 	var collision *store.CollisionError
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		return notFound(stderr, numArg)
+		return notFound(stderr, lang, numArg)
 	case errors.Is(err, store.ErrAlreadyArchived):
-		fmt.Fprintln(stderr, "ticket: тикет уже в архиве")
+		fmt.Fprintln(stderr, domain.ErrAlreadyArchived(lang))
 	case errors.As(err, &notClosed):
-		fmt.Fprintf(stderr, "ticket: архивировать можно только done/closed (сейчас: %s)\n", notClosed.Status)
+		fmt.Fprintln(stderr, domain.ErrArchiveOnlyDoneClosed(lang, string(notClosed.Status)))
 	case errors.As(err, &collision):
-		fmt.Fprintf(stderr, "ticket: файл %s уже существует\n", collision.Target)
+		fmt.Fprintln(stderr, domain.ErrFileAlreadyExists(lang, collision.Target))
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}

@@ -34,7 +34,7 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 	numArg, stArg := args[0], args[1]
 	next, ok := statusByName(stArg)
 	if !ok {
-		fmt.Fprintln(stderr, "ticket: статус — один из: open wip done closed")
+		fmt.Fprintln(stderr, domain.ErrStatusInvalid(lang))
 		return 1
 	}
 	comment := strings.Join(args[2:], " ")
@@ -48,7 +48,7 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 	}
 	n, ok := parseTicketNumber(numArg)
 	if !ok {
-		return notFound(stderr, numArg)
+		return notFound(stderr, lang, numArg)
 	}
 	// T-0074: no pre-parse via Find. SetStatus routes on file names alone
 	// (collision gate before any read), so a foreign same-number file with
@@ -66,7 +66,7 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 			fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
 			return 1
 		}
-		return setError(st, stderr, numArg, err)
+		return setError(st, stderr, lang, numArg, err)
 	}
 	// T-0070: parse anomalies from the rewritten file (e.g. a duplicate
 	// Journal section that was merged) are non-fatal notices on stderr;
@@ -85,16 +85,16 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 // ticket's target lives under archive/, so it can never be derived
 // from the store directory here. st carries the store into the
 // not-found branch so the message gains a hint line (T-0076).
-func setError(st *store.Store, stderr io.Writer, numArg string, err error) int {
+func setError(st *store.Store, stderr io.Writer, lang domain.Lang, numArg string, err error) int {
 	var collision *store.CollisionError
 	var already *store.AlreadyStatusError
 	switch {
 	case errors.As(err, &collision):
-		fmt.Fprintf(stderr, "ticket: файл %s уже существует\n", collision.Target)
+		fmt.Fprintln(stderr, domain.ErrFileAlreadyExists(lang, collision.Target))
 	case errors.As(err, &already):
-		fmt.Fprintf(stderr, "ticket: тикет %d уже в статусе %s\n", already.Number, already.Status)
+		fmt.Fprintln(stderr, domain.ErrTicketAlreadyStatus(lang, already.Number, string(already.Status)))
 	case errors.Is(err, store.ErrNotFound):
-		return notFoundHinted(st, stderr, numArg)
+		return notFoundHinted(st, stderr, lang, numArg)
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}

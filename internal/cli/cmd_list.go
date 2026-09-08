@@ -26,24 +26,24 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-P" {
 			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, "ticket: флаг -P требует значение")
+				fmt.Fprintln(stderr, domain.ErrFlagPRequiresValue(lang))
 				return 1
 			}
 			i++
 			projectFilter = args[i]
 			if strings.TrimSpace(projectFilter) == "" {
-				fmt.Fprintln(stderr, "ticket: -P требует непустое имя проекта")
+				fmt.Fprintln(stderr, domain.ErrFlagPRequiresNonEmpty(lang))
 				return 1
 			}
 		} else if args[i] == "--json" {
 			if jsonMode {
-				fmt.Fprintln(stderr, "ticket: повторный флаг --json")
+				fmt.Fprintln(stderr, domain.ErrRepeatedFlagJson(lang))
 				return 1
 			}
 			jsonMode = true
 		} else if strings.HasPrefix(args[i], "-") {
 			// Unknown flag (T-0040: deliberate deviation from bash parity)
-			fmt.Fprintf(stderr, "ticket: неизвестный флаг: %s\n", args[i])
+			fmt.Fprintln(stderr, domain.ErrUnknownFlagList(lang, args[i]))
 			return 1
 		} else {
 			positional = append(positional, args[i])
@@ -54,11 +54,11 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 		want = positional[0]
 	}
 	if len(positional) > 1 {
-		fmt.Fprintln(stderr, "ticket: список принимает не более одного аргумента (фильтр)")
+		fmt.Fprintln(stderr, domain.ErrListOneArgMax(lang))
 		return 1
 	}
 	if !isListFilter(want) {
-		fmt.Fprintln(stderr, "ticket: фильтр — один из: active open wip done closed archive all")
+		fmt.Fprintln(stderr, domain.ErrListFilterInvalid(lang))
 		return 1
 	}
 

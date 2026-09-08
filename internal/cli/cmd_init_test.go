@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"ticket/internal/domain"
 )
 
 // TestInitProjectCreatesStructure verifies clean initialization: tickets/
@@ -14,7 +16,7 @@ func TestInitProjectCreatesStructure(t *testing.T) {
 	root := t.TempDir()
 	var stdout, stderr bytes.Buffer
 
-	if code := initProject(root, &stdout, &stderr); code != 0 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 0 {
 		t.Fatalf("initProject: code=%d stderr=%q", code, stderr.String())
 	}
 	tickets := filepath.Join(root, "tickets")
@@ -49,14 +51,14 @@ func TestInitProjectIdempotent(t *testing.T) {
 	root := t.TempDir()
 	var stdout, stderr bytes.Buffer
 
-	if code := initProject(root, &stdout, &stderr); code != 0 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 0 {
 		t.Fatalf("first init: code=%d stderr=%q", code, stderr.String())
 	}
 	first := stdout.String()
 
 	stdout.Reset()
 	stderr.Reset()
-	if code := initProject(root, &stdout, &stderr); code != 0 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 0 {
 		t.Fatalf("repeat init: code=%d stderr=%q", code, stderr.String())
 	}
 	if stdout.String() != first {
@@ -82,7 +84,7 @@ func TestInitProjectConflictFile(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := initProject(root, &stdout, &stderr); code != 1 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 1 {
 		t.Fatalf("conflict file: code=%d want 1", code)
 	}
 	wantStderr := "ticket: Конфликт: " + tickets + "\n"
@@ -117,7 +119,7 @@ func TestInitProjectArchiveRegularFile(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := initProject(root, &stdout, &stderr); code != 1 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 1 {
 		t.Fatalf("archive file: code=%d want 1 stderr=%q", code, stderr.String())
 	}
 	wantStderr := "ticket: Конфликт: " + archive + "\n"
@@ -148,7 +150,7 @@ func TestInitProjectPreservesExistingTickets(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := initProject(root, &stdout, &stderr); code != 0 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 0 {
 		t.Fatalf("init with existing tickets: code=%d stderr=%q", code, stderr.String())
 	}
 	data, err := os.ReadFile(existing)

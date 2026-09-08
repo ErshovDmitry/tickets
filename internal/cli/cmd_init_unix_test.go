@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
+
+	"ticket/internal/domain"
 )
 
 // TestInitProjectConflictFIFO verifies a FIFO at tickets is a conflict
@@ -23,7 +25,7 @@ func TestInitProjectConflictFIFO(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := initProject(root, &stdout, &stderr); code != 1 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 1 {
 		t.Fatalf("FIFO conflict: code=%d want 1", code)
 	}
 	wantStderr := "ticket: Конфликт: " + tickets + "\n"
@@ -52,7 +54,7 @@ func TestInitProjectBrokenSymlink(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := initProject(root, &stdout, &stderr); code != 1 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 1 {
 		t.Fatalf("broken symlink: code=%d want 1 stderr=%q", code, stderr.String())
 	}
 	wantStderr := "ticket: Конфликт: " + tickets + "\n"
@@ -85,7 +87,7 @@ func TestInitProjectArchiveSymlink(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := initProject(root, &stdout, &stderr); code != 1 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 1 {
 		t.Fatalf("archive symlink: code=%d want 1 stderr=%q", code, stderr.String())
 	}
 	wantStderr := "ticket: Конфликт: " + archive + "\n"
@@ -119,7 +121,7 @@ func TestInitProjectSymlinkToDirTickets(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := initProject(root, &stdout, &stderr); code != 0 {
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 0 {
 		t.Fatalf("symlink to dir: code=%d stderr=%q", code, stderr.String())
 	}
 	if _, err := os.Stat(filepath.Join(real, "archive")); err != nil {

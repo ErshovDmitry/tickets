@@ -36,10 +36,10 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	// Deliberate deviation from bash parity (T-0041): reject titles
 	// starting with '-' to prevent accidental flag-as-title bugs.
 	if strings.HasPrefix(args[0], "-") {
-		fmt.Fprintln(stderr, "ticket: краткое описание не может начинаться с '-'")
+		fmt.Fprintln(stderr, domain.ErrTitleStartsWithDash(lang))
 		return 1
 	}
-	f, ok := parseNewFlags(args[0], args[1:], who, stderr)
+	f, ok := parseNewFlags(args[0], args[1:], who, lang, stderr)
 	if !ok {
 		return 1
 	}
@@ -50,7 +50,7 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	// Empty/whitespace-only titles are rejected before Create, matching
 	// domain.Validate(Strict) ("краткое описание не может быть пустым").
 	if strings.TrimSpace(f.title) == "" {
-		fmt.Fprintln(stderr, "ticket: краткое описание не может быть пустым")
+		fmt.Fprintln(stderr, domain.ErrTitleEmpty(lang))
 		return 1
 	}
 	// T-0075: C0 CTL (except TAB) + DEL corrupt the H1/terminal — reject;
@@ -62,11 +62,11 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	typ, okType := typeByName(f.typ)
 	prio, okPrio := priorityByName(f.prio)
 	if !okType {
-		fmt.Fprintln(stderr, "ticket: тип — один из: BUG OPS TD ENH")
+		fmt.Fprintln(stderr, domain.ErrTypeInvalid(lang))
 		return 1
 	}
 	if !okPrio {
-		fmt.Fprintln(stderr, "ticket: приоритет — один из: low normal high")
+		fmt.Fprintln(stderr, domain.ErrPriorityInvalid(lang))
 		return 1
 	}
 	// firstUse check BEFORE Create (T-0040): known projects = unique
@@ -94,7 +94,7 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	}
 	n, err := st.Create(newTicket(f, typ, prio, project, lang))
 	if err != nil {
-		return createError(stderr, st, err)
+		return createError(stderr, lang, st, err)
 	}
 	fmt.Fprintln(stdout, filepath.Join(st.Dir, domain.Filename(n, domain.StatusOpen)))
 	// Print warning to stderr if project is firstUse, exit 0 (T-0040).
@@ -107,7 +107,7 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		if abs, err := filepath.Abs(st.Dir); err == nil {
 			dir = abs
 		}
-		fmt.Fprintf(stderr, "ticket: предупреждение: тикеты будут сохраняться в: %s\n", dir)
+		fmt.Fprintln(stderr, domain.WarnTicketsSavedTo(lang, dir))
 	}
 	return 0
 }
@@ -115,16 +115,16 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 // parseNewFlags consumes `-t/-p/-d/-w/-P` value pairs exactly like bash:
 // blind value consumption, unknown flag dies at once, values are
 // validated after the loop. ok=false after printing the error.
-func parseNewFlags(title string, flags []string, who string, stderr io.Writer) (newFlags, bool) {
+func parseNewFlags(title string, flags []string, who string, lang domain.Lang, stderr io.Writer) (newFlags, bool) {
 	f := newFlags{title: title, typ: "BUG", prio: "normal", who: who}
 	for i := 0; i < len(flags); i++ {
 		arg := flags[i]
 		if !isNewFlag(arg) {
-			fmt.Fprintf(stderr, "ticket: неизвестный аргумент: %s\n", arg)
+			fmt.Fprintln(stderr, domain.ErrUnknownArgument(lang, arg))
 			return f, false
 		}
 		if i+1 >= len(flags) {
-			fmt.Fprintf(stderr, "ticket: флаг %s требует значение\n", arg)
+			fmt.Fprintln(stderr, domain.ErrFlagRequiresValue(lang, arg))
 			return f, false
 		}
 		i++
@@ -139,7 +139,7 @@ func parseNewFlags(title string, flags []string, who string, stderr io.Writer) (
 			f.who = flags[i]
 		case "-P":
 			if strings.TrimSpace(flags[i]) == "" {
-				fmt.Fprintln(stderr, "ticket: -P требует непустое имя проекта")
+				fmt.Fprintln(stderr, domain.ErrFlagPRequiresNonEmpty(lang))
 				return f, false
 			}
 			f.projectOverride = flags[i]
@@ -211,9 +211,9 @@ func newTicket(f newFlags, typ domain.Type, prio domain.Priority, project string
 }
 
 // createError reports a failed Create on stderr and yields exit code 1.
-func createError(stderr io.Writer, st *store.Store, err error) int {
+func createError(stderr io.Writer, lang domain.Lang, st *store.Store, err error) int {
 	if errors.Is(err, store.ErrCollision) {
-		fmt.Fprintf(stderr, "ticket: файл %s уже существует\n", collisionPath(st))
+		fmt.Fprintln(stderr, domain.ErrFileAlreadyExists(lang, collisionPath(st)))
 		return 1
 	}
 	fmt.Fprintf(stderr, "ticket: %v\n", err)

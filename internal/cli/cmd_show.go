@@ -23,7 +23,7 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 	// T-0076: extra arguments are ignored bash-compatibly, but the silent
 	// truncation is surfaced as a warning; the exit code stays 0.
 	if len(args) > 1 {
-		fmt.Fprintf(stderr, "ticket: предупреждение: лишние аргументы игнорируются: %s\n", strings.Join(args[1:], " "))
+		fmt.Fprintln(stderr, domain.WarnExtraArgsIgnored(lang, strings.Join(args[1:], " ")))
 	}
 	n, ok := parseTicketNumber(args[0])
 	if !ok {
@@ -47,7 +47,7 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 		// or corrupt file, scan failure) is a real error the user must see,
 		// never masked as «не найден».
 		if errors.Is(err, store.ErrNotFound) {
-			return notFoundHinted(st, stderr, args[0])
+			return notFoundHinted(st, stderr, lang, args[0])
 		}
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 		return 1
@@ -61,8 +61,8 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 
 // notFound prints the bash-compatible «не найден» message; the quoted
 // value is the user's original argument.
-func notFound(stderr io.Writer, arg string) int {
-	fmt.Fprintf(stderr, "ticket: тикет «%s» не найден\n", arg)
+func notFound(stderr io.Writer, lang domain.Lang, arg string) int {
+	fmt.Fprintln(stderr, domain.ErrTicketNotFound(lang, arg))
 	return 1
 }
 
@@ -74,25 +74,24 @@ func notFound(stderr io.Writer, arg string) int {
 // so emptiness is never claimed for a store whose files were skipped;
 // n>max → the real bound; in-range miss → the generic hint (show
 // searches archive/ too). Scan warnings are not printed here.
-func notFoundHinted(st *store.Store, stderr io.Writer, arg string) int {
-	rc := notFound(stderr, arg)
+func notFoundHinted(st *store.Store, stderr io.Writer, lang domain.Lang, arg string) int {
+	rc := notFound(stderr, lang, arg)
 	n, ok := parseTicketNumber(arg)
 	if !ok {
 		return rc
 	}
-	const generic = "ticket: подсказка: используйте ticket list (show ищет и в archive/)"
 	maxNum, warned := scanMax(st)
 	switch {
 	case n == 0:
-		fmt.Fprintln(stderr, "ticket: подсказка: номера тикетов начинаются с 1; используйте ticket list")
+		fmt.Fprintln(stderr, domain.HintNumbersStartAtOne(lang))
 	case maxNum == 0 && warned:
-		fmt.Fprintln(stderr, generic)
+		fmt.Fprintln(stderr, domain.HintUseList(lang))
 	case maxNum == 0:
-		fmt.Fprintln(stderr, "ticket: подсказка: хранилище пусто; используйте ticket list")
+		fmt.Fprintln(stderr, domain.HintStoreEmpty(lang))
 	case n > maxNum:
-		fmt.Fprintf(stderr, "ticket: подсказка: в этом хранилище номера до %d; используйте ticket list\n", maxNum)
+		fmt.Fprintln(stderr, domain.HintNumbersUpTo(lang, maxNum))
 	default:
-		fmt.Fprintln(stderr, generic)
+		fmt.Fprintln(stderr, domain.HintUseList(lang))
 	}
 	return rc
 }
