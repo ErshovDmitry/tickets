@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -18,8 +19,9 @@ import (
 // parity for typo protection). Signature per wave-1 dispatch contract
 // (wiki 8bd93a4e, A1).
 func cmdList(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
-	// Parse flags: -P can appear anywhere, positional filter = first non-flag arg
+	// Parse flags: -P can appear anywhere, --json is bare flag, positional filter = first non-flag arg
 	var projectFilter string
+	var jsonMode bool
 	var positional []string
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-P" {
@@ -33,6 +35,12 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 				fmt.Fprintln(stderr, "ticket: -P требует непустое имя проекта")
 				return 1
 			}
+		} else if args[i] == "--json" {
+			if jsonMode {
+				fmt.Fprintln(stderr, "ticket: повторный флаг --json")
+				return 1
+			}
+			jsonMode = true
 		} else if strings.HasPrefix(args[i], "-") {
 			// Unknown flag (T-0040: deliberate deviation from bash parity)
 			fmt.Fprintf(stderr, "ticket: неизвестный флаг: %s\n", args[i])
@@ -82,6 +90,35 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 		output = append(output, t)
 		uniqueProjects[t.Project] = true
 	}
+	if jsonMode {
+		// JSON output: DTO with exactly 6 fields, RFC3339 created, default HTML escaping
+		type ticketDTO struct {
+			Number   int    `json:"number"`
+			Status   string `json:"status"`
+			Type     string `json:"type"`
+			Priority string `json:"priority"`
+			Title    string `json:"title"`
+			Created  string `json:"created"`
+		}
+		dtos := make([]ticketDTO, len(output))
+		for i, t := range output {
+			dtos[i] = ticketDTO{
+				Number:   t.Number,
+				Status:   string(t.Status),
+				Type:     string(t.Type),
+				Priority: string(t.Priority),
+				Title:    t.Title,
+				Created:  t.Created.Format("2006-01-02T15:04:05Z07:00"),
+			}
+		}
+		enc := json.NewEncoder(stdout)
+		if err := enc.Encode(dtos); err != nil {
+			fmt.Fprintf(stderr, "ticket: JSON encode error: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+
 	if len(output) == 0 {
 		// Determine filter description for noTickets message
 		filterDesc := want
