@@ -150,6 +150,10 @@ func TestCheckCurrent(t *testing.T) {
 		t.Errorf("match: swapped=%v err=%v, want false/nil", swapped, err)
 	}
 
+	if runtime.GOOS == "windows" {
+		t.Skip("ENOENT test: removing under open fd is Unix-specific")
+	}
+
 	// ENOENT: path removed under the open fd → swap, no error.
 	if err := os.Remove(path); err != nil {
 		t.Fatalf("rm: %v", err)

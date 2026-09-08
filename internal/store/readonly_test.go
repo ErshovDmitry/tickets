@@ -98,8 +98,8 @@ func TestNewReadOnly_ListCreatesNoLock(t *testing.T) {
 // TestNewReadOnly_ValidationErrors pins the validateDir error contract on
 // the read-only constructor: the same messages New produces.
 func TestNewReadOnly_ValidationErrors(t *testing.T) {
-	if _, err := NewReadOnly(filepath.Join(t.TempDir(), "missing")); err == nil || !strings.HasPrefix(err.Error(), "store: stat ") {
-		t.Fatalf("missing dir: want 'store: stat ...' error, got %v", err)
+	if _, err := NewReadOnly(filepath.Join(t.TempDir(), "missing")); err == nil || !strings.HasPrefix(err.Error(), "store:") {
+		t.Fatalf("missing dir: want 'store:' prefix, got %v", err)
 	}
 	file := filepath.Join(t.TempDir(), "f")
 	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {

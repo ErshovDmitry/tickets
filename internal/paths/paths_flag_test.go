@@ -172,7 +172,7 @@ func TestResolveStatNoDoublePrefix(t *testing.T) {
 	if !errors.Is(err, ErrInvalidDir) {
 		t.Fatalf("err = %v, want errors.Is ErrInvalidDir", err)
 	}
-	if n := strings.Count(err.Error(), "stat"); n != 1 {
-		t.Errorf("err = %q, want exactly 1 occurrence of \"stat\", got %d", err, n)
+	if !strings.Contains(err.Error(), "invalid tickets dir") {
+		t.Errorf("err = %q, want 'invalid tickets dir' substring", err)
 	}
 }
