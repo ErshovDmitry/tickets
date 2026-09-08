@@ -261,9 +261,10 @@ func TestShowHintInRangeGap(t *testing.T) {
 	}
 }
 
-// TestShowNonNumericNoHint pins the T-0076 boundary: a non-numeric
-// argument gets the bare not-found message without any hint (the hint
-// logic applies to numeric arguments only; T-0072 owns this branch).
+// TestShowNonNumericNoHint pins T-0072: a non-numeric argument (no
+// digits at all) is rejected with the explicit «не является номером
+// тикета» message — the bare «не найден» would mislead. Exit 1, stdout
+// empty.
 func TestShowNonNumericNoHint(t *testing.T) {
 	env := map[string]string{"TICKETS_DIR": t.TempDir()}
 
@@ -271,7 +272,24 @@ func TestShowNonNumericNoHint(t *testing.T) {
 	if code := cli.Run([]string{"show", "abc"}, env, &stdout, &stderr); code != 1 {
 		t.Fatalf("Run(show abc) = %d, want 1; stderr: %q", code, stderr.String())
 	}
-	if want := "ticket: тикет «abc» не найден\n"; stderr.String() != want {
+	if want := "ticket: «abc» не является номером тикета (нужно целое число)\n"; stderr.String() != want {
+		t.Errorf("stderr = %q, want %q", stderr.String(), want)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty", stdout.String())
+	}
+}
+
+// TestShowNonNumericNoHintEN pins the T-0072 English message: with
+// TICKET_LANG=en the rejection is localized to EN.
+func TestShowNonNumericNoHintEN(t *testing.T) {
+	env := map[string]string{"TICKETS_DIR": t.TempDir(), "TICKET_LANG": "en"}
+
+	var stdout, stderr bytes.Buffer
+	if code := cli.Run([]string{"show", "abc"}, env, &stdout, &stderr); code != 1 {
+		t.Fatalf("Run(show abc) = %d, want 1; stderr: %q", code, stderr.String())
+	}
+	if want := "ticket: \"abc\" is not a ticket number (integer required)\n"; stderr.String() != want {
 		t.Errorf("stderr = %q, want %q", stderr.String(), want)
 	}
 	if stdout.Len() != 0 {

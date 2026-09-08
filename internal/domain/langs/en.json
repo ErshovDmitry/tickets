@@ -12,5 +12,7 @@
   "warnNewProject": "ticket: warning: project '%s' is seen for the first time — verify the name is correct.",
   "noTickets": "No tickets (%s).",
   "errTitleNewline": "ticket: title must not contain a line break",
-  "errJournalNewline": "ticket: comment/who must not contain a line break"
+  "errJournalNewline": "ticket: comment/who must not contain a line break",
+  "errTicketArgNonNumeric": "ticket: \"%s\" is not a ticket number (integer required)",
+  "errUnknownFlag": "ticket: unknown flag for set command: %s"
 }

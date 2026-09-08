@@ -27,7 +27,10 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 	}
 	n, ok := parseTicketNumber(args[0])
 	if !ok {
-		return notFound(stderr, args[0])
+		// T-0072: the argument has no digits at all — it is not a ticket
+		// number, so the «не найден» report would mislead.
+		fmt.Fprintln(stderr, domain.ErrTicketArgNonNumeric(lang, args[0]))
+		return 1
 	}
 	// FindRaw returns the scan-matched file's exact raw bytes, read from
 	// the single validated handle (openValidated): the file is never

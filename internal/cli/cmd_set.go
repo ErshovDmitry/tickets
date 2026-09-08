@@ -21,6 +21,16 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 		usage(stdout, lang)
 		return 1
 	}
+	// T-0068: reject a flag-like arg in the <number> or <status> position.
+	// Report the FIRST offending positional (number before status).
+	if strings.HasPrefix(args[0], "-") || strings.HasPrefix(args[1], "-") {
+		badArg := args[0]
+		if !strings.HasPrefix(args[0], "-") {
+			badArg = args[1]
+		}
+		fmt.Fprintln(stderr, domain.ErrUnknownFlag(lang, badArg))
+		return 1
+	}
 	numArg, stArg := args[0], args[1]
 	next, ok := statusByName(stArg)
 	if !ok {

@@ -54,6 +54,14 @@ type dict struct {
 
 	// T-0065: rejection for journal inputs (comment/who) carrying CR/LF.
 	errJournalNewline string
+
+	// T-0072: rejection for a `show` argument with no digits (1 %s: the
+	// offending argument).
+	errTicketArgNonNumeric string
+
+	// T-0068: rejection for a flag-like arg in `set`'s number/status
+	// position (1 %s: the offending flag argument).
+	errUnknownFlag string
 }
 
 //go:embed langs/*.json
@@ -148,20 +156,22 @@ func init() {
 func loadDict(data []byte) (*dict, error) {
 	var rawHeaders []string
 	var dj struct {
-		Headers           json.RawMessage `json:"headers"`
-		StatusFmt         string          `json:"statusFmt"`
-		PriorityFmt       string          `json:"priorityFmt"`
-		ProjectFmt        string          `json:"projectFmt"`
-		CreatedFmt        string          `json:"createdFmt"`
-		DetailsStub       string          `json:"detailsStub"`
-		UserCommentsStub  string          `json:"userCommentsStub"`
-		JournalCreation   string          `json:"journalCreation"`
-		JournalTransition string          `json:"journalTransition"`
-		JournalArchive    string          `json:"journalArchive"`
-		WarnNewProject    string          `json:"warnNewProject"`
-		NoTickets         string          `json:"noTickets"`
-		ErrTitleNewline   string          `json:"errTitleNewline"`
-		ErrJournalNewline string          `json:"errJournalNewline"`
+		Headers                json.RawMessage `json:"headers"`
+		StatusFmt              string          `json:"statusFmt"`
+		PriorityFmt            string          `json:"priorityFmt"`
+		ProjectFmt             string          `json:"projectFmt"`
+		CreatedFmt             string          `json:"createdFmt"`
+		DetailsStub            string          `json:"detailsStub"`
+		UserCommentsStub       string          `json:"userCommentsStub"`
+		JournalCreation        string          `json:"journalCreation"`
+		JournalTransition      string          `json:"journalTransition"`
+		JournalArchive         string          `json:"journalArchive"`
+		WarnNewProject         string          `json:"warnNewProject"`
+		NoTickets              string          `json:"noTickets"`
+		ErrTitleNewline        string          `json:"errTitleNewline"`
+		ErrJournalNewline      string          `json:"errJournalNewline"`
+		ErrTicketArgNonNumeric string          `json:"errTicketArgNonNumeric"`
+		ErrUnknownFlag         string          `json:"errUnknownFlag"`
 	}
 	if err := json.Unmarshal(data, &dj); err != nil {
 		return nil, err
@@ -254,22 +264,38 @@ func loadDict(data []byte) (*dict, error) {
 	if dj.ErrJournalNewline == "" {
 		return nil, fmt.Errorf("errJournalNewline: empty")
 	}
+	// T-0072: 1 %s slot (the offending argument).
+	if dj.ErrTicketArgNonNumeric == "" {
+		return nil, fmt.Errorf("errTicketArgNonNumeric: empty")
+	}
+	if strings.Count(dj.ErrTicketArgNonNumeric, "%s") != 1 {
+		return nil, fmt.Errorf("errTicketArgNonNumeric: expected 1 %%s, got %d", strings.Count(dj.ErrTicketArgNonNumeric, "%s"))
+	}
+	// T-0068: 1 %s slot (the offending flag argument).
+	if dj.ErrUnknownFlag == "" {
+		return nil, fmt.Errorf("errUnknownFlag: empty")
+	}
+	if strings.Count(dj.ErrUnknownFlag, "%s") != 1 {
+		return nil, fmt.Errorf("errUnknownFlag: expected 1 %%s, got %d", strings.Count(dj.ErrUnknownFlag, "%s"))
+	}
 
 	return &dict{
-		headers:           headers,
-		statusFmt:         dj.StatusFmt,
-		priorityFmt:       dj.PriorityFmt,
-		projectFmt:        dj.ProjectFmt,
-		createdFmt:        dj.CreatedFmt,
-		detailsStub:       dj.DetailsStub,
-		userCommentsStub:  dj.UserCommentsStub,
-		journalCreation:   dj.JournalCreation,
-		journalTransition: dj.JournalTransition,
-		journalArchive:    dj.JournalArchive,
-		warnNewProject:    dj.WarnNewProject,
-		noTickets:         dj.NoTickets,
-		errTitleNewline:   dj.ErrTitleNewline,
-		errJournalNewline: dj.ErrJournalNewline,
+		headers:                headers,
+		statusFmt:              dj.StatusFmt,
+		priorityFmt:            dj.PriorityFmt,
+		projectFmt:             dj.ProjectFmt,
+		createdFmt:             dj.CreatedFmt,
+		detailsStub:            dj.DetailsStub,
+		userCommentsStub:       dj.UserCommentsStub,
+		journalCreation:        dj.JournalCreation,
+		journalTransition:      dj.JournalTransition,
+		journalArchive:         dj.JournalArchive,
+		warnNewProject:         dj.WarnNewProject,
+		noTickets:              dj.NoTickets,
+		errTitleNewline:        dj.ErrTitleNewline,
+		errJournalNewline:      dj.ErrJournalNewline,
+		errTicketArgNonNumeric: dj.ErrTicketArgNonNumeric,
+		errUnknownFlag:         dj.ErrUnknownFlag,
 	}, nil
 }
 
@@ -298,6 +324,20 @@ func ErrTitleNewline(lang Lang) string {
 // journal entry.
 func ErrJournalNewline(lang Lang) string {
 	return getDict(lang).errJournalNewline
+}
+
+// ErrTicketArgNonNumeric returns the localized rejection for a `show`
+// argument containing no digits (T-0072): it is not a ticket number at
+// all, so the «не найден» report would mislead.
+func ErrTicketArgNonNumeric(lang Lang, arg string) string {
+	return fmt.Sprintf(getDict(lang).errTicketArgNonNumeric, arg)
+}
+
+// ErrUnknownFlag returns the localized rejection for a flag-like argument
+// in `set`'s number or status position (T-0068): cmd_set parses no flags,
+// so a leading '-' there is never a valid positional.
+func ErrUnknownFlag(lang Lang, flagArg string) string {
+	return fmt.Sprintf(getDict(lang).errUnknownFlag, flagArg)
 }
 
 // getDict returns the dictionary for lang.
