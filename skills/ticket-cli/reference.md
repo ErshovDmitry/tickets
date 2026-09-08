@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.2"
+version: "1.3"
 created: 2026-09-04
-modified: 2026-09-07
+modified: 2026-09-09
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -10,12 +10,12 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Captured from built `ticket` binary (`go build ./cmd/ticket`) help on 2026-09-07 (version `dev`, `TICKET_LANG` default RU).
+Captured from `ticket` v1.2.3 (PATH binary) help on 2026-09-09 (`TICKET_LANG` default RU).
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes; the first output line shows the binary version.
 
 ```
-ticket version dev
+ticket version 1.2.3
 ticket — тикеты проекта (файлы T-NNNN-<status>.md в <проект>/tickets/).
 
   ticket init
@@ -24,11 +24,12 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       создать тикет (статус open), печатает путь к файлу;
       -P переопределяет проект (по умолчанию = basename родителя tickets/);
       предупреждение в stderr если проект встречается впервые
-  ticket list [active|open|wip|done|closed|archive|all] [-P <проект>]
+  ticket list [active|open|wip|done|closed|archive|all] [-P <проект>] [--json]
       список тикетов; по умолчанию active (= open + wip);
       archive — закрытые тикеты, унесённые в архив;
       -P фильтрует по проекту (точное совпадение, регистр важен);
-      колонка проекта отображается когда проекты в выводе различаются
+      колонка проекта отображается когда проекты в выводе различаются;
+      --json выводит массив JSON (6 полей: number, status, type, priority, title, created); пусто = []
   ticket show <номер|имя-файла>
       показать тикет (ищет и в архиве)
   ticket set <номер> <статус> ["комментарий"]
@@ -70,3 +71,4 @@ sed -i -E \
 |------|-------|-------------|---------|
 | 2026-09-04 | Initial version | Captured verbatim help output | 1.0 |
 | 2026-09-07 | Missing `-P` option, stale version, blank line | Regenerated after FIX 2+4 (T-0056) | 1.1 |
+| 2026-09-09 | Stale vs v1.2.3: `list --json` (T-0081) missing | Regenerated from v1.2.3 help | 1.3 |

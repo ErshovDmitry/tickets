@@ -1,8 +1,8 @@
 ---
 name: ticket-cli
-version: "1.2"
+version: "1.3"
 created: 2026-09-04
-modified: 2026-09-07
+modified: 2026-09-09
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets."
@@ -37,18 +37,18 @@ Creates `tickets/` and `tickets/archive/` in the current directory. Idempotent: 
 ### `new`
 
 ```
-ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who]
+ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who] [-P <project>]
 ```
 
-Creates a ticket with status `open` and prints the file path. `-w` sets the author.
+Creates a ticket with status `open` and prints the file path. `-w` sets the author. `-P` overrides the project (default: basename of the tickets-dir parent); a stderr warning is printed when a project name is seen for the first time.
 
 ### `list`
 
 ```
-ticket list [active|open|wip|done|closed|archive|all]
+ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]
 ```
 
-Default is `active` (= open + wip). `archive` lists tickets already moved into `tickets/archive/` (done/closed only).
+Default is `active` (= open + wip). `archive` lists tickets already moved into `tickets/archive/` (done/closed only). `-P` filters by project (exact, case-sensitive); the project column appears when projects in the output differ. `--json` (since v1.2.3, T-0081) prints a JSON array with 6 fields (`number, status, type, priority, title, created`); empty result = `[]`.
 
 ### `show`
 
@@ -100,7 +100,7 @@ Labels are bilingual under the RU default locale:
 
 ## Pitfalls
 
-1. 🔴 `ticket new --help` is NOT a help flag — it CREATES a garbage ticket titled `--help` (known bug T-0041). NEVER pass flags as the title; after `new`, check the created file.
+1. `ticket new --help` now prints help (bug T-0041 fixed; verified on v1.2.3 — no garbage ticket is created). Still: after `new`, check the created file before moving on.
 2. 🔴 Test/smoke runs ONLY in a sandbox: set `TICKETS_DIR` or pass `-C /tmp/…` (Go version); copy the script to `/tmp` (bash version). NEVER experiment in the live `tickets/` dir (incident T-0023).
 3. 🔴 NEVER write secrets (passwords, tokens, keys) into tickets.
 4. 🔴 Closing gate: verify the fix FIRST, then IMMEDIATELY `ticket set N done "<comment with evidence>"`. The comment MUST state what was checked: command + result, file:line. `done` without evidence is forbidden; NEVER batch status flips "for later".
@@ -134,3 +134,4 @@ ticket-cli/
 | 2026-09-04 | Initial version | Created workflow skill from `ticket` CLI help | 1.0 |
 | 2026-09-04 | Review round 1: bilingual file format missing, type non-canonical, no See also | Added bilingual/EN label forms, TICKET_LANG + dir discovery notes, type: guide, See also | 1.1 |
 | 2026-09-07 | T-0057: global flag + 3-tier discovery, init simplified | — | 1.2 |
+| 2026-09-09 | Stale vs v1.2.3: `list --json` (T-0081) and `-P` on new/list missing; pitfall 1 described fixed bug T-0041 | Added `-P`/`--json` to new+list, rewrote pitfall 1 (verified empirically in /tmp sandbox) | 1.3 |
