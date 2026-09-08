@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"ticket/internal/domain"
 	"ticket/internal/lock"
@@ -101,21 +102,55 @@ func NewReadOnly(dir string) (*Store, error) {
 // lockPath returns the per-store advisory lock file.
 func (s *Store) lockPath() string { return filepath.Join(s.Dir, ".lock") }
 
-// withLock acquires the per-store advisory lock, runs fn, then releases.
-// A release error is joined with fn's error (errors.Join discards nils),
-// so neither is lost; the signature and callers are unchanged.
+// defaultLockTimeout is the withLock wait budget when TICKET_LOCK_TIMEOUT
+// is unset or unparsable.
+const defaultLockTimeout = 5 * time.Second
+
+// parseLockTimeout reads TICKET_LOCK_TIMEOUT on every withLock call (so
+// tests can t.Setenv it). An empty or unparsable value — including one
+// missing its time unit, like "5" — falls back to defaultLockTimeout;
+// values <= 0 pass through and mean a single lock attempt.
+func parseLockTimeout() time.Duration {
+	v := os.Getenv("TICKET_LOCK_TIMEOUT")
+	if v == "" {
+		return defaultLockTimeout
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return defaultLockTimeout
+	}
+	return d
+}
+
+// withLock acquires the per-store advisory lock — waiting up to
+// parseLockTimeout() for it, with deadline expiry reported as
+// lock.ErrLocked — runs fn, then releases. A release error is joined
+// with fn's error (errors.Join discards nils), so neither is lost; the
+// signature and callers are unchanged.
 // Read-only Stores (NewReadOnly) are rejected before the lock is taken,
 // so a rejected mutation never touches the directory.
+//
+// After a successful fn the lock is verified post-hoc (lock.Locker
+// StillValid): if the lock file was replaced while held, the operation
+// may have raced with another process and the returned error says so.
+// When fn itself fails the check is skipped — the operation's own error
+// takes precedence.
 func (s *Store) withLock(fn func() error) (err error) {
 	if s.readOnly {
 		return ErrReadOnly
 	}
-	release, err := lock.Acquire(s.lockPath())
+	lk, err := lock.AcquireLocked(s.lockPath(), parseLockTimeout())
 	if err != nil {
 		return fmt.Errorf("store: lock: %w", err)
 	}
-	defer func() { err = errors.Join(err, release()) }()
-	return fn()
+	defer func() { err = errors.Join(err, lk.Release()) }()
+	if err := fn(); err != nil {
+		return err
+	}
+	if serr := lk.StillValid(); serr != nil {
+		return fmt.Errorf("store: lock: lock file replaced while held — operation may have raced: %w", serr)
+	}
+	return nil
 }
 
 // List returns every parseable ticket sorted by number. Unreadable or
