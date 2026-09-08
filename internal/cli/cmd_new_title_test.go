@@ -10,13 +10,13 @@ import (
 	"ticket/internal/cli"
 )
 
-// TestNewTitleWithNewlineRejected pins the T-0044 fix: a title containing
-// CR or LF is rejected with exit 1 and the localized error BEFORE any file
-// is created (a multiline H1 loses everything past the first line on the
-// next `set` re-render). Embedded breaks and boundary placements
-// (leading/trailing newline) are covered; the RU message is asserted via
-// the default lang (no lang env → ru), plus one EN-pinned case
-// (TICKET_LANG=en) for the localized message.
+// TestNewTitleWithNewlineRejected pins the T-0075 supersession of the
+// T-0044 fix: a title containing CR or LF is rejected with exit 1 and the
+// localized errTitleCTL message BEFORE any file is created (a multiline H1
+// loses everything past the first line on the next `set` re-render).
+// Embedded breaks and boundary placements (leading/trailing newline) are
+// covered; the RU message is asserted via the default lang (no lang env →
+// ru), plus one EN-pinned case (TICKET_LANG=en) for the localized message.
 func TestNewTitleWithNewlineRejected(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -24,12 +24,12 @@ func TestNewTitleWithNewlineRejected(t *testing.T) {
 		langEnv string // "" → default (ru); otherwise a TICKET_LANG value
 		wantSub string
 	}{
-		{"embedded lf", "abc\ndef", "", "не может содержать перевод строки"},
-		{"embedded cr", "abc\rdef", "", "не может содержать перевод строки"},
-		{"embedded crlf", "abc\r\ndef", "", "не может содержать перевод строки"},
-		{"leading lf", "\nabc", "", "не может содержать перевод строки"},
-		{"trailing lf", "abc\n", "", "не может содержать перевод строки"},
-		{"en message", "abc\ndef", "en", "must not contain a line break"},
+		{"embedded lf", "abc\ndef", "", "содержит управляющие символы"},
+		{"embedded cr", "abc\rdef", "", "содержит управляющие символы"},
+		{"embedded crlf", "abc\r\ndef", "", "содержит управляющие символы"},
+		{"leading lf", "\nabc", "", "содержит управляющие символы"},
+		{"trailing lf", "abc\n", "", "содержит управляющие символы"},
+		{"en message", "abc\ndef", "en", "contains control characters"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

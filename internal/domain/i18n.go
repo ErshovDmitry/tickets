@@ -52,6 +52,9 @@ type dict struct {
 	// T-0044: verbatim CLI error messages (no placeholders).
 	errTitleNewline string
 
+	// T-0075: verbatim CLI error message (no placeholders).
+	errTitleCTL string
+
 	// T-0065: rejection for journal inputs (comment/who) carrying CR/LF.
 	errJournalNewline string
 
@@ -169,6 +172,7 @@ func loadDict(data []byte) (*dict, error) {
 		WarnNewProject         string          `json:"warnNewProject"`
 		NoTickets              string          `json:"noTickets"`
 		ErrTitleNewline        string          `json:"errTitleNewline"`
+		ErrTitleCTL            string          `json:"errTitleCTL"`
 		ErrJournalNewline      string          `json:"errJournalNewline"`
 		ErrTicketArgNonNumeric string          `json:"errTicketArgNonNumeric"`
 		ErrUnknownFlag         string          `json:"errUnknownFlag"`
@@ -260,6 +264,10 @@ func loadDict(data []byte) (*dict, error) {
 	if dj.ErrTitleNewline == "" {
 		return nil, fmt.Errorf("errTitleNewline: empty")
 	}
+	// T-0075: verbatim message, no %s slots — non-empty check only.
+	if dj.ErrTitleCTL == "" {
+		return nil, fmt.Errorf("errTitleCTL: empty")
+	}
 	// T-0065: verbatim message, no %s slots — non-empty check only.
 	if dj.ErrJournalNewline == "" {
 		return nil, fmt.Errorf("errJournalNewline: empty")
@@ -293,6 +301,7 @@ func loadDict(data []byte) (*dict, error) {
 		warnNewProject:         dj.WarnNewProject,
 		noTickets:              dj.NoTickets,
 		errTitleNewline:        dj.ErrTitleNewline,
+		errTitleCTL:            dj.ErrTitleCTL,
 		errJournalNewline:      dj.ErrJournalNewline,
 		errTicketArgNonNumeric: dj.ErrTicketArgNonNumeric,
 		errUnknownFlag:         dj.ErrUnknownFlag,
@@ -315,6 +324,26 @@ func NoTickets(lang Lang, filter string) string {
 // the next re-render.
 func ErrTitleNewline(lang Lang) string {
 	return getDict(lang).errTitleNewline
+}
+
+// ErrTitleCTL returns the localized rejection message for a ticket title
+// containing a C0 control character (0x00–0x1F except TAB) or DEL (0x7F)
+// (T-0075): `new` prints it before any file is created, because such bytes
+// corrupt the H1 and the terminal.
+func ErrTitleCTL(lang Lang) string {
+	return getDict(lang).errTitleCTL
+}
+
+// ContainsCTL reports whether s contains a C0 control character
+// (0x00–0x1F, excluding TAB 0x09) or DEL (0x7F). CR/LF are covered
+// (T-0075 supersedes the T-0044 ContainsAny check).
+func ContainsCTL(s string) bool {
+	for _, r := range s {
+		if (r <= 0x1F && r != 0x09) || r == 0x7F {
+			return true
+		}
+	}
+	return false
 }
 
 // ErrJournalNewline returns the localized rejection message for a
