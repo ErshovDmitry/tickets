@@ -129,7 +129,7 @@ func TestNewReadOnly_MutationRejected(t *testing.T) {
 	if _, err := ro.Create(fakeTicket(0)); !errors.Is(err, ErrReadOnly) {
 		t.Fatalf("Create on read-only store: want ErrReadOnly, got %v", err)
 	}
-	if _, err := ro.SetStatus(1, domain.StatusWip, "t", "must fail"); !errors.Is(err, ErrReadOnly) {
+	if _, _, err := ro.SetStatus(1, domain.StatusWip, "t", "must fail"); !errors.Is(err, ErrReadOnly) {
 		t.Fatalf("SetStatus on read-only store: want ErrReadOnly, got %v", err)
 	}
 	tickets, warns := ro.List()

@@ -28,7 +28,7 @@ func TestSetStatus_ForeignBrokenDoneCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := s.SetStatus(1, domain.StatusDone, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusDone, "tester", "")
 	var coll *CollisionError
 	if !errors.As(err, &coll) {
 		t.Fatalf("expected *CollisionError, got %v", err)
@@ -50,7 +50,7 @@ func TestSetStatus_ForeignBrokenDoneArchiveCollision(t *testing.T) {
 	if _, err := s.Create(fakeTicket(0)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusClosed, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusClosed, "tester", ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Archive(1, "tester"); err != nil {
@@ -62,7 +62,7 @@ func TestSetStatus_ForeignBrokenDoneArchiveCollision(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := s.SetStatus(1, domain.StatusDone, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusDone, "tester", "")
 	var coll *CollisionError
 	if !errors.As(err, &coll) {
 		t.Fatalf("expected *CollisionError, got %v", err)

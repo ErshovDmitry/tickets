@@ -54,7 +54,7 @@ func TestConcurrent_CreateAndSetStatus_NoJournalLoss_N50(t *testing.T) {
 				}
 				time.Sleep(time.Millisecond)
 			}
-			if _, err := s.SetStatus(i, domain.StatusWip, "tester", fmt.Sprintf("go %d", i)); err != nil {
+			if _, _, err := s.SetStatus(i, domain.StatusWip, "tester", fmt.Sprintf("go %d", i)); err != nil {
 				t.Errorf("SetStatus(%d): %v", i, err)
 			}
 		}()

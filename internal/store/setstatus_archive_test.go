@@ -19,7 +19,7 @@ func TestSetStatus_ReopenArchivedGoesToMain(t *testing.T) {
 	if _, err := s.Archive(1, "tester"); err != nil {
 		t.Fatal(err)
 	}
-	target, err := s.SetStatus(1, domain.StatusOpen, "tester", "")
+	target, _, err := s.SetStatus(1, domain.StatusOpen, "tester", "")
 	if err != nil {
 		t.Fatalf("SetStatus(reopen): %v", err)
 	}
@@ -68,7 +68,7 @@ func TestSetStatus_ArchivedDoneClosedStaysInArchive(t *testing.T) {
 	if _, err := s.Archive(1, "tester"); err != nil {
 		t.Fatal(err)
 	}
-	target, err := s.SetStatus(1, domain.StatusClosed, "tester", "")
+	target, _, err := s.SetStatus(1, domain.StatusClosed, "tester", "")
 	if err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}

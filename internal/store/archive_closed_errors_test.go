@@ -120,7 +120,7 @@ func TestArchiveClosed_MidRunCollisionReturnsMoved(t *testing.T) {
 		}
 	}
 	for _, n := range []int{1, 2} {
-		if _, err := s.SetStatus(n, domain.StatusDone, "tester", ""); err != nil {
+		if _, _, err := s.SetStatus(n, domain.StatusDone, "tester", ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -165,7 +165,7 @@ func TestArchiveClosed_MidRunCollisionKeepsWarnings(t *testing.T) {
 		}
 	}
 	for _, n := range []int{1, 2} {
-		if _, err := s.SetStatus(n, domain.StatusDone, "tester", ""); err != nil {
+		if _, _, err := s.SetStatus(n, domain.StatusDone, "tester", ""); err != nil {
 			t.Fatal(err)
 		}
 	}

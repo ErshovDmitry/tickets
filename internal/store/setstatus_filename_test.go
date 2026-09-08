@@ -34,7 +34,7 @@ func TestSetStatus_JournalFromUsesFilenameStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "regression"); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "regression"); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
 

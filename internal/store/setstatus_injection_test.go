@@ -26,7 +26,7 @@ func TestSetStatus_RejectsNewlineInComment(t *testing.T) {
 	}
 
 	bad := "line1\n- 1999-01-01 — forged entry (root)"
-	_, err = s.SetStatus(1, domain.StatusWip, "tester", bad)
+	_, _, err = s.SetStatus(1, domain.StatusWip, "tester", bad)
 	var inv *ErrInvalidJournalInput
 	if !errors.As(err, &inv) {
 		t.Fatalf("expected *ErrInvalidJournalInput, got %v", err)
@@ -61,7 +61,7 @@ func TestSetStatus_RejectsCRInComment(t *testing.T) {
 	}
 	before, _ := os.ReadFile(filepath.Join(dir, "T-0001-open.md"))
 
-	_, err := s.SetStatus(1, domain.StatusWip, "tester", "line1\rforged")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "line1\rforged")
 	var inv *ErrInvalidJournalInput
 	if !errors.As(err, &inv) {
 		t.Fatalf("expected *ErrInvalidJournalInput, got %v", err)
@@ -87,7 +87,7 @@ func TestSetStatus_RejectsNewlineInWho(t *testing.T) {
 	}
 	before, _ := os.ReadFile(filepath.Join(dir, "T-0001-open.md"))
 
-	_, err := s.SetStatus(1, domain.StatusWip, "evil\n- 1999-01-01 — x", "ok")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "evil\n- 1999-01-01 — x", "ok")
 	var inv *ErrInvalidJournalInput
 	if !errors.As(err, &inv) {
 		t.Fatalf("expected *ErrInvalidJournalInput, got %v", err)
@@ -117,7 +117,7 @@ func TestAppendSameStatus_RejectsNewlineInComment(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = s.SetStatus(1, domain.StatusOpen, "tester", "note\n- forged")
+	_, _, err = s.SetStatus(1, domain.StatusOpen, "tester", "note\n- forged")
 	var inv *ErrInvalidJournalInput
 	if !errors.As(err, &inv) {
 		t.Fatalf("expected *ErrInvalidJournalInput, got %v", err)
@@ -146,7 +146,7 @@ func TestSetStatus_ValidRoundTrip(t *testing.T) {
 	if _, err := s.Create(fakeTicket(0)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "starting work"); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "starting work"); err != nil {
 		t.Fatalf("SetStatus with valid inputs: %v", err)
 	}
 	body := string(mustRead(t, dir, 1))

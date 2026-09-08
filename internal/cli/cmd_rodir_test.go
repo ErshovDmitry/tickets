@@ -98,3 +98,26 @@ func TestRun_NewOnReadOnlyDirFails(t *testing.T) {
 		t.Errorf("new must not write a ticket on a read-only dir: before=%v after=%v", before, after)
 	}
 }
+
+// TestRun_SetOnReadOnlyDirFails pins T-0070: `set` on a read-only
+// directory exits 1 with the store write-probe error and leaves the
+// ticket file in its original status.
+func TestRun_SetOnReadOnlyDirFails(t *testing.T) {
+	skipRootOrWindows(t)
+	env := makeReadOnlyTicketsDir(t)
+	dir := env["TICKETS_DIR"]
+
+	var stdout, stderr bytes.Buffer
+	if code := cli.Run([]string{"set", "1", "wip"}, env, &stdout, &stderr); code != 1 {
+		t.Fatalf("Run(set) = %d, want 1; stderr: %q", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "store: probe") {
+		t.Errorf("stderr must carry the probe error; got %q", stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "T-0001-open.md")); err != nil {
+		t.Errorf("T-0001-open.md must remain: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "T-0001-wip.md")); !os.IsNotExist(err) {
+		t.Errorf("T-0001-wip.md must not appear; stat err=%v", err)
+	}
+}

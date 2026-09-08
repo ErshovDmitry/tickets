@@ -167,7 +167,7 @@ func TestSetStatus_UpdatesNameAndAppendsJournal(t *testing.T) {
 	if _, err := s.Create(fakeTicket(0)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "starting"); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "starting"); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
 	// Old filename must be gone.
@@ -191,7 +191,7 @@ func TestSetStatus_NoComment(t *testing.T) {
 	if _, err := s.Create(fakeTicket(0)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", ""); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
 	assertJournalTransition(t, string(mustRead(t, dir, 1)), "open", "wip", "", "tester")
@@ -206,7 +206,7 @@ func TestSetStatus_PreservesUnknownBytes(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "T-0001-open.md"), append(mustRead(t, dir, 1), []byte(extra)...), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "go"); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "go"); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
 	body := string(mustRead(t, dir, 1))
@@ -220,7 +220,7 @@ func TestSetStatus_SameStatusRefused(t *testing.T) {
 	if _, err := s.Create(fakeTicket(0)); err != nil {
 		t.Fatal(err)
 	}
-	_, err := s.SetStatus(1, domain.StatusOpen, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusOpen, "tester", "")
 	if err == nil {
 		t.Fatal("expected error for no-op status change")
 	}
@@ -235,7 +235,7 @@ func TestSetStatus_CollisionOnExistingTarget(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "T-0001-wip.md"), []byte("# pre-existing"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := s.SetStatus(1, domain.StatusWip, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -246,7 +246,7 @@ func TestSetStatus_CollisionOnExistingTarget(t *testing.T) {
 
 func TestSetStatus_NotFound(t *testing.T) {
 	s, _ := newStore(t)
-	_, err := s.SetStatus(4242, domain.StatusWip, "tester", "ghost")
+	_, _, err := s.SetStatus(4242, domain.StatusWip, "tester", "ghost")
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}

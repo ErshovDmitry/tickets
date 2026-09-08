@@ -118,7 +118,7 @@ func TestListFindSet_CannotEscapeViaSymlinkedTicketName(t *testing.T) {
 	if _, _, err := s.FindNamed(1); !errors.Is(err, ErrNotFound) {
 		t.Errorf("FindNamed(1) err = %v, want ErrNotFound", err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "escape attempt"); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "escape attempt"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("SetStatus err = %v, want ErrNotFound (no outside mutation)", err)
 	}
 	assertOutsideUntouched(t, target, body)

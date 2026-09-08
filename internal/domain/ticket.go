@@ -42,7 +42,8 @@ type Ticket struct {
 	Created  time.Time
 	Journal  []JournalEntry
 	// Unknown holds manual bytes after the journal section, preserved verbatim.
-	Unknown []byte
+	Unknown    []byte
+	JournalDup bool // set by Parse when a second "## Journal" section merges into the canonical journal
 
 	// Lang is the detected language of the ticket file (LOCK D4). It affects
 	// only: emission of new journal lines, stub choice for empty sections,

@@ -82,40 +82,42 @@ func preview(s string) string {
 // FAT/exFAT volumes the commit fails loudly rather than risking data
 // loss.
 //
-// On success the full path of the new file is returned: an archived
-// ticket kept at done/closed stays under archive/, so the caller cannot
-// derive the path from s.Dir alone.
+// On success the full path of the new file (an archived ticket kept at
+// done/closed stays under archive/) plus non-fatal parse warnings for
+// the mutated file (e.g. merged duplicate "## Journal", T-0070) are
+// returned; error paths return nil warnings.
 //
 // Mutations on a read-only Store (NewReadOnly) are rejected by withLock
 // with ErrReadOnly.
-func (s *Store) SetStatus(n int, next domain.Status, who, comment string) (string, error) {
+func (s *Store) SetStatus(n int, next domain.Status, who, comment string) (string, []ParseWarning, error) {
 	var target string
+	var warnings []ParseWarning
 	err := s.withLock(func() error {
 		var serr error
-		target, serr = s.setStatusLocked(n, next, who, comment)
+		target, warnings, serr = s.setStatusLocked(n, next, who, comment)
 		return serr
 	})
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return target, nil
+	return target, warnings, nil
 }
 
 // setStatusLocked assumes the per-store advisory lock is held. It
-// returns the full path of the committed new file.
-func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) (string, error) {
+// returns the committed new file's path plus parse warnings (nil on error).
+func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) (string, []ParseWarning, error) {
 	// T-0065: reject CR/LF in journal inputs BEFORE any read or rename —
 	// the comment/who are written verbatim into a line-oriented journal
 	// format, so an embedded newline is a forged-entry injection vector.
 	if err := validateJournalInput(comment, who); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	files, err := s.findAllNumber(n)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if len(files) == 0 {
-		return "", ErrNotFound
+		return "", nil, ErrNotFound
 	}
 	// T-0074: route on file names alone, never parsing a body first. A
 	// same-number file at a different status (even a foreign one with a
@@ -138,10 +140,10 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 	}
 	if haveNext {
 		if haveCur {
-			return "", &CollisionError{Target: filepath.Join(nextFile.dir, nextFile.Name)}
+			return "", nil, &CollisionError{Target: filepath.Join(nextFile.dir, nextFile.Name)}
 		}
 		if comment == "" {
-			return "", &AlreadyStatusError{Number: n, Status: next}
+			return "", nil, &AlreadyStatusError{Number: n, Status: next}
 		}
 		return s.appendSameStatusLocked(n, nextFile.fileEntry, nextFile.dir, who, comment)
 	}
@@ -162,16 +164,17 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 
 	target := filepath.Join(targetDir, domain.Filename(n, next))
 	if _, lerr := os.Lstat(target); lerr == nil {
-		return "", &CollisionError{Target: target}
+		return "", nil, &CollisionError{Target: target}
 	} else if !errors.Is(lerr, fs.ErrNotExist) {
-		return "", fmt.Errorf("store: lstat target: %w", lerr)
+		return "", nil, fmt.Errorf("store: lstat target: %w", lerr)
 	}
 
 	old := filepath.Join(curDir, cur.Name)
 	tk, _, unknown, rerr := readTicketFile(old, cur.Number)
 	if rerr != nil {
-		return "", fmt.Errorf("store: read %s: %w", cur.Name, rerr)
+		return "", nil, fmt.Errorf("store: read %s: %w", cur.Name, rerr)
 	}
+	warnings := journalDupWarnings(cur.Name, tk)
 	oldStatus := cur.Status // filename-derived; body status is untrusted (V16)
 	tk.Status = next
 	tk.Journal = append(tk.Journal, domain.JournalEntry{
@@ -184,12 +187,12 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 
 	rendered, rerr := domain.Render(tk, unknown)
 	if rerr != nil {
-		return "", fmt.Errorf("store: render: %w", rerr)
+		return "", nil, fmt.Errorf("store: render: %w", rerr)
 	}
 
 	tmpPath, werr := s.writeTmp(n, next, rendered, targetDir)
 	if werr != nil {
-		return "", werr
+		return "", nil, werr
 	}
 
 	if lerr := linkFile(tmpPath, target); lerr != nil {
@@ -200,7 +203,7 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 			lerr = fmt.Errorf("store: link commit: %w", lerr)
 		}
 		cleanup := removeTmp(tmpPath)
-		return "", errors.Join(lerr, cleanup)
+		return "", nil, errors.Join(lerr, cleanup)
 	}
 	// tmp and target share one inode now; drop the tmp name via the
 	// removeTmp hook, NOT the removeFile hook (the swapRemove call-count
@@ -212,7 +215,7 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 		// roll it back by removing the target.
 		tmpErr := fmt.Errorf("store: remove tmp %s: %w", tmpPath, rerr)
 		if rbErr := removeFile(target); rbErr != nil {
-			return "", errors.Join(
+			return "", nil, errors.Join(
 				tmpErr,
 				fmt.Errorf("rollback remove %s: %w", target, rbErr),
 			)
@@ -222,7 +225,7 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 		if retryErr := removeTmp(tmpPath); retryErr != nil {
 			tmpErr = errors.Join(tmpErr, retryErr)
 		}
-		return "", tmpErr
+		return "", nil, tmpErr
 	}
 
 	if rerr := removeFile(old); rerr != nil {
@@ -231,12 +234,12 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 			// out-of-lock agent). The invariant "ONLY the new file
 			// remains" already holds, so this is success; a rollback
 			// here would delete the only remaining ticket file.
-			return target, nil
+			return target, warnings, nil
 		}
 		// Try to roll back: remove target.
 		rbErr := removeFile(target)
 		if rbErr != nil {
-			return "", errors.Join(
+			return "", nil, errors.Join(
 				fmt.Errorf("remove old %s: %w", cur.Name, rerr),
 				fmt.Errorf("rollback remove %s: %w", target, rbErr),
 				errors.New("invariant breach: old+new coexist"),
@@ -244,9 +247,9 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 		}
 		// Rollback succeeded: surface the original error. A single-arg
 		// errors.Join would add a pointless wrapper layer (wave-1 #4).
-		return "", fmt.Errorf("remove old %s: %w", cur.Name, rerr)
+		return "", nil, fmt.Errorf("remove old %s: %w", cur.Name, rerr)
 	}
-	return target, nil
+	return target, warnings, nil
 }
 
 // appendSameStatusLocked journals a same-status set (comment != "") in
@@ -261,17 +264,18 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 // because old == target stays alive. Caveat: a journal append written
 // out of lock between readTicketFile and the rename is silently lost —
 // the same lost-update window the cross-status path has.
-func (s *Store) appendSameStatusLocked(n int, cur fileEntry, curDir, who, comment string) (string, error) {
+func (s *Store) appendSameStatusLocked(n int, cur fileEntry, curDir, who, comment string) (string, []ParseWarning, error) {
 	// T-0065: same-status journal-only path is the third write site and
 	// shares the same line-oriented format, so the same guard applies.
 	if err := validateJournalInput(comment, who); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	old := filepath.Join(curDir, cur.Name)
 	tk, _, unknown, err := readTicketFile(old, cur.Number)
 	if err != nil {
-		return "", fmt.Errorf("store: read %s: %w", cur.Name, err)
+		return "", nil, fmt.Errorf("store: read %s: %w", cur.Name, err)
 	}
+	warnings := journalDupWarnings(cur.Name, tk)
 	tk.Status = cur.Status
 	tk.Journal = append(tk.Journal, domain.JournalEntry{
 		From:    cur.Status,
@@ -282,14 +286,14 @@ func (s *Store) appendSameStatusLocked(n int, cur fileEntry, curDir, who, commen
 	})
 	rendered, err := domain.Render(tk, unknown)
 	if err != nil {
-		return "", fmt.Errorf("store: render: %w", err)
+		return "", nil, fmt.Errorf("store: render: %w", err)
 	}
 	tmpPath, err := s.writeTmp(n, cur.Status, rendered, curDir)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if err := renameFile(tmpPath, old); err != nil {
-		return "", errors.Join(fmt.Errorf("store: rename commit: %w", err), removeTmp(tmpPath))
+		return "", nil, errors.Join(fmt.Errorf("store: rename commit: %w", err), removeTmp(tmpPath))
 	}
-	return old, nil
+	return old, warnings, nil
 }

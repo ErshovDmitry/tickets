@@ -68,7 +68,7 @@ func TestSetStatus_TmpRemoveFails_RollsBackTarget(t *testing.T) {
 	var removeFileCalls []string
 	recordRemoveFile(t, &removeFileCalls)
 
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", ""); err == nil {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", ""); err == nil {
 		t.Fatal("expected tmp-removal error")
 	} else if !strings.Contains(err.Error(), "synthetic-tmp-remove-boom") {
 		t.Errorf("tmp-removal cause must be propagated; got %v", err)

@@ -27,7 +27,7 @@ func TestSetStatus_SameStatusJournalOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	target, err := s.SetStatus(1, domain.StatusOpen, "tester", "note")
+	target, _, err := s.SetStatus(1, domain.StatusOpen, "tester", "note")
 	if err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestSetStatus_SameStatusRenameFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	swapRename(t, func(string, string) error { return errors.New("boom") })
-	_, err = s.SetStatus(1, domain.StatusOpen, "tester", "note")
+	_, _, err = s.SetStatus(1, domain.StatusOpen, "tester", "note")
 	if err == nil {
 		t.Fatal("expected rename commit error")
 	}

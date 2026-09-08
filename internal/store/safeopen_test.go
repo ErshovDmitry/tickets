@@ -151,7 +151,7 @@ func TestFindRaw_TOCTOUSymlinkSwapCannotLeakOutside(t *testing.T) {
 	}
 
 	// SetStatus must not mutate anything through the swapped entry.
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "TOCTOU attempt"); !errors.Is(err, ErrNotFound) {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "TOCTOU attempt"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("SetStatus err = %v, want ErrNotFound", err)
 	}
 	assertOutsideUntouched(t, sentinel, sentinelBody)

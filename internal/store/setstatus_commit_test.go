@@ -32,7 +32,7 @@ func TestSetStatus_LinkFailsJoinsErr(t *testing.T) {
 	swapLink(t, func(string, string) error {
 		return errors.New("synthetic-link-fail")
 	})
-	_, err := s.SetStatus(1, domain.StatusWip, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -65,7 +65,7 @@ func TestSetStatus_RemoveOldFailsRollbackOK(t *testing.T) {
 		}
 		return os.Remove(p)
 	})
-	_, err := s.SetStatus(1, domain.StatusWip, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -95,7 +95,7 @@ func TestSetStatus_RollbackAlsoFails_BreachText(t *testing.T) {
 	swapRemove(t, func(p string) error {
 		return fmt.Errorf("synthetic-remove(%s)", filepath.Base(p))
 	})
-	_, err := s.SetStatus(1, domain.StatusWip, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -152,7 +152,7 @@ func TestConcurrent_CreateAndSetStatus_NoJournalLoss(t *testing.T) {
 				}
 				time.Sleep(time.Millisecond)
 			}
-			if _, err := s.SetStatus(i, domain.StatusWip, "tester", fmt.Sprintf("go %d", i)); err != nil {
+			if _, _, err := s.SetStatus(i, domain.StatusWip, "tester", fmt.Sprintf("go %d", i)); err != nil {
 				t.Errorf("SetStatus(%d): %v", i, err)
 			}
 		}()

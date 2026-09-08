@@ -56,7 +56,7 @@ func TestSetStatus_NoReplace_WindowRace(t *testing.T) {
 		}
 		return os.Link(tmp, tgt)
 	})
-	_, err := s.SetStatus(1, domain.StatusWip, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "")
 	var coll *CollisionError
 	if !errors.As(err, &coll) || !errors.Is(err, ErrCollision) {
 		t.Fatalf("expected CollisionError/ErrCollision, got %v", err)
@@ -82,7 +82,7 @@ func TestSetStatus_NoReplace_InjectedErrExist(t *testing.T) {
 	s, dir, oldPath := seedTicket(t)
 	target := filepath.Join(dir, "T-0001-wip.md")
 	swapLink(t, func(string, string) error { return fs.ErrExist })
-	_, err := s.SetStatus(1, domain.StatusWip, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "")
 	if !errors.Is(err, ErrCollision) {
 		t.Fatalf("expected ErrCollision, got %v", err)
 	}
@@ -101,7 +101,7 @@ func TestSetStatus_NoReplace_InjectedOtherError(t *testing.T) {
 	swapLink(t, func(string, string) error {
 		return errors.New("synthetic-link-boom")
 	})
-	_, err := s.SetStatus(1, domain.StatusWip, "tester", "")
+	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "")
 	if err == nil {
 		t.Fatal("expected error")
 	}

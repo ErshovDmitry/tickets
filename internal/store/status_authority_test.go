@@ -94,7 +94,7 @@ func TestFind_StatusFromFilenameNotBody(t *testing.T) {
 func TestSetStatus_TransitionFromFilenameStatusNotBody(t *testing.T) {
 	s, dir := tamperedOpenStore(t, domain.StatusDone)
 
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "from open"); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "from open"); err != nil {
 		t.Fatalf("SetStatus (open→wip) rejected via tampered body: %v", err)
 	}
 

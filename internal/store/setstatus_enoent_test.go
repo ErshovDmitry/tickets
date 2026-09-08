@@ -40,7 +40,7 @@ func TestSetStatus_RemoveOldENOENT_IsSuccess(t *testing.T) {
 		return os.Remove(p)
 	})
 
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", ""); err != nil {
 		t.Fatalf("SetStatus with ENOENT remove-old = %v, want nil (no rollback)", err)
 	}
 	if calls != 1 {

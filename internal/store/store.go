@@ -30,9 +30,11 @@ var (
 	ErrReadOnly = errors.New("store: read-only")
 )
 
-// ParseWarning records a ticket file the scanner could not interpret.
-// List returns these alongside valid tickets; the bad file is skipped,
-// never blocking the whole read.
+// ParseWarning records a ticket file with parse anomalies: scan
+// rejections (a file the scanner could not interpret — List skips it,
+// never blocking the whole read) and mutation-path parse notices (e.g.
+// SetStatus normalizing a duplicate journal section). Both are
+// non-fatal and surfaced to the user.
 type ParseWarning struct {
 	Name string
 	Err  error
@@ -44,6 +46,17 @@ func (w ParseWarning) Error() string {
 		return w.Name
 	}
 	return fmt.Sprintf("%s: %v", w.Name, w.Err)
+}
+
+// journalDupWarnings returns the mutation-path parse notice for a parsed
+// ticket whose journal merged a duplicate "## Journal" section (T-0070):
+// one non-fatal ParseWarning carrying domain.ErrJournalDup. Canonical
+// files yield nil.
+func journalDupWarnings(name string, tk *domain.Ticket) []ParseWarning {
+	if tk.JournalDup {
+		return []ParseWarning{{Name: name, Err: domain.ErrJournalDup}}
+	}
+	return nil
 }
 
 // Store is the per-directory handle. The zero value is invalid; use New.

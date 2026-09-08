@@ -51,7 +51,7 @@ func makeDone(t *testing.T) (*Store, string) {
 	if _, err := s.Create(fakeTicket(0)); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusDone, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusDone, "tester", ""); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
 	return s, dir
@@ -113,7 +113,7 @@ func TestArchive_RejectsOpenAndWip(t *testing.T) {
 				t.Fatal(err)
 			}
 			if st == domain.StatusWip {
-				if _, err := s.SetStatus(1, domain.StatusWip, "tester", ""); err != nil {
+				if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", ""); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -197,10 +197,10 @@ func TestArchiveClosed_DoneGroupBeforeClosedGroup(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.SetStatus(1, domain.StatusClosed, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusClosed, "tester", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetStatus(2, domain.StatusDone, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(2, domain.StatusDone, "tester", ""); err != nil {
 		t.Fatal(err)
 	}
 	moved, err := s.ArchiveClosed("tester")

@@ -29,10 +29,13 @@ const (
 // Parse reads ticket markdown tolerantly: it never fails, missing or
 // malformed parts become zero values, and any manual bytes after the last
 // recognized journal line are preserved verbatim in Ticket.Unknown (also
-// returned as the second result). Inside "## Журнал" the first line that is
-// not a recognized entry — a blank or free-form manual line included — ends
-// the recognized tail; everything from that byte on becomes Unknown by
-// design so manual edits survive parse/render round trips intact.
+// returned as the second result). Inside "## Журнал" blank lines are
+// deferred, not terminating: a recognized section header after the journal
+// resumes parsing (a repeated Journal header merges its entries and sets
+// Ticket.JournalDup), while the first non-blank, non-header line still ends
+// the recognized tail — Unknown starts at any pending blank run — so manual
+// edits survive parse/render round trips intact. A pending blank run at EOF
+// becomes Unknown too, so trailing blank bytes survive.
 func Parse(data []byte) (*Ticket, []byte, error) {
 	t := &Ticket{
 		RawTemplates: rawTemplates{
@@ -42,6 +45,7 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 	}
 	var details, userComments, comments []string
 	sec := secHead
+	seenJournal := false
 
 	// Detect language first (LOCK D4).
 	t.Lang = detectLang(data)
@@ -62,12 +66,32 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 		// kept verbatim with no blanking (T-0035).
 		t.Comments = strings.Join(trimTrailingEmpty(comments), "\n")
 	}
+	blankRunStart := -1
 	for pos := 0; pos < len(data); {
 		start, end := lineBounds(data, pos)
 		pos = end
 		line := string(trimEOL(data[start:end]))
 		if sec == secJournal {
+			if strings.TrimSpace(line) == "" {
+				if blankRunStart < 0 {
+					blankRunStart = start
+				}
+				continue
+			}
+			if name, _, _, ok := matchSectionHeader(line); ok {
+				blankRunStart = -1
+				if name == secNameJournal {
+					t.JournalDup = true
+					continue
+				}
+				t.RawTemplates.Headers[name] = line
+				sec = sectionFor(string(name))
+				continue
+			}
 			if !appendJournalLine(t, line) {
+				if blankRunStart >= 0 {
+					start = blankRunStart
+				}
 				// Unknown tail: stop early — but Details must still be
 				// finalized exactly as in the normal path, otherwise a
 				// manual journal tail renders an empty stub (round-trip
@@ -76,9 +100,24 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 				finish()
 				return t, t.Unknown, nil
 			}
+			blankRunStart = -1
 			continue
 		}
 		sec = absorbLine(t, &details, &userComments, &comments, sec, line)
+		if sec == secJournal {
+			// A Journal header reached from any non-journal section (head,
+			// brief, details, user comments, comments) is the first or a
+			// repeat journal: flag repeats so the store can warn, same as
+			// the in-journal adjacent-dup branch above (T-0070 F1).
+			if seenJournal {
+				t.JournalDup = true
+			} else {
+				seenJournal = true
+			}
+		}
+	}
+	if blankRunStart >= 0 {
+		t.Unknown = data[blankRunStart:]
 	}
 	finish()
 	return t, t.Unknown, nil

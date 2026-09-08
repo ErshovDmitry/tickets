@@ -2,6 +2,7 @@ package domain
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -15,6 +16,10 @@ type journalPatterns struct {
 	archive    *regexp.Regexp
 	transition *regexp.Regexp
 }
+
+// ErrJournalDup reports that a ticket file contained a second "## Journal"
+// section; its entries were merged into the canonical journal during Parse.
+var ErrJournalDup = errors.New("дубль секции «Журнал»: записи объединены с каноническим журналом")
 
 // journalDictPatterns caches compiled patterns per registered dict, built in
 // init() after dictionaries are loaded.

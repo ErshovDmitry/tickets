@@ -68,7 +68,7 @@ func TestArchiveDir_SymlinkArchive_BlocksWrites(t *testing.T) {
 	if moved, err := s.ArchiveClosed("tester"); err == nil || !errors.Is(err, ErrArchiveInvalid) {
 		t.Fatalf("ArchiveClosed err = %v (moved %v), want ErrArchiveInvalid", err, moved)
 	}
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "x"); !errors.Is(err, ErrArchiveInvalid) {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "x"); !errors.Is(err, ErrArchiveInvalid) {
 		t.Fatalf("SetStatus err = %v, want ErrArchiveInvalid", err)
 	}
 	if _, err := s.Create(fakeTicket(0)); !errors.Is(err, ErrArchiveInvalid) {
@@ -136,7 +136,7 @@ func TestArchiveDir_RegularFileArchive_Rejected(t *testing.T) {
 	if _, err := s.Create(fakeTicket(0)); !errors.Is(err, ErrArchiveInvalid) {
 		t.Fatalf("Create err = %v, want ErrArchiveInvalid", err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusWip, "tester", "x"); !errors.Is(err, ErrArchiveInvalid) {
+	if _, _, err := s.SetStatus(1, domain.StatusWip, "tester", "x"); !errors.Is(err, ErrArchiveInvalid) {
 		t.Fatalf("SetStatus err = %v, want ErrArchiveInvalid", err)
 	}
 	if _, _, _, err := s.FindRaw(9); err == nil {
@@ -160,7 +160,7 @@ func TestArchiveDir_ValidArchiveRegression(t *testing.T) {
 	if n, err := s.Create(fakeTicket(0)); err != nil || n != 1 {
 		t.Fatalf("Create = %d, %v", n, err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusDone, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusDone, "tester", ""); err != nil {
 		t.Fatalf("SetStatus: %v", err)
 	}
 	target, err := s.Archive(1, "tester")
@@ -177,7 +177,7 @@ func TestArchiveDir_ValidArchiveRegression(t *testing.T) {
 	if n, err := s.Create(fakeTicket(0)); err != nil || n != 2 {
 		t.Fatalf("Create after archive = %d, %v", n, err)
 	}
-	if _, err := s.SetStatus(2, domain.StatusWip, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(2, domain.StatusWip, "tester", ""); err != nil {
 		t.Fatalf("SetStatus(2): %v", err)
 	}
 	arch, warns := s.ListArchive()

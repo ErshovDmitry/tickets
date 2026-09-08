@@ -55,7 +55,7 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 	// a broken H1 surfaces as «файл … уже существует» instead of a parse
 	// error. The store returns the real path: an archived ticket moved
 	// between done and closed stays under archive/, so st.Dir would be wrong.
-	target, err := st.SetStatus(n, next, who, comment)
+	target, warnings, err := st.SetStatus(n, next, who, comment)
 	if err != nil {
 		// T-0065: the store may reject CR/LF in comment/who. Localize
 		// the message via the i18n layer (parity with T-0044 title
@@ -67,6 +67,13 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 			return 1
 		}
 		return setError(st, stderr, numArg, err)
+	}
+	// T-0070: parse anomalies from the rewritten file (e.g. a duplicate
+	// Journal section that was merged) are non-fatal notices on stderr;
+	// the command still succeeds. Exact cmd_list.go precedent format.
+	// NOTE(T-0080): plain RU diagnostic text; migrate to the i18n registry when T-0080 lands.
+	for _, w := range warnings {
+		fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
 	}
 	fmt.Fprintln(stdout, target)
 	return 0

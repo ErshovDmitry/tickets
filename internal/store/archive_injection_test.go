@@ -66,7 +66,7 @@ func TestArchiveClosed_RejectsNewlineInWho(t *testing.T) {
 	if _, err := s.Create(fakeTicket(0)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.SetStatus(1, domain.StatusDone, "tester", ""); err != nil {
+	if _, _, err := s.SetStatus(1, domain.StatusDone, "tester", ""); err != nil {
 		t.Fatal(err)
 	}
 	mainPath := filepath.Join(dir, "T-0001-done.md")
