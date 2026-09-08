@@ -3,6 +3,7 @@ package paths
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -233,6 +234,9 @@ func TestIsRealDir(t *testing.T) {
 				if !errors.Is(err, tt.wantErr) {
 					t.Fatalf("IsRealDir(%q) err = %v, want errors.Is %v", tt.path, err, tt.wantErr)
 				}
+				if got {
+					t.Errorf("IsRealDir(%q) = true, want false", tt.path)
+				}
 				return
 			}
 			if err != nil {
@@ -243,6 +247,26 @@ func TestIsRealDir(t *testing.T) {
 			}
 		})
 	}
+
+	// Lstat failure that is neither ErrNotExist nor ErrNotRealDir: a path
+	// containing a NUL byte fails on every platform, and IsRealDir must
+	// surface the hard error (T-0062 review).
+	t.Run("nul byte path", func(t *testing.T) {
+		nul := root + "\x00"
+		got, err := IsRealDir(nul)
+		if got {
+			t.Errorf("IsRealDir(%q) = true, want false", nul)
+		}
+		if err == nil {
+			t.Fatalf("IsRealDir(%q) err = nil, want hard error", nul)
+		}
+		if errors.Is(err, ErrNotRealDir) {
+			t.Errorf("IsRealDir(%q) err = %v, must not be ErrNotRealDir", nul, err)
+		}
+		if errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("IsRealDir(%q) err = %v, must not be fs.ErrNotExist", nul, err)
+		}
+	})
 }
 
 // TestVolumeRootAbstraction is host-independent: Dir(Clean(Separator)) is the

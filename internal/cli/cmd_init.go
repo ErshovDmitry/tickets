@@ -25,6 +25,7 @@ func initProject(cwd string, stdout, stderr io.Writer) int {
 			// Symlink: follow once. Broken link, unresolvable target (ELOOP)
 			// or a non-directory target is a conflict; a symlink to a real
 			// directory proceeds (behavior preserved, T-0062).
+			// target is a real dir: proceed
 			if info, serr := os.Stat(tickets); serr != nil || !info.IsDir() {
 				return conflict(stderr, tickets)
 			}
