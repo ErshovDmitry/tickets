@@ -173,9 +173,15 @@ func (s *Store) archiveOneLocked(n int, who string) (string, error) {
 	if cur.Status != domain.StatusDone && cur.Status != domain.StatusClosed {
 		return "", &NotClosedError{Status: cur.Status}
 	}
-	archiveDir := filepath.Join(s.Dir, "archive")
-	if mkErr := os.MkdirAll(archiveDir, 0o755); mkErr != nil {
-		return "", fmt.Errorf("store: mkdir archive: %w", mkErr)
+	archiveDir, aerr := validArchiveDir(s.Dir)
+	if aerr != nil {
+		return "", aerr
+	}
+	if archiveDir == "" { // no archive yet: create it now (T-0078)
+		archiveDir = filepath.Join(s.Dir, "archive")
+		if mkErr := os.MkdirAll(archiveDir, 0o755); mkErr != nil {
+			return "", fmt.Errorf("store: mkdir archive: %w", mkErr)
+		}
 	}
 	target := filepath.Join(archiveDir, cur.Name)
 	if _, lerr := os.Lstat(target); lerr == nil {
@@ -273,27 +279,5 @@ func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target,
 	return nil
 }
 
-// ListArchive returns the parseable tickets under tickets/archive/,
-// sorted by number. A missing archive/ directory is not an error: the
-// result is empty. Warning semantics match List.
-func (s *Store) ListArchive() ([]domain.Ticket, []ParseWarning) {
-	archiveDir := filepath.Join(s.Dir, "archive")
-	entries, warnings, dirErr := scanDir(archiveDir)
-	if dirErr != nil {
-		if errors.Is(dirErr, fs.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, []ParseWarning{{Name: archiveDir, Err: dirErr}}
-	}
-	var tickets []domain.Ticket
-	for _, e := range entries {
-		tk, _, _, err := readTicketFile(filepath.Join(archiveDir, e.Name), e.Number)
-		if err != nil {
-			warnings = append(warnings, ParseWarning{Name: e.Name, Err: err})
-			continue
-		}
-		tk.Status = e.Status
-		tickets = append(tickets, *tk)
-	}
-	return tickets, warnings
-}
+// ListArchive lives in archivedir.go (moved from here, T-0078 line
+// budget); its warning semantics are unchanged.

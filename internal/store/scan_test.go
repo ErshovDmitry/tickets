@@ -134,7 +134,11 @@ func TestScan_SortsByNumber(t *testing.T) {
 
 func TestMaxNumber_Empty(t *testing.T) {
 	s, _ := newStore(t)
-	if got := s.maxNumberLocked(); got != 0 {
+	got, err := s.maxNumberLocked()
+	if err != nil {
+		t.Fatalf("maxNumberLocked: %v", err)
+	}
+	if got != 0 {
 		t.Errorf("empty dir: want 0, got %d", got)
 	}
 }
@@ -145,7 +149,11 @@ func TestMaxNumber_WithFiles(t *testing.T) {
 	makeFile(t, dir, "T-0002-wip.md", "")
 	makeFile(t, dir, "T-0007-closed.md", "")
 	makeFile(t, dir, "T-0003-done.md", "")
-	if got := s.maxNumberLocked(); got != 7 {
+	got, err := s.maxNumberLocked()
+	if err != nil {
+		t.Fatalf("maxNumberLocked: %v", err)
+	}
+	if got != 7 {
 		t.Errorf("max: want 7, got %d", got)
 	}
 }
@@ -155,7 +163,11 @@ func TestMaxNumber_IgnoresBadNames(t *testing.T) {
 	makeFile(t, dir, "T-0001-open.md", "")
 	makeFile(t, dir, "T-NOTNUM-open.md", "")
 	makeFile(t, dir, "T-99999-open.md", "out of range — 5 digits")
-	if got := s.maxNumberLocked(); got != 1 {
+	got, err := s.maxNumberLocked()
+	if err != nil {
+		t.Fatalf("maxNumberLocked: %v", err)
+	}
+	if got != 1 {
 		t.Errorf("max: want 1, got %d (bad names must not contribute)", got)
 	}
 }

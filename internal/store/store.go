@@ -246,7 +246,11 @@ const maxTicketNumber = 9999
 func (s *Store) createLocked(t *domain.Ticket) (int, error) {
 	var lastErr error
 	for attempt := 0; attempt < MaxCreateAttempts; attempt++ {
-		n := s.maxNumberLocked() + 1
+		hi, err := s.maxNumberLocked()
+		if err != nil {
+			return 0, fmt.Errorf("store: determine next number: %w", err)
+		}
+		n := hi + 1
 		if n > maxTicketNumber {
 			return 0, fmt.Errorf("store: next number %d exceeds the 4-digit filename limit (%d)", n, maxTicketNumber)
 		}

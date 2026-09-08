@@ -1,8 +1,8 @@
 package store
 
 import (
+	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -104,11 +104,14 @@ func (e *parseErr) Error() string { return e.msg }
 
 // maxNumberLocked returns the highest ticket number present in s.Dir
 // and s.Dir/archive, or 0 when no parseable files exist. Archive numbers
-// are included to prevent reuse after archival.
-func (s *Store) maxNumberLocked() int {
+// are included to prevent reuse after archival. An unreadable main or
+// archive directory, or an invalid archive path (T-0078), is an error:
+// Create must fail rather than blindly reuse a number on a half-read
+// store.
+func (s *Store) maxNumberLocked() (int, error) {
 	entries, _, err := s.scan()
 	if err != nil {
-		return 0
+		return 0, fmt.Errorf("store: scan: %w", err)
 	}
 	var m int
 	for _, e := range entries {
@@ -116,15 +119,15 @@ func (s *Store) maxNumberLocked() int {
 			m = e.Number
 		}
 	}
-	// Check archive/ for max number.
-	archiveDir := filepath.Join(s.Dir, "archive")
-	if _, serr := os.Stat(archiveDir); serr == nil {
-		archiveEntries, _, _ := scanDir(archiveDir)
-		for _, e := range archiveEntries {
-			if e.Number > m {
-				m = e.Number
-			}
+	// Check archive/ for max number (validated; errors are not silenced).
+	_, archiveEntries, aerr := s.archiveScan()
+	if aerr != nil {
+		return 0, aerr
+	}
+	for _, e := range archiveEntries {
+		if e.Number > m {
+			m = e.Number
 		}
 	}
-	return m
+	return m, nil
 }

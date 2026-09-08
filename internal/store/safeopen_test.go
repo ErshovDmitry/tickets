@@ -94,10 +94,12 @@ func newStoreWithRealTicket(t *testing.T) (s *Store, dir, sentinel string, senti
 // TestFindRaw_TOCTOUSymlinkSwapCannotLeakOutside is the FINAL-F3
 // regression: a regular ticket validated by scan is swapped for a
 // symlink to the outside sentinel between validation and open. The
-// opened-handle Stat must mismatch the pre-open Lstat identity
-// (os.SameFile) and reject BEFORE any byte is read, so the sentinel
-// content can never be returned through FindRaw, List or SetStatus.
-// Pre-fix this leaked the sentinel bytes verbatim.
+// open must fail (O_NOFOLLOW: ELOOP on Unix) or, where that flag does
+// not exist, the opened-handle Stat must mismatch the pre-open Lstat
+// identity (os.SameFile) — either way rejection happens BEFORE any
+// byte is read, so the sentinel content can never be returned through
+// FindRaw, List or SetStatus. Pre-fix this leaked the sentinel bytes
+// verbatim.
 func TestFindRaw_TOCTOUSymlinkSwapCannotLeakOutside(t *testing.T) {
 	requireSymlinks(t) // installSwapHook creates a symlink; skip (not fail) where unavailable
 	s, dir, sentinel, sentinelBody := newStoreWithRealTicket(t)
@@ -107,9 +109,12 @@ func TestFindRaw_TOCTOUSymlinkSwapCannotLeakOutside(t *testing.T) {
 	if err == nil {
 		t.Fatalf("FindRaw succeeded through a mid-open symlink swap: %+v", tk)
 	}
-	if !errors.Is(err, errFileSwapped) {
-		t.Errorf("FindRaw err = %v, want errFileSwapped (identity check)", err)
-	}
+	// With O_NOFOLLOW (openNoFollowBlock) the swapped-in symlink now
+	// fails the open itself (ELOOP) on Unix instead of reaching the
+	// identity check; where the flag does not exist the SameFile guard
+	// still rejects. The guarantee — err non-nil (checked above) and
+	// sentinel bytes never returned — is platform-independent, so only
+	// it is asserted here.
 	if raw != nil {
 		t.Errorf("FindRaw returned raw bytes on rejected open: %q", raw)
 	}

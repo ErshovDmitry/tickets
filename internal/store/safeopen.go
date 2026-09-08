@@ -10,7 +10,7 @@ import (
 )
 
 // hookAfterValidate is a test-only seam invoked by openValidated between
-// the pre-open identity check and os.Open. Production code leaves it nil
+// the pre-open identity check and the open. Production code leaves it nil
 // (nil call = no-op). The TOCTOU regression test installs a hook that
 // swaps the validated regular ticket file for a symlink to an outside
 // sentinel, exactly reproducing the race window between scan-time
@@ -30,10 +30,15 @@ var errFileSwapped = &parseErr{msg: "file identity changed during open"}
 //     a symlink/FIFO/device present at read time is rejected before any
 //     open (Context7: Lstat "without following symbolic links").
 //  2. The test hook (nil in production) runs between check and open.
-//  3. os.Open is the only open; f.Stat re-reads the identity through the
-//     opened handle and os.SameFile compares it with step 1. Any swap in
-//     the window (file→symlink, file→another regular file, removal)
-//     mismatches and is rejected BEFORE a single byte is read.
+//  3. openNoFollowBlock is the only open: on Unix it passes O_NOFOLLOW
+//     (a final-component symlink fails the open with ELOOP, so an
+//     outside target is never opened) and O_NONBLOCK (a FIFO open
+//     returns immediately instead of blocking until a writer connects
+//     — the FIFO DoS). f.Stat re-reads the identity through the opened
+//     handle and os.SameFile compares it with step 1; a FIFO that got
+//     past the open is rejected here instantly (not regular). Any swap
+//     in the window (file→symlink, file→FIFO, file→another regular
+//     file, removal) is rejected BEFORE a single byte is read.
 //
 // The caller must Close the returned file. Content is read from this
 // validated handle — never re-opened by path.
@@ -48,7 +53,7 @@ func openValidated(path string) (*os.File, error) {
 	if hookAfterValidate != nil {
 		hookAfterValidate(path)
 	}
-	f, err := os.Open(path)
+	f, err := openNoFollowBlock(path)
 	if err != nil {
 		return nil, err
 	}

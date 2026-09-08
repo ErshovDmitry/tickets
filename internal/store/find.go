@@ -3,7 +3,6 @@ package store
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"ticket/internal/domain"
@@ -51,24 +50,26 @@ func (s *Store) FindRaw(n int) (domain.Ticket, string, []byte, error) {
 		tk.Status = e.Status
 		return *tk, e.Name, raw, nil
 	}
-	// Search archive/.
-	archiveDir := filepath.Join(s.Dir, "archive")
-	if _, err := os.Stat(archiveDir); err == nil {
-		archiveEntries, _, _ := scanDir(archiveDir)
-		for _, e := range archiveEntries {
-			if e.Number != n {
-				continue
-			}
-			tk, raw, _, err := readTicketFile(filepath.Join(archiveDir, e.Name), e.Number)
-			if err != nil {
-				if errors.Is(err, errEmptyTicket) {
-					return domain.Ticket{}, "", nil, ErrNotFound
-				}
-				return domain.Ticket{}, "", nil, fmt.Errorf("store: read %s: %w", e.Name, err)
-			}
-			tk.Status = e.Status
-			return *tk, e.Name, raw, nil
+	// Search archive/. T-0078: the archive path is validated first — a
+	// symlinked or non-directory archive fails loudly and archive scan
+	// errors are no longer discarded.
+	archiveDir, archiveEntries, aerr := s.archiveScan()
+	if aerr != nil {
+		return domain.Ticket{}, "", nil, aerr
+	}
+	for _, e := range archiveEntries {
+		if e.Number != n {
+			continue
 		}
+		tk, raw, _, err := readTicketFile(filepath.Join(archiveDir, e.Name), e.Number)
+		if err != nil {
+			if errors.Is(err, errEmptyTicket) {
+				return domain.Ticket{}, "", nil, ErrNotFound
+			}
+			return domain.Ticket{}, "", nil, fmt.Errorf("store: read %s: %w", e.Name, err)
+		}
+		tk.Status = e.Status
+		return *tk, e.Name, raw, nil
 	}
 	return domain.Ticket{}, "", nil, ErrNotFound
 }
@@ -94,14 +95,14 @@ func (s *Store) findLocked(n int) (fileEntry, string, error) {
 			return e, s.Dir, nil
 		}
 	}
-	// Check archive/.
-	archiveDir := filepath.Join(s.Dir, "archive")
-	if _, err := os.Stat(archiveDir); err == nil {
-		archiveEntries, _, _ := scanDir(archiveDir)
-		for _, e := range archiveEntries {
-			if e.Number == n {
-				return e, archiveDir, nil
-			}
+	// Check archive/. T-0078: validated; archive errors fail loudly.
+	archiveDir, archiveEntries, aerr := s.archiveScan()
+	if aerr != nil {
+		return fileEntry{}, "", aerr
+	}
+	for _, e := range archiveEntries {
+		if e.Number == n {
+			return e, archiveDir, nil
 		}
 	}
 	return fileEntry{}, "", ErrNotFound
@@ -119,7 +120,9 @@ type locatedFile struct {
 // first, then archive entries). Unlike findLocked it does not stop at the
 // first match, so a caller can detect a same-number file at a different
 // status (the T-0074 collision gate) without parsing either file. An
-// unreadable main directory is a wrapped error, mirroring findLocked.
+// unreadable main directory is a wrapped error, mirroring findLocked;
+// archive errors (invalid path, T-0078, or an unreadable archive
+// directory) propagate the same way.
 func (s *Store) findAllNumber(n int) ([]locatedFile, error) {
 	entries, _, dirErr := s.scan()
 	if dirErr != nil {
@@ -131,13 +134,13 @@ func (s *Store) findAllNumber(n int) ([]locatedFile, error) {
 			out = append(out, locatedFile{fileEntry: e, dir: s.Dir})
 		}
 	}
-	archiveDir := filepath.Join(s.Dir, "archive")
-	if _, err := os.Stat(archiveDir); err == nil {
-		archiveEntries, _, _ := scanDir(archiveDir)
-		for _, e := range archiveEntries {
-			if e.Number == n {
-				out = append(out, locatedFile{fileEntry: e, dir: archiveDir})
-			}
+	archiveDir, archiveEntries, aerr := s.archiveScan()
+	if aerr != nil {
+		return nil, aerr
+	}
+	for _, e := range archiveEntries {
+		if e.Number == n {
+			out = append(out, locatedFile{fileEntry: e, dir: archiveDir})
 		}
 	}
 	return out, nil
