@@ -40,21 +40,11 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 	if !ok {
 		return notFound(stderr, numArg)
 	}
-	cur, err := st.Find(n)
-	if err != nil {
-		// setError distinguishes ErrNotFound («не найден») from real
-		// lookup errors (unreadable/corrupt file), which are reported
-		// verbatim instead of being masked as not-found.
-		return setError(stderr, numArg, err)
-	}
-	// Same status without a comment is refused; with a comment the
-	// store appends a journal-only entry and the unchanged path prints.
-	if cur.Status == next && comment == "" {
-		fmt.Fprintf(stderr, "ticket: тикет уже в статусе %s\n", stArg)
-		return 1
-	}
-	// The store returns the real path: an archived ticket moved between
-	// done and closed stays under archive/, so st.Dir would be wrong.
+	// T-0074: no pre-parse via Find. SetStatus routes on file names alone
+	// (collision gate before any read), so a foreign same-number file with
+	// a broken H1 surfaces as «файл … уже существует» instead of a parse
+	// error. The store returns the real path: an archived ticket moved
+	// between done and closed stays under archive/, so st.Dir would be wrong.
 	target, err := st.SetStatus(n, next, who, comment)
 	if err != nil {
 		// T-0065: the store may reject CR/LF in comment/who. Localize
@@ -79,9 +69,12 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 // from the store directory here.
 func setError(stderr io.Writer, numArg string, err error) int {
 	var collision *store.CollisionError
+	var already *store.AlreadyStatusError
 	switch {
 	case errors.As(err, &collision):
 		fmt.Fprintf(stderr, "ticket: файл %s уже существует\n", collision.Target)
+	case errors.As(err, &already):
+		fmt.Fprintf(stderr, "ticket: тикет уже в статусе %s\n", already.Status)
 	case errors.Is(err, store.ErrNotFound):
 		return notFound(stderr, numArg)
 	default:

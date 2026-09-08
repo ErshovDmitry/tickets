@@ -233,3 +233,37 @@ func TestSetAbsentNumberNotFound(t *testing.T) {
 		t.Errorf("stderr = %q, want %q", got, want)
 	}
 }
+
+// TestSetForeignBrokenDoneCollision pins T-0074: a healthy open ticket
+// plus a foreign T-0001-done.md whose body is garbage must fail with the
+// collision message («файл … уже существует»), NOT a parse error — the
+// collision gate fires on file names before any body is read, and both
+// files stay untouched.
+func TestSetForeignBrokenDoneCollision(t *testing.T) {
+	env, dir := newTicketDir(t) // T-0001-open.md, healthy
+	foreign := filepath.Join(dir, "T-0001-done.md")
+	if err := os.WriteFile(foreign, []byte("FOREIGN-ZERO-BODY"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := cli.Run([]string{"set", "1", "done", ""}, env, &stdout, &stderr); code != 1 {
+		t.Fatalf("Run(set foreign broken done) = %d, want 1; stderr: %q", code, stderr.String())
+	}
+	if want := "ticket: файл " + foreign + " уже существует\n"; stderr.String() != want {
+		t.Errorf("stderr = %q, want %q", stderr.String(), want)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty", stdout.String())
+	}
+	got, err := os.ReadFile(foreign)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "FOREIGN-ZERO-BODY" {
+		t.Errorf("foreign file was modified: %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "T-0001-open.md")); err != nil {
+		t.Errorf("healthy open must remain: %v", err)
+	}
+}

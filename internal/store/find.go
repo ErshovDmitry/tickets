@@ -106,3 +106,39 @@ func (s *Store) findLocked(n int) (fileEntry, string, error) {
 	}
 	return fileEntry{}, "", ErrNotFound
 }
+
+// locatedFile pairs a scanned file entry with the directory it lives in
+// (s.Dir or s.Dir/archive).
+type locatedFile struct {
+	fileEntry
+	dir string
+}
+
+// findAllNumber returns every scanned file whose number equals n, from
+// both s.Dir and s.Dir/archive, each with its directory (main-dir entries
+// first, then archive entries). Unlike findLocked it does not stop at the
+// first match, so a caller can detect a same-number file at a different
+// status (the T-0074 collision gate) without parsing either file. An
+// unreadable main directory is a wrapped error, mirroring findLocked.
+func (s *Store) findAllNumber(n int) ([]locatedFile, error) {
+	entries, _, dirErr := s.scan()
+	if dirErr != nil {
+		return nil, fmt.Errorf("store: read dir %s: %w", s.Dir, dirErr)
+	}
+	var out []locatedFile
+	for _, e := range entries {
+		if e.Number == n {
+			out = append(out, locatedFile{fileEntry: e, dir: s.Dir})
+		}
+	}
+	archiveDir := filepath.Join(s.Dir, "archive")
+	if _, err := os.Stat(archiveDir); err == nil {
+		archiveEntries, _, _ := scanDir(archiveDir)
+		for _, e := range archiveEntries {
+			if e.Number == n {
+				out = append(out, locatedFile{fileEntry: e, dir: archiveDir})
+			}
+		}
+	}
+	return out, nil
+}

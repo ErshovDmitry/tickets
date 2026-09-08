@@ -41,6 +41,22 @@ func (e *CollisionError) Error() string {
 // Unwrap exposes the ErrCollision sentinel.
 func (e *CollisionError) Unwrap() error { return ErrCollision }
 
+// AlreadyStatusError reports a set to the status the ticket already has
+// with no comment: a same-status set with a comment is a journal-only
+// append (appendSameStatusLocked), but without one it is refused as a
+// no-op. Number and Status are carried so the cli can render the pinned
+// message without the store spelling out UI text (same pattern as
+// CollisionError / NotClosedError).
+type AlreadyStatusError struct {
+	Number int
+	Status domain.Status
+}
+
+// Error renders the internal (non-UI) description of the rejection.
+func (e *AlreadyStatusError) Error() string {
+	return fmt.Sprintf("store: ticket %d already in status %s", e.Number, e.Status)
+}
+
 // ScanWarningsError reports ticket-directory entries the scanner
 // rejected (broken names, non-.md files, non-regular entries). Warnings
 // carries the raw scan findings; the cli renders them. Rejected entries
