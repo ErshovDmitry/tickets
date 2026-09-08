@@ -20,6 +20,11 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 		usage(stdout, lang)
 		return 1
 	}
+	// T-0076: extra arguments are ignored bash-compatibly, but the silent
+	// truncation is surfaced as a warning; the exit code stays 0.
+	if len(args) > 1 {
+		fmt.Fprintf(stderr, "ticket: предупреждение: лишние аргументы игнорируются: %s\n", strings.Join(args[1:], " "))
+	}
 	n, ok := parseTicketNumber(args[0])
 	if !ok {
 		return notFound(stderr, args[0])
@@ -39,7 +44,7 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 		// or corrupt file, scan failure) is a real error the user must see,
 		// never masked as «не найден».
 		if errors.Is(err, store.ErrNotFound) {
-			return notFound(stderr, args[0])
+			return notFoundHinted(st, stderr, args[0])
 		}
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 		return 1
@@ -56,6 +61,55 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 func notFound(stderr io.Writer, arg string) int {
 	fmt.Fprintf(stderr, "ticket: тикет «%s» не найден\n", arg)
 	return 1
+}
+
+// notFoundHinted reports «не найден» and, for a numeric argument, adds
+// ONE hint line chosen from the store's actual state (main + archive
+// listings; the max is never hardcoded). Branch order is deliberate:
+// n==0 → «номера начинаются с 1»; max==0 → «хранилище пусто», unless
+// the scan rejected present files (warnings) — then the generic hint,
+// so emptiness is never claimed for a store whose files were skipped;
+// n>max → the real bound; in-range miss → the generic hint (show
+// searches archive/ too). Scan warnings are not printed here.
+func notFoundHinted(st *store.Store, stderr io.Writer, arg string) int {
+	rc := notFound(stderr, arg)
+	n, ok := parseTicketNumber(arg)
+	if !ok {
+		return rc
+	}
+	const generic = "ticket: подсказка: используйте ticket list (show ищет и в archive/)"
+	maxNum, warned := scanMax(st)
+	switch {
+	case n == 0:
+		fmt.Fprintln(stderr, "ticket: подсказка: номера тикетов начинаются с 1; используйте ticket list")
+	case maxNum == 0 && warned:
+		fmt.Fprintln(stderr, generic)
+	case maxNum == 0:
+		fmt.Fprintln(stderr, "ticket: подсказка: хранилище пусто; используйте ticket list")
+	case n > maxNum:
+		fmt.Fprintf(stderr, "ticket: подсказка: в этом хранилище номера до %d; используйте ticket list\n", maxNum)
+	default:
+		fmt.Fprintln(stderr, generic)
+	}
+	return rc
+}
+
+// scanMax returns the highest ticket number across the main and archive
+// listings and whether either scan produced warnings.
+func scanMax(st *store.Store) (maxNum int, warned bool) {
+	main, warns := st.List()
+	archive, archiveWarns := st.ListArchive()
+	for _, t := range main {
+		if t.Number > maxNum {
+			maxNum = t.Number
+		}
+	}
+	for _, t := range archive {
+		if t.Number > maxNum {
+			maxNum = t.Number
+		}
+	}
+	return maxNum, len(warns) > 0 || len(archiveWarns) > 0
 }
 
 // parseTicketNumber strips every non-digit (bash ${1//[^0-9]/}) and

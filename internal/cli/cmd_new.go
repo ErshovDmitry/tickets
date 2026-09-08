@@ -98,9 +98,17 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		return createError(stderr, st, err)
 	}
 	fmt.Fprintln(stdout, filepath.Join(st.Dir, domain.Filename(n, domain.StatusOpen)))
-	// Print warning to stderr if project is firstUse, exit 0 (T-0040)
+	// Print warning to stderr if project is firstUse, exit 0 (T-0040).
+	// T-0077: a second line names the destination dir — the bare warning
+	// is easy to miss. st.Dir is absolute by store contract; Abs is a
+	// cheap canonicalization with a fallback to the raw dir.
 	if firstUse {
 		fmt.Fprintln(stderr, domain.WarnNewProject(lang, project))
+		dir := st.Dir
+		if abs, err := filepath.Abs(st.Dir); err == nil {
+			dir = abs
+		}
+		fmt.Fprintf(stderr, "ticket: предупреждение: тикеты будут сохраняться в: %s\n", dir)
 	}
 	return 0
 }

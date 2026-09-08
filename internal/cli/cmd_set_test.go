@@ -69,8 +69,9 @@ func TestSetHappyPath(t *testing.T) {
 
 // TestSetSameStatusFails pins plan §6 item 7(e): setting the status the
 // ticket already has WITHOUT a comment exits 1 with the pinned message
-// and keeps the file. With a comment it is the T-0031 journal-only
-// append instead (TestSetSameStatusWithComment).
+// naming the ticket number (T-0077) and keeps the file. With a comment
+// it is the T-0031 journal-only append instead
+// (TestSetSameStatusWithComment).
 func TestSetSameStatusFails(t *testing.T) {
 	dir := t.TempDir()
 	env := map[string]string{"TICKETS_DIR": dir}
@@ -80,7 +81,7 @@ func TestSetSameStatusFails(t *testing.T) {
 	if code := cli.Run([]string{"set", "1", "open"}, env, &stdout, &stderr); code != 1 {
 		t.Fatalf("Run(set same) = %d, want 1", code)
 	}
-	if got, want := stderr.String(), "ticket: тикет уже в статусе open\n"; got != want {
+	if got, want := stderr.String(), "ticket: тикет 1 уже в статусе open\n"; got != want {
 		t.Errorf("stderr = %q, want %q", got, want)
 	}
 	if stdout.Len() != 0 {
@@ -218,7 +219,8 @@ func TestSet_UnreadableTicketReportsRealError(t *testing.T) {
 
 // TestSetAbsentNumberNotFound pins the absent-number contract: setting
 // a status on a number with no file exits 1 with the bash-compatible
-// «не найден» message and leaves the dir empty.
+// «не найден» message plus the empty-store hint (T-0076 branch 2) and
+// leaves the dir empty.
 func TestSetAbsentNumberNotFound(t *testing.T) {
 	env := map[string]string{"TICKETS_DIR": t.TempDir()}
 
@@ -229,7 +231,8 @@ func TestSetAbsentNumberNotFound(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want empty", stdout.String())
 	}
-	if got, want := stderr.String(), "ticket: тикет «9999» не найден\n"; got != want {
+	if got, want := stderr.String(),
+		"ticket: тикет «9999» не найден\nticket: подсказка: хранилище пусто; используйте ticket list\n"; got != want {
 		t.Errorf("stderr = %q, want %q", got, want)
 	}
 }

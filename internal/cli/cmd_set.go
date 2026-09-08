@@ -56,7 +56,7 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 			fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
 			return 1
 		}
-		return setError(stderr, numArg, err)
+		return setError(st, stderr, numArg, err)
 	}
 	fmt.Fprintln(stdout, target)
 	return 0
@@ -66,17 +66,18 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 // pinned §6 messages. The collision target comes from the typed
 // store error: an archived
 // ticket's target lives under archive/, so it can never be derived
-// from the store directory here.
-func setError(stderr io.Writer, numArg string, err error) int {
+// from the store directory here. st carries the store into the
+// not-found branch so the message gains a hint line (T-0076).
+func setError(st *store.Store, stderr io.Writer, numArg string, err error) int {
 	var collision *store.CollisionError
 	var already *store.AlreadyStatusError
 	switch {
 	case errors.As(err, &collision):
 		fmt.Fprintf(stderr, "ticket: файл %s уже существует\n", collision.Target)
 	case errors.As(err, &already):
-		fmt.Fprintf(stderr, "ticket: тикет уже в статусе %s\n", already.Status)
+		fmt.Fprintf(stderr, "ticket: тикет %d уже в статусе %s\n", already.Number, already.Status)
 	case errors.Is(err, store.ErrNotFound):
-		return notFound(stderr, numArg)
+		return notFoundHinted(st, stderr, numArg)
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}

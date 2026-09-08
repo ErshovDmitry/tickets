@@ -32,7 +32,10 @@ func TestNewProjectOverride(t *testing.T) {
 // TestNewProjectFirstUse verifies the warning appears on first-use project
 // (T-0040).
 func TestNewProjectFirstUse(t *testing.T) {
-	dir := t.TempDir()
+	// mustEval: the binary works on the EvalSymlinks-resolved dir, so the
+	// expected destination line must use the same path (a /var symlink on
+	// macOS would otherwise mismatch).
+	dir := mustEval(t, t.TempDir())
 	env := map[string]string{"TICKETS_DIR": dir}
 	var stdout, stderr bytes.Buffer
 	args := []string{"new", "First ticket", "-P", "newproject"}
@@ -42,6 +45,10 @@ func TestNewProjectFirstUse(t *testing.T) {
 	stderrOut := stderr.String()
 	if !strings.Contains(stderrOut, "newproject") || !strings.Contains(stderrOut, "впервые") {
 		t.Errorf("stderr missing first-use warning for 'newproject': %q", stderrOut)
+	}
+	// T-0077: the second warning line names the absolute destination dir.
+	if want := "ticket: предупреждение: тикеты будут сохраняться в: " + dir; !strings.Contains(stderrOut, want) {
+		t.Errorf("stderr missing destination line %q: %q", want, stderrOut)
 	}
 	// Verify ticket file was created
 	filePath := filepath.Join(dir, "T-0001-open.md")
