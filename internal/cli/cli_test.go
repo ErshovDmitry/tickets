@@ -177,3 +177,71 @@ func TestRunUnknownCommand(t *testing.T) {
 		t.Fatalf("stderr = %q, want empty", stderr.String())
 	}
 }
+
+// TestGlobalFlagRequiresValue pins T-0067: a leading -C/--tickets-dir flag
+// with no value, or with an empty value, must fail fast BEFORE command
+// routing (exit 1, one-line stderr, EMPTY stdout) instead of silently
+// degrading to help / falling through to scanUpward. Error cases assert
+// exit code 1, EMPTY stdout, and stderr contains BOTH the required
+// substring AND the actual flag spelling the user typed. Positive
+// controls exercise every valid flag form (-Cpath glued, -C path,
+// --tickets-dir path, --tickets-dir=path) against a real temp dir with
+// TICKETS_DIR explicitly absent, proving the flag path itself works.
+func TestGlobalFlagRequiresValue(t *testing.T) {
+	tmp := t.TempDir()
+	// Empty env — no TICKETS_DIR — forces the flag to be the only source
+	// of truth, so a positive control that exits 0 proves the flag was
+	// honored end-to-end (and not rescued by env or scanUpward).
+	env := map[string]string{}
+
+	cases := []struct {
+		name         string
+		args         []string
+		wantSpelling string // flag spelling that MUST appear in stderr (error cases only)
+		wantSubstr   string // message substring that MUST appear in stderr
+	}{
+		// Error cases: flag with no value or empty value.
+		{"trailing short", []string{"-C"}, "-C", "requires a value"},
+		{"trailing long", []string{"--tickets-dir"}, "--tickets-dir", "requires a value"},
+		{"equals empty", []string{"--tickets-dir="}, "--tickets-dir", "non-empty value"},
+		{"short with empty", []string{"-C", ""}, "-C", "non-empty value"},
+		{"long with empty", []string{"--tickets-dir", ""}, "--tickets-dir", "non-empty value"},
+		// Positive controls: every valid form must still resolve the dir.
+		{"glued path", []string{"-C" + tmp, "list"}, "", ""},
+		{"short space", []string{"-C", tmp, "list"}, "", ""},
+		{"long space", []string{"--tickets-dir", tmp, "list"}, "", ""},
+		{"long equals", []string{"--tickets-dir=" + tmp, "list"}, "", ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := cli.Run(tc.args, env, &stdout, &stderr)
+			if tc.wantSubstr == "" {
+				// Positive control: flag worked, command (list) ran cleanly.
+				if code != 0 {
+					t.Fatalf("Run(%q) = %d, want 0; stderr: %q", tc.args, code, stderr.String())
+				}
+				if stderr.Len() != 0 {
+					t.Fatalf("Run(%q) stderr = %q, want empty", tc.args, stderr.String())
+				}
+				return
+			}
+			// Error case: One-line stderr, EMPTY stdout, exit 1, and the
+			// message must name the offending flag spelling verbatim.
+			if code != 1 {
+				t.Fatalf("Run(%q) = %d, want 1; stderr: %q", tc.args, code, stderr.String())
+			}
+			if stdout.Len() != 0 {
+				t.Fatalf("Run(%q) stdout = %q, want EMPTY (no usage dump on flag error)", tc.args, stdout.String())
+			}
+			serr := stderr.String()
+			if !strings.Contains(serr, tc.wantSubstr) {
+				t.Errorf("Run(%q) stderr %q missing substring %q", tc.args, serr, tc.wantSubstr)
+			}
+			if !strings.Contains(serr, tc.wantSpelling) {
+				t.Errorf("Run(%q) stderr %q missing flag spelling %q", tc.args, serr, tc.wantSpelling)
+			}
+		})
+	}
+}

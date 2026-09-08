@@ -37,31 +37,55 @@ import (
 // here from the tickets dir resolved ONCE, who is the resolved user
 // (TICKET_WHO → USER → USERNAME → agent, bash:12) and project is
 // filepath.Base(filepath.Dir(dir)) (bash:10).
-func extractGlobalDir(args []string) (dir string, rest []string) {
+
+// extractGlobalDir scans args for a leading -C/--tickets-dir flag and returns
+// the resolved directory plus the remaining (post-flag) args. A trailing
+// flag with no value (`-C` / `--tickets-dir` at the end) or with an empty
+// value (`--tickets-dir=` / `-C ""` / `--tickets-dir ""`) is reported as
+// err so Run can fail fast before command routing — silent fallthrough
+// degraded `ticket -C` into help (exit 0, 47 lines of usage). Glued
+// `-C=` is intentionally left to paths.Resolve (dir "=" → later error),
+// and glued `-Cpath` keeps working as before.
+func extractGlobalDir(args []string) (dir string, rest []string, err error) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
 		case a == "--tickets-dir" || a == "-C":
-			if i+1 < len(args) {
-				dir = args[i+1]
-				i++
+			if i+1 >= len(args) {
+				return "", nil, fmt.Errorf("ticket: flag %s requires a value", a)
 			}
+			if args[i+1] == "" {
+				return "", nil, fmt.Errorf("ticket: flag %s requires a non-empty value", a)
+			}
+			dir = args[i+1]
+			i++
 			continue
 		case strings.HasPrefix(a, "--tickets-dir="):
-			dir = strings.SplitN(a, "=", 2)[1]
+			val := strings.SplitN(a, "=", 2)[1]
+			if val == "" {
+				return "", nil, fmt.Errorf("ticket: flag %s requires a non-empty value", a)
+			}
+			dir = val
 			continue
 		case strings.HasPrefix(a, "-C") && len(a) > 2:
 			dir = a[2:]
 			continue
 		default:
-			return dir, args[i:]
+			return dir, args[i:], nil
 		}
 	}
-	return dir, args[len(args):]
+	return dir, args[len(args):], nil
 }
 
 func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
-	flagDir, args := extractGlobalDir(args)
+	flagDir, args, err := extractGlobalDir(args)
+	if err != nil {
+		// Missing/empty -C/--tickets-dir is a one-line user error: print and
+		// exit 1 BEFORE any command routing (incl. help/version/unknown) —
+		// matches the dispatch/paths error style.
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
 	cmd := "help"
 	if len(args) > 0 {
 		cmd = args[0]
