@@ -1,6 +1,7 @@
 // Package paths resolves tickets directories in three levels: an explicit
 // --tickets-dir/-C flag, $TICKETS_DIR, or an upward scan from cwd.
-// All filesystem access is limited to os.Stat and filepath.EvalSymlinks.
+// All filesystem access is limited to os.Stat, os.ReadDir and
+// filepath.EvalSymlinks.
 package paths
 
 import (
@@ -9,6 +10,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"ticket/internal/domain"
 )
 
 var (
@@ -43,7 +47,7 @@ func resolveExplicit(value, source string) (string, error) {
 	if _, err = os.Stat(abs); errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("%w (%s): path does not exist: %s", ErrInvalidDir, source, abs)
 	} else if err != nil {
-		return "", fmt.Errorf("%w (%s): stat %s: %w", ErrInvalidDir, source, abs, err)
+		return "", fmt.Errorf("%w (%s): %w", ErrInvalidDir, source, err)
 	}
 	resolved, err := filepath.EvalSymlinks(abs)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -55,12 +59,45 @@ func resolveExplicit(value, source string) (string, error) {
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("%w (%s): path does not exist: %s", ErrInvalidDir, source, abs)
 	} else if err != nil {
-		return "", fmt.Errorf("%w (%s): stat %s: %w", ErrInvalidDir, source, resolved, err)
+		return "", fmt.Errorf("%w (%s): %w", ErrInvalidDir, source, err)
 	}
 	if !info.IsDir() {
 		return "", fmt.Errorf("%w (%s): not a directory: %s", ErrInvalidDir, source, resolved)
 	}
+	if !isTicketsDir(resolved) {
+		return "", fmt.Errorf("%w (%s): not a tickets directory (no .lock, archive/ or ticket files): %s — did you mean %s/tickets?", ErrInvalidDir, source, resolved, resolved)
+	}
 	return resolved, nil
+}
+
+// isTicketsDir reports whether dir looks like a tickets directory: it holds
+// the .lock file, an archive/ subdirectory or at least one parseable ticket
+// file. Unreadable and empty directories pass (the store reports real read
+// errors; empty dirs allow bootstrap via `new`). Hidden (dot-prefixed) and
+// *.tmp entries — transient write-probe and lock artifacts from parallel
+// processes — do not count as foreign files.
+func isTicketsDir(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return true // let the store report the real read error
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if name == ".lock" {
+			return true
+		}
+		if name == "archive" && e.IsDir() {
+			return true
+		}
+		if _, _, perr := domain.ParseFilename(name); perr == nil {
+			return true
+		}
+		if strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".tmp") {
+			continue // hidden/transient: not a foreign file
+		}
+		return false // a visible non-marker entry → not a tickets dir
+	}
+	return true // empty or only hidden/transient entries → bootstrap
 }
 func scanUpward(cwd string) (string, bool) {
 	for {
