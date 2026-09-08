@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"ticket/internal/paths"
 )
 
 func cmdInit(stdout, stderr io.Writer) int {
@@ -18,12 +20,28 @@ func cmdInit(stdout, stderr io.Writer) int {
 }
 func initProject(cwd string, stdout, stderr io.Writer) int {
 	tickets := filepath.Join(cwd, "tickets")
-	if info, err := os.Stat(tickets); err == nil && !info.IsDir() {
-		return conflict(stderr, tickets)
-	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if li, err := os.Lstat(tickets); err == nil {
+		if li.Mode()&os.ModeSymlink != 0 {
+			// Symlink: follow once. Broken link, unresolvable target (ELOOP)
+			// or a non-directory target is a conflict; a symlink to a real
+			// directory proceeds (behavior preserved, T-0062).
+			if info, serr := os.Stat(tickets); serr != nil || !info.IsDir() {
+				return conflict(stderr, tickets)
+			}
+		} else if !li.IsDir() {
+			return conflict(stderr, tickets)
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return initError(stderr, err)
 	}
-	if err := os.MkdirAll(filepath.Join(tickets, "archive"), 0755); err != nil {
+	archive := filepath.Join(tickets, "archive")
+	if _, err := paths.IsRealDir(archive); err != nil {
+		if errors.Is(err, paths.ErrNotRealDir) {
+			return conflict(stderr, archive) // pre-planted symlink/file (T-0082)
+		}
+		return initError(stderr, err)
+	}
+	if err := os.MkdirAll(archive, 0o755); err != nil {
 		return initError(stderr, err)
 	}
 	fmt.Fprintf(stdout, "Инициализировано: %s\n", tickets)

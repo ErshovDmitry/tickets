@@ -1,7 +1,7 @@
 // Package paths resolves tickets directories in three levels: an explicit
 // --tickets-dir/-C flag, $TICKETS_DIR, or an upward scan from cwd.
-// All filesystem access is limited to os.Stat, os.ReadDir and
-// filepath.EvalSymlinks.
+// All filesystem access is limited to os.Stat, os.Lstat, os.ReadDir
+// and filepath.EvalSymlinks.
 package paths
 
 import (
@@ -18,6 +18,11 @@ import (
 var (
 	ErrInvalidDir  = errors.New("invalid tickets dir")
 	ErrNotResolved = errors.New("ticket: cannot locate tickets dir")
+
+	// ErrNotRealDir reports a path that exists but is not a real directory:
+	// a symlink (any target) or a non-directory. Uses Lstat semantics —
+	// the trailing symlink is never followed (T-0082).
+	ErrNotRealDir = errors.New("not a real directory")
 )
 
 const (
@@ -26,6 +31,27 @@ const (
 	srcEnv        = "TICKETS_DIR"
 	srcFlag       = "--tickets-dir"
 )
+
+// IsRealDir reports via os.Lstat (never follows a trailing symlink):
+// (true, nil) — a real directory; (false, nil) — path absent;
+// (false, wrapped ErrNotRealDir) — exists but not a real dir;
+// (false, other error) — Lstat failure. T-0082.
+func IsRealDir(path string) (bool, error) {
+	li, err := os.Lstat(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	if !li.IsDir() {
+		// Lstat of a symlink yields ModeSymlink, so IsDir is false for both
+		// a symlink (any target) and a non-directory — same discrimination
+		// as the store's validArchiveDir (2726abb).
+		return false, fmt.Errorf("%s: %w", path, ErrNotRealDir)
+	}
+	return true, nil
+}
 
 func Resolve(env map[string]string, cwd, flagDir string) (string, error) {
 	if flagDir != "" {

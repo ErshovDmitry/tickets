@@ -205,6 +205,46 @@ func TestResolveNotResolvedHints(t *testing.T) {
 	}
 }
 
+// TestIsRealDir covers the cross-platform IsRealDir contract (T-0082):
+// a real directory, an absent path and a regular file. Symlink cases live
+// in paths_unix_test.go (Lstat never follows the trailing link).
+func TestIsRealDir(t *testing.T) {
+	root := t.TempDir()
+	dir := mkdirTemp(t, filepath.Join(root, "dir"))
+	file := filepath.Join(root, "file.txt")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		path    string
+		want    bool
+		wantErr error
+	}{
+		{name: "real dir", path: dir, want: true},
+		{name: "absent", path: filepath.Join(root, "nope")},
+		{name: "regular file", path: file, wantErr: ErrNotRealDir},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := IsRealDir(tt.path)
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("IsRealDir(%q) err = %v, want errors.Is %v", tt.path, err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("IsRealDir(%q): %v", tt.path, err)
+			}
+			if got != tt.want {
+				t.Errorf("IsRealDir(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
 // TestVolumeRootAbstraction is host-independent: Dir(Clean(Separator)) is the
 // filesystem root and carries no volume name. On Windows it additionally
 // verifies the C:\ volume-root precondition (plan F7').

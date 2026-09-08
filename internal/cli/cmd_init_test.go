@@ -101,6 +101,38 @@ func TestInitProjectConflictFile(t *testing.T) {
 	}
 }
 
+// TestInitProjectArchiveRegularFile verifies a pre-planted regular file
+// at tickets/archive is a conflict (T-0082, cross-platform): exit 1 with
+// the exact conflict line and the file's bytes preserved.
+func TestInitProjectArchiveRegularFile(t *testing.T) {
+	root := t.TempDir()
+	tickets := filepath.Join(root, "tickets")
+	if err := os.MkdirAll(tickets, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	archive := filepath.Join(tickets, "archive")
+	origContent := []byte("planted file")
+	if err := os.WriteFile(archive, origContent, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := initProject(root, &stdout, &stderr); code != 1 {
+		t.Fatalf("archive file: code=%d want 1 stderr=%q", code, stderr.String())
+	}
+	wantStderr := "ticket: Конфликт: " + archive + "\n"
+	if stderr.String() != wantStderr {
+		t.Errorf("stderr=%q want %q", stderr.String(), wantStderr)
+	}
+	data, err := os.ReadFile(archive)
+	if err != nil {
+		t.Fatalf("ReadFile after conflict: %v", err)
+	}
+	if !bytes.Equal(data, origContent) {
+		t.Errorf("conflict overwrote the file: got %q want %q", data, origContent)
+	}
+}
+
 // TestInitProjectPreservesExistingTickets verifies existing ticket files
 // stay byte-identical while archive/ is added.
 func TestInitProjectPreservesExistingTickets(t *testing.T) {
