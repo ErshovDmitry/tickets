@@ -245,3 +245,74 @@ func TestGlobalFlagRequiresValue(t *testing.T) {
 		})
 	}
 }
+
+// TestRunRejectsNewlineInWho pins T-0065: a TICKET_WHO env value
+// containing CR or LF must be rejected BEFORE any command is
+// dispatched (defense-in-depth — the store also guards). The
+// rejection uses the localized "comment/who must not contain a line
+// break" message (parity with the T-0044 title check), exits 1, and
+// creates no ticket file. We exercise every command that takes `who`
+// (new / set / archive) via a single `new` call (the cheapest path
+// that flows through dispatch + whoFrom), and also confirm the
+// `set` path: who reaches cmdSet via dispatch, not via flag parsing.
+func TestRunRejectsNewlineInWho(t *testing.T) {
+	cases := []struct {
+		name string
+		who  string
+		args []string
+	}{
+		// who with bare LF — the bash `$'evil\n- ...'` injection.
+		{"new LF", "evil\n- forged", []string{"new", "x"}},
+		{"set LF", "evil\n- forged", []string{"set", "1", "wip", "go"}},
+		// who with bare CR.
+		{"new CR", "evil\rforged", []string{"new", "x"}},
+		// who with CRLF.
+		{"new CRLF", "evil\r\n- forged", []string{"new", "x"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			env := map[string]string{
+				"TICKETS_DIR": dir,
+				"TICKET_WHO":  tc.who,
+			}
+			var stdout, stderr bytes.Buffer
+			code := cli.Run(tc.args, env, &stdout, &stderr)
+			if code != 1 {
+				t.Fatalf("Run(%v, who=%q) = %d, want 1; stderr: %q", tc.args, tc.who, code, stderr.String())
+			}
+			serr := stderr.String()
+			// Localized RU message (default langFrom falls back to RU).
+			if !strings.Contains(serr, "комментарий/автор не может содержать перевод строки") {
+				t.Errorf("Run(... who=%q) stderr %q missing the localized RU rejection", tc.who, serr)
+			}
+			// No ticket file may exist for the `new` case (others would
+			// also fail before any write because whoFrom validation
+			// runs in dispatch before the command handler).
+			if matches, _ := filepath.Glob(filepath.Join(dir, "T-*.md")); len(matches) != 0 {
+				t.Errorf("Run(... who=%q) created ticket files: %v", tc.who, matches)
+			}
+		})
+	}
+}
+
+// TestRunRejectsNewlineInWhoEN pins the T-0065 EN-locale path: a
+// TICKET_LANG=en env yields the English message, both for parity
+// with the EN help text and so the test is hermetic under any
+// default-locale assumption.
+func TestRunRejectsNewlineInWhoEN(t *testing.T) {
+	dir := t.TempDir()
+	env := map[string]string{
+		"TICKETS_DIR": dir,
+		"TICKET_LANG": "en",
+		"TICKET_WHO":  "evil\n- forged",
+	}
+	var stdout, stderr bytes.Buffer
+	code := cli.Run([]string{"new", "x"}, env, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("Run(new, who=LF) = %d, want 1; stderr: %q", code, stderr.String())
+	}
+	if got, want := stderr.String(), "ticket: comment/who must not contain a line break\n"; got != want {
+		t.Errorf("EN stderr = %q, want %q", got, want)
+	}
+}
