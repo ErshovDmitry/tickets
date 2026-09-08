@@ -6,10 +6,45 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"ticket/internal/domain"
 )
+
+// validateJournalInput enforces the T-0065 line-oriented journal
+// invariant: a comment or "who" value carrying CR or LF can split a
+// journal line and inject a forged entry, so all three journal-write
+// sites (setStatusLocked, appendSameStatusLocked, archiveOneLocked)
+// reject such values up-front. The check is the same
+// strings.ContainsAny(..., "\r\n") the CLI uses (cmd_new.go:59, T-0044
+// precedent for title) — no escape-and-roundtrip, no partial strip.
+//
+// Returns *ErrInvalidJournalInput{Field: "comment"|"who"} on the first
+// violation, nil on success. Empty values are allowed (same-status set
+// uses an empty comment by design).
+func validateJournalInput(comment, who string) error {
+	if strings.ContainsAny(comment, "\r\n") {
+		return &ErrInvalidJournalInput{Field: "comment", Value: preview(comment)}
+	}
+	if strings.ContainsAny(who, "\r\n") {
+		return &ErrInvalidJournalInput{Field: "who", Value: preview(who)}
+	}
+	return nil
+}
+
+// preview returns the first 64 bytes of s with CR/LF replaced by
+// visible escape sequences so the error message stays a single
+// printable line (and matches the store's one-line error contract).
+func preview(s string) string {
+	const max = 64
+	if len(s) > max {
+		s = s[:max] + "..."
+	}
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	return s
+}
 
 // SetStatus mutates ticket n to next, appending a journal entry. The
 // filesystem sequence (under the per-store advisory lock) is:
@@ -69,6 +104,12 @@ func (s *Store) SetStatus(n int, next domain.Status, who, comment string) (strin
 // setStatusLocked assumes the per-store advisory lock is held. It
 // returns the full path of the committed new file.
 func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) (string, error) {
+	// T-0065: reject CR/LF in journal inputs BEFORE any read or rename —
+	// the comment/who are written verbatim into a line-oriented journal
+	// format, so an embedded newline is a forged-entry injection vector.
+	if err := validateJournalInput(comment, who); err != nil {
+		return "", err
+	}
 	cur, curDir, err := s.findLocked(n)
 	if err != nil {
 		return "", err
@@ -192,6 +233,11 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 // out of lock between readTicketFile and the rename is silently lost —
 // the same lost-update window the cross-status path has.
 func (s *Store) appendSameStatusLocked(n int, cur fileEntry, curDir, who, comment string) (string, error) {
+	// T-0065: same-status journal-only path is the third write site and
+	// shares the same line-oriented format, so the same guard applies.
+	if err := validateJournalInput(comment, who); err != nil {
+		return "", err
+	}
 	old := filepath.Join(curDir, cur.Name)
 	tk, _, unknown, err := readTicketFile(old, cur.Number)
 	if err != nil {

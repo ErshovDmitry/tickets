@@ -141,6 +141,12 @@ func (s *Store) ArchiveClosed(who string) ([]string, error) {
 // name removal, then removal of the old file with target rollback on
 // failure. Returns the full target path.
 func (s *Store) archiveOneLocked(n int, who string) (string, error) {
+	// T-0065: archive journal line ("- <ts> — перенесён в архив (<who>)")
+	// is line-oriented, so who with CR/LF is a parallel injection vector
+	// (cycle-1 review finding). Guard up-front via the shared helper.
+	if err := validateJournalInput("", who); err != nil {
+		return "", err
+	}
 	cur, curDir, err := s.findLocked(n)
 	if err != nil {
 		return "", err

@@ -153,6 +153,16 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		return 1
 	}
 	who := whoFrom(env)
+	// T-0065: defense-in-depth. Reject CR/LF in TICKET_WHO/USER before
+	// dispatching the command — the store also guards (it's the truth),
+	// but a localized message is friendlier than the store's
+	// "store: journal who must not contain a line break" line. cmdSet
+	// and cmdArchive re-validate the comment and the merged `who` per
+	// the same contract.
+	if strings.ContainsAny(who, "\r\n") {
+		fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
+		return 1
+	}
 	project := filepath.Base(filepath.Dir(dir))
 	switch cmd {
 	case "new":

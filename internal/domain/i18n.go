@@ -51,6 +51,9 @@ type dict struct {
 
 	// T-0044: verbatim CLI error messages (no placeholders).
 	errTitleNewline string
+
+	// T-0065: rejection for journal inputs (comment/who) carrying CR/LF.
+	errJournalNewline string
 }
 
 //go:embed langs/*.json
@@ -158,6 +161,7 @@ func loadDict(data []byte) (*dict, error) {
 		WarnNewProject    string          `json:"warnNewProject"`
 		NoTickets         string          `json:"noTickets"`
 		ErrTitleNewline   string          `json:"errTitleNewline"`
+		ErrJournalNewline string          `json:"errJournalNewline"`
 	}
 	if err := json.Unmarshal(data, &dj); err != nil {
 		return nil, err
@@ -246,6 +250,10 @@ func loadDict(data []byte) (*dict, error) {
 	if dj.ErrTitleNewline == "" {
 		return nil, fmt.Errorf("errTitleNewline: empty")
 	}
+	// T-0065: verbatim message, no %s slots — non-empty check only.
+	if dj.ErrJournalNewline == "" {
+		return nil, fmt.Errorf("errJournalNewline: empty")
+	}
 
 	return &dict{
 		headers:           headers,
@@ -261,6 +269,7 @@ func loadDict(data []byte) (*dict, error) {
 		warnNewProject:    dj.WarnNewProject,
 		noTickets:         dj.NoTickets,
 		errTitleNewline:   dj.ErrTitleNewline,
+		errJournalNewline: dj.ErrJournalNewline,
 	}, nil
 }
 
@@ -280,6 +289,15 @@ func NoTickets(lang Lang, filter string) string {
 // the next re-render.
 func ErrTitleNewline(lang Lang) string {
 	return getDict(lang).errTitleNewline
+}
+
+// ErrJournalNewline returns the localized rejection message for a
+// journal input (comment or TICKET_WHO) carrying CR or LF (T-0065):
+// `set` and `archive` print it before any file is mutated, because
+// the journal is line-oriented and an embedded newline would forge a
+// journal entry.
+func ErrJournalNewline(lang Lang) string {
+	return getDict(lang).errJournalNewline
 }
 
 // getDict returns the dictionary for lang.

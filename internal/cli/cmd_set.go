@@ -28,6 +28,14 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 		return 1
 	}
 	comment := strings.Join(args[2:], " ")
+	// T-0065: reject CR/LF in the comment before touching the store
+	// so a forged "c\nforged" can't append a fake journal entry. The
+	// store also enforces this as defense-in-depth, but failing early
+	// here gives a clean localized error and avoids any partial I/O.
+	if strings.ContainsAny(comment, "\r\n") {
+		fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
+		return 1
+	}
 	n, ok := parseTicketNumber(numArg)
 	if !ok {
 		return notFound(stderr, numArg)
@@ -49,6 +57,15 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 	// done and closed stays under archive/, so st.Dir would be wrong.
 	target, err := st.SetStatus(n, next, who, comment)
 	if err != nil {
+		// T-0065: the store may reject CR/LF in comment/who. Localize
+		// the message via the i18n layer (parity with T-0044 title
+		// check above) instead of surfacing the raw
+		// "store: journal ..." line.
+		var inv *store.ErrInvalidJournalInput
+		if errors.As(err, &inv) {
+			fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
+			return 1
+		}
 		return setError(stderr, numArg, err)
 	}
 	fmt.Fprintln(stdout, target)
