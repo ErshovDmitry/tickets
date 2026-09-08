@@ -41,7 +41,7 @@ func validArchiveDir(dir string) (string, error) {
 		if errors.Is(err, fs.ErrNotExist) {
 			return "", nil
 		}
-		return "", fmt.Errorf("store: lstat %s: %w", archiveDir, err)
+		return "", fmt.Errorf("store: %w", err)
 	}
 	if !fi.IsDir() {
 		return "", fmt.Errorf("store: %s: %w", archiveDir, ErrArchiveInvalid)
@@ -86,7 +86,7 @@ func (s *Store) ListArchive() ([]domain.Ticket, []ParseWarning) {
 	}
 	var tickets []domain.Ticket
 	for _, e := range entries {
-		tk, _, _, err := readTicketFile(filepath.Join(resolved, e.Name), e.Number)
+		tk, err := readTicketHeader(filepath.Join(resolved, e.Name), e.Number)
 		if err != nil {
 			warnings = append(warnings, ParseWarning{Name: e.Name, Err: err})
 			continue

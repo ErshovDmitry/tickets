@@ -242,3 +242,47 @@ func TestRawMetaSegmentsLiteralPercentS(t *testing.T) {
 		}
 	}
 }
+
+// TestParseHeader pins the header-only parser: H1 + meta block with no
+// body, stop at the first "## " section header (recognized or not), stop
+// at EOF, blank lines in the head skipped, and every head field filled.
+func TestParseHeader(t *testing.T) {
+	head := "# T-0001 · BUG: real\n\n" +
+		"- Status (Статус): open\n- Priority (Приоритет): normal\n" +
+		"- Created (Создан): 2026-09-02 10:00 · by (кем): tester\n" +
+		"- Project (Проект): tickets\n\n"
+	tk, err := ParseHeader([]byte(head))
+	if err != nil {
+		t.Fatalf("ParseHeader: %v", err)
+	}
+	if tk.Number != 1 || tk.Type != TypeBUG || tk.Title != "real" ||
+		tk.Status != StatusOpen || tk.Priority != PriorityNormal ||
+		tk.Project != "tickets" || tk.Who != "tester" ||
+		tk.Created.Format(tsLayout) != "2026-09-02 10:00" {
+		t.Errorf("head fields = %+v", tk)
+	}
+	if tk.Details != "" || tk.Comments != "" || len(tk.Journal) != 0 || len(tk.Unknown) != 0 {
+		t.Errorf("body leaked into header parse: %+v", tk)
+	}
+
+	// Stop at the first section header; the body is never parsed.
+	full := head + "## Summary (Кратко)\nsummary\n\n## Details (Подробности)\ndetails\n"
+	if tk2, err := ParseHeader([]byte(full)); err != nil || tk2.Title != "real" || tk2.Details != "" {
+		t.Errorf("stop at ##: tk=%+v err=%v", tk2, err)
+	}
+
+	// An unrecognized "## " header also ends the head (mirrors secHead).
+	if tk3, err := ParseHeader([]byte("# T-0002 · TD: x\n\n## Не раздел\n- Status: ignored")); err != nil || tk3.Number != 2 || tk3.Status != "" {
+		t.Errorf("unrecognized header: tk=%+v err=%v", tk3, err)
+	}
+
+	// EOF without a trailing newline or section header.
+	if tk4, err := ParseHeader([]byte("# T-0003 · ENH: eof\n- Status (Статус): wip")); err != nil || tk4.Status != StatusWip {
+		t.Errorf("EOF: tk=%+v err=%v", tk4, err)
+	}
+
+	// Empty input is tolerant: zero ticket, nil error.
+	if tk5, err := ParseHeader(nil); err != nil || tk5.Number != 0 {
+		t.Errorf("empty: tk=%+v err=%v", tk5, err)
+	}
+}

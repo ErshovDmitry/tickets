@@ -185,7 +185,7 @@ func checkCurrent(f *os.File, path string) (swapped bool, err error) {
 	fi, fiErr := f.Stat()
 	pi, statErr := os.Stat(path)
 	if statErr != nil && !errors.Is(statErr, fs.ErrNotExist) {
-		return false, fmt.Errorf("lock: stat %s: %w", path, statErr)
+		return false, fmt.Errorf("lock: %w", statErr)
 	}
 	if fiErr != nil || errors.Is(statErr, fs.ErrNotExist) || !os.SameFile(fi, pi) {
 		return true, nil

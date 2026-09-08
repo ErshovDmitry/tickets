@@ -65,7 +65,7 @@ func validateDir(dir string) error {
 	}
 	fi, err := os.Stat(dir)
 	if err != nil {
-		return fmt.Errorf("store: stat %s: %w", dir, err)
+		return fmt.Errorf("store: %w", err)
 	}
 	if !fi.IsDir() {
 		return fmt.Errorf("store: %s is not a directory", dir)
@@ -164,7 +164,7 @@ func (s *Store) List() ([]domain.Ticket, []ParseWarning) {
 	}
 	var tickets []domain.Ticket
 	for _, e := range entries {
-		tk, _, _, err := readTicketFile(filepath.Join(s.Dir, e.Name), e.Number)
+		tk, err := readTicketHeader(filepath.Join(s.Dir, e.Name), e.Number)
 		if err != nil {
 			warnings = append(warnings, ParseWarning{Name: e.Name, Err: err})
 			continue

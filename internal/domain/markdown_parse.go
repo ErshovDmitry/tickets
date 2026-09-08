@@ -116,6 +116,41 @@ func applyHeadMeta(t *Ticket, line string) bool {
 	return false
 }
 
+// ParseHeader parses only the ticket head — the H1 line and the metadata
+// block — stopping at the first "## " section header (recognized or not)
+// or at EOF. It fills Number/Type/Title/Status/Priority/Created/Who/Project
+// and leaves the body sections (Details, Comments, Journal, Unknown) at
+// their zero values. Like Parse it is tolerant: it never fails on malformed
+// input, so the returned error is always nil and exists only so callers can
+// treat header parsing as a fallible operation (mirroring Render). The
+// stop semantics mirror secHead in Parse: a meta/H1 line is consumed, any
+// "## " line ends the head, and blank or unrecognized lines are skipped
+// while staying in the head. RawTemplates maps are initialized exactly as
+// Parse does, so applyHeadMeta never writes into a nil map.
+func ParseHeader(data []byte) (*Ticket, error) {
+	t := &Ticket{
+		RawTemplates: rawTemplates{
+			Headers: make(map[sectionName]string),
+			Meta:    make(map[string]metaSegments),
+		},
+	}
+	for pos := 0; pos < len(data); {
+		start, end := lineBounds(data, pos)
+		pos = end
+		line := string(trimEOL(data[start:end]))
+		if applyHeadMeta(t, line) {
+			continue
+		}
+		// Any section header ends the head. matchSectionHeader lines all
+		// carry the "## " prefix, so this single check subsumes it.
+		if strings.HasPrefix(line, "## ") {
+			break
+		}
+		// Blank or unrecognized line inside the head: skip, stay in head.
+	}
+	return t, nil
+}
+
 // storeMeta splits a single-slot meta line into literal segments around the
 // value slot. The value is the line tail in the current grammar, so Suffix
 // is empty. A value that cannot be located stores nothing: Render emits the

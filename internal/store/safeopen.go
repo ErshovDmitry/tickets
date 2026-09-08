@@ -1,6 +1,8 @@
 package store
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -106,3 +108,55 @@ func readTicketFile(path string, wantNum int) (*domain.Ticket, []byte, []byte, e
 
 // errEmptyTicket marks a zero-length T-*.md file: create in progress.
 var errEmptyTicket = errors.New("ticket file is empty (create in progress)")
+
+// readTicketHeader reads only the head of one ticket file — the H1 line
+// and the metadata block, up to (but not including) the first "## "
+// section header, or EOF — then parses it with domain.ParseHeader. It
+// uses the same openValidated TOCTOU containment as readTicketFile and
+// never re-opens the file by path. Corruption is detected exactly as in
+// readTicketFile: a body whose H1 number differs from wantNum (derived
+// from the filename) is corrupt. An EMPTY file is the create-in-progress
+// window (errEmptyTicket). A file with no "## " line is read whole and
+// still parses correctly — the header-only path just saves nothing there.
+func readTicketHeader(path string, wantNum int) (*domain.Ticket, error) {
+	f, err := openValidated(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// 512-byte buffer: a ticket header (H1 + metadata block) is ~200
+	// bytes, so 4KB (NewReader default) is wasted — 100 files × 4KB ≈
+	// 400KB extra B/op per List. ReadBytes still accumulates lines
+	// longer than the buffer correctly.
+	r := bufio.NewReaderSize(f, 512)
+	var head []byte
+	readAny := false
+	for {
+		line, rerr := r.ReadBytes('\n')
+		if len(line) > 0 {
+			readAny = true
+			if bytes.HasPrefix(line, []byte("## ")) {
+				break // stop before the first section header
+			}
+			head = append(head, line...)
+		}
+		if rerr != nil {
+			if rerr == io.EOF {
+				break
+			}
+			return nil, rerr
+		}
+	}
+	if !readAny {
+		return nil, errEmptyTicket
+	}
+	tk, perr := domain.ParseHeader(head)
+	if perr != nil {
+		return nil, perr
+	}
+	if tk.Number != wantNum {
+		return nil, fmt.Errorf("H1 number %d does not match filename T-%04d", tk.Number, wantNum)
+	}
+	return tk, nil
+}

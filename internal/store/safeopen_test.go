@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"ticket/internal/domain"
@@ -210,4 +211,69 @@ func TestFindRaw_ReturnsExactRawBytes(t *testing.T) {
 	if tk.Number != 1 || tk.Status != domain.StatusOpen {
 		t.Errorf("tk = %+v, want number 1 status open", tk)
 	}
+}
+
+// TestReadTicketHeader_EmptyFile: a zero-length file is the
+// create-in-progress window (errEmptyTicket), not corruption.
+func TestReadTicketHeader_EmptyFile(t *testing.T) {
+	dir := t.TempDir()
+	makeFile(t, dir, "T-0001-open.md", "")
+	if tk, err := readTicketHeader(filepath.Join(dir, "T-0001-open.md"), 1); !errors.Is(err, errEmptyTicket) || tk != nil {
+		t.Fatalf("empty: tk=%+v err=%v, want nil + errEmptyTicket", tk, err)
+	}
+}
+
+// TestReadTicketHeader_H1Mismatch: a body whose H1 number differs from the
+// filename number is corrupt.
+func TestReadTicketHeader_H1Mismatch(t *testing.T) {
+	dir := t.TempDir()
+	makeFile(t, dir, "T-0001-open.md", "# T-0002 · BUG: wrong\n\n- Status (Статус): open\n")
+	if _, err := readTicketHeader(filepath.Join(dir, "T-0001-open.md"), 1); err == nil || !strings.Contains(err.Error(), "H1 number 2 does not match filename T-0001") {
+		t.Fatalf("mismatch err = %v, want corrupt H1 number mismatch", err)
+	}
+}
+
+// TestReadTicketHeader_HeaderOnly: a header+body ticket parses to the head
+// fields only — the body is never read.
+func TestReadTicketHeader_HeaderOnly(t *testing.T) {
+	dir := t.TempDir()
+	makeFile(t, dir, "T-0001-open.md", realTicketBody)
+	tk, err := readTicketHeader(filepath.Join(dir, "T-0001-open.md"), 1)
+	if err != nil {
+		t.Fatalf("readTicketHeader: %v", err)
+	}
+	if tk.Number != 1 || tk.Type != domain.TypeBUG || tk.Title != "real" {
+		t.Errorf("head fields = %+v", tk)
+	}
+	if tk.Status != domain.StatusOpen || tk.Priority != domain.PriorityNormal {
+		t.Errorf("meta fields = %+v", tk)
+	}
+	if tk.Details != "" {
+		t.Errorf("Details = %q, want empty (header-only)", tk.Details)
+	}
+}
+
+// TestReadTicketHeader_SymlinkRejected: a symlink is rejected by
+// openValidated before any byte is read (errNotRegularFile).
+func TestReadTicketHeader_SymlinkRejected(t *testing.T) {
+	requireSymlinks(t)
+	root := t.TempDir()
+	dir := filepath.Join(root, "tickets")
+	outside := filepath.Join(root, "outside")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target, body := makeOutsideTicket(t, outside)
+	link := filepath.Join(dir, "T-0001-open.md")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unavailable on this platform: %v", err)
+	}
+	tk, err := readTicketHeader(link, 1)
+	if !errors.Is(err, errNotRegularFile) || tk != nil {
+		t.Fatalf("symlink: tk=%+v err=%v, want nil + errNotRegularFile", tk, err)
+	}
+	assertOutsideUntouched(t, target, body)
 }
