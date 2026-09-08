@@ -49,9 +49,6 @@ type dict struct {
 	warnNewProject string // 1 %s: project name
 	noTickets      string // 1 %s: filter description
 
-	// T-0044: verbatim CLI error messages (no placeholders).
-	errTitleNewline string
-
 	// T-0075: verbatim CLI error message (no placeholders).
 	errTitleCTL string
 
@@ -202,7 +199,6 @@ func loadDict(data []byte) (*dict, error) {
 		JournalArchive              string          `json:"journalArchive"`
 		WarnNewProject              string          `json:"warnNewProject"`
 		NoTickets                   string          `json:"noTickets"`
-		ErrTitleNewline             string          `json:"errTitleNewline"`
 		ErrTitleCTL                 string          `json:"errTitleCTL"`
 		ErrJournalNewline           string          `json:"errJournalNewline"`
 		ErrTicketArgNonNumeric      string          `json:"errTicketArgNonNumeric"`
@@ -318,10 +314,6 @@ func loadDict(data []byte) (*dict, error) {
 	}
 	if strings.Count(dj.NoTickets, "%s") != 1 {
 		return nil, fmt.Errorf("noTickets: expected 1 %%s, got %d", strings.Count(dj.NoTickets, "%s"))
-	}
-	// T-0044: verbatim message, no %s slots — non-empty check only.
-	if dj.ErrTitleNewline == "" {
-		return nil, fmt.Errorf("errTitleNewline: empty")
 	}
 	// T-0075: verbatim message, no %s slots — non-empty check only.
 	if dj.ErrTitleCTL == "" {
@@ -487,7 +479,6 @@ func loadDict(data []byte) (*dict, error) {
 		journalArchive:              dj.JournalArchive,
 		warnNewProject:              dj.WarnNewProject,
 		noTickets:                   dj.NoTickets,
-		errTitleNewline:             dj.ErrTitleNewline,
 		errTitleCTL:                 dj.ErrTitleCTL,
 		errJournalNewline:           dj.ErrJournalNewline,
 		errTicketArgNonNumeric:      dj.ErrTicketArgNonNumeric,
@@ -531,14 +522,6 @@ func WarnNewProject(lang Lang, project string) string {
 // NoTickets formats the "no tickets found" message with filter description.
 func NoTickets(lang Lang, filter string) string {
 	return fmt.Sprintf(getDict(lang).noTickets, filter)
-}
-
-// ErrTitleNewline returns the localized rejection message for a ticket
-// title containing CR or LF (T-0044): `new` prints it before any file is
-// created, because a multiline H1 loses everything past the first line on
-// the next re-render.
-func ErrTitleNewline(lang Lang) string {
-	return getDict(lang).errTitleNewline
 }
 
 // ErrTitleCTL returns the localized rejection message for a ticket title

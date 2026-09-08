@@ -11,7 +11,6 @@
   "journalArchive": "- %s — moved to archive (%s)",
   "warnNewProject": "ticket: warning: project '%s' is seen for the first time — verify the name is correct.",
   "noTickets": "No tickets (%s).",
-  "errTitleNewline": "ticket: title must not contain a line break",
   "errTitleCTL": "ticket: title contains control characters (0x00–0x1F except TAB, or DEL 0x7F)",
   "errJournalNewline": "ticket: comment/who must not contain a line break",
   "errTicketArgNonNumeric": "ticket: \"%s\" is not a ticket number (integer required)",
