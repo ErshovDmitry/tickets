@@ -13,13 +13,13 @@ var usageFS embed.FS
 
 // usageTextRU and usageTextEN are the embedded usage messages, populated
 // from usageFS in init() for compatibility with existing tests.
-// templates/usage.ru.txt was originally byte-identical to the bash
-// reference heredoc (usage() in tickets/bin/ticket) and usage.en.txt its
-// English translation with an identical line layout; since T-0036 both
-// files carry an appended ticket-migration section and are therefore no
-// longer byte-identical to the bash reference (deliberate divergence, as
-// with the new-ticket template in T-0032/T-0035). The version line is
-// prepended at runtime (T-0028), not in the templates.
+// templates/usage.ru.txt descends from the bash reference (the usage()
+// heredoc documented in docs_api/reference-init-tickets.md) but has long
+// diverged from it — ticket init, -P/--json on new and list, the global
+// -C/--tickets-dir flag; usage.en.txt is a translation with an identical
+// line layout. The T-0036 ticket-migration section was removed in T-0095,
+// so neither file documents a migration recipe any more. The version line
+// is prepended at runtime (T-0028), not in the templates.
 var usageTextRU string
 var usageTextEN string
 

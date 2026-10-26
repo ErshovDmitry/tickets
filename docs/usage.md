@@ -100,25 +100,12 @@ Global flag (before the command, every command except init):
 
 Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → upward scan for tickets/ from the current directory.
 
+Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set and archive.
+
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
 Secrets (passwords, tokens, keys) must NOT be written into tickets.
-
-Migrating old tickets: the old ticket format with Russian headers is not supported by new versions; run once over tickets/*.md:
-
-sed -i -E \
- -e 's/^## Кратко$/## Summary (Кратко)/' \
- -e 's/^## Подробности$/## Details (Подробности)/' \
- -e 's/^## Комментарии от пользователя$/## User comments (Комментарии от пользователя)/' \
- -e 's/^## Комментарии$/## Comments (Комментарии)/' \
- -e 's/^## Журнал$/## Journal (Журнал)/' \
- -e 's/^- Статус:/- Status (Статус):/' \
- -e 's/^- Приоритет:/- Priority (Приоритет):/' \
- -e 's/^- Создан: (.*) · кем: (.*)$/- Created (Создан): \1 · by (кем): \2/' \
- -e 's/^- Проект:/- Project (Проект):/' tickets/*.md
 ```
-
-> Note: the migration command is written for GNU sed (Linux); on macOS use `sed -i ''` instead, on Windows run it in Git Bash or WSL.
 
 ## Ticket file format
 
@@ -126,7 +113,7 @@ sed -i -E \
 - Status lives in the file name. Never rename files manually: `ticket set` performs the status change (it renames the file itself and appends the ticket journal).
 - Lifecycle: `open` (new) → `wip` (in progress) → `done` (fixed) / `closed` (rejected/duplicate).
 - Types in the header: `BUG` — breakage; `OPS` — incident/maintenance; `TD` — tech debt; `ENH` — enhancement.
-- i18n: the file format follows `TICKET_LANG` at creation time. An English locale produces plain labels (`## Summary`, `- Status: open`); a Russian locale produces bilingual labels (`## Summary (Кратко)`, `- Status (Статус): open`). Old files with Russian-only headers are not supported by new versions — see the migration one-liner in the `ticket help` output above.
+- i18n: the file format follows `TICKET_LANG` at creation time. An English locale produces plain labels (`## Summary`, `- Status: open`); a Russian locale produces bilingual labels (`## Summary (Кратко)`, `- Status (Статус): open`). Tickets with Russian-only headers (`## Кратко`, `- Статус:`) are not recognised by the parser: those fields stay empty and the next `set` rewrites the file in the current format without them — fix such files by hand. Files in the pre-MD022 format (current format, but without the blank line after the heading) are read and normalised on the next `set`.
 - `ticket new` without `-d` inserts an HTML comment hint into `Details` (what was found, where — file:line, logs, how to reproduce, fix proposal).
 - Archive: `ticket archive` moves closed tickets into `tickets/archive/`; `list archive` shows the archive; `show` and `set` work with archived tickets — moving one back to `open`/`wip` returns it into work.
 - Secrets (passwords, tokens, keys) must NOT be written into tickets.

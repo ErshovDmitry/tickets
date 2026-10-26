@@ -132,7 +132,7 @@ func TestNewArgErrorLang(t *testing.T) {
 // TestUsageFixtureENCompleteness guards against a partial English
 // translation: the EN text must carry all five command synopses, the
 // Statuses/Types/Secrets blocks of the reference layout (plan 91e2f66d §A)
-// and the T-0036 migration section.
+// and the T-0094 lock-timeout paragraph.
 func TestUsageFixtureENCompleteness(t *testing.T) {
 	for _, want := range []string{
 		"ticket new",
@@ -143,7 +143,7 @@ func TestUsageFixtureENCompleteness(t *testing.T) {
 		"Statuses:",
 		"Types:",
 		"Secrets (passwords",
-		"Migrating old tickets",
+		"TICKET_LOCK_TIMEOUT",
 		"--tickets-dir",
 		"Tickets dir discovery",
 	} {
@@ -153,24 +153,35 @@ func TestUsageFixtureENCompleteness(t *testing.T) {
 	}
 }
 
-// TestUsageFixturesMigrationBlock pins the T-0036 appended migration
-// sections: both usage files carry their language's section heading and
-// the same sed recipe (the recipe bytes are identical, only the
-// explanation is translated).
-func TestUsageFixturesMigrationBlock(t *testing.T) {
+// TestUsageFixturesNoMigrationBlock pins the T-0095 removal of the T-0036
+// migration sections: neither usage file carries the migration heading,
+// the sed recipe or its glob, and both carry the T-0094 lock-timeout
+// paragraph. The default timeout value is owned by internal/store
+// (defaultLockTimeout) and must not be duplicated as a literal here.
+func TestUsageFixturesNoMigrationBlock(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		fixture []byte
-		heading string
 	}{
-		{"ru", usageFixture, "Миграция старых тикетов"},
-		{"en", usageFixtureEN, "Migrating old tickets"},
+		{"ru", usageFixture},
+		{"en", usageFixtureEN},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, want := range []string{tc.heading, "sed -i -E", "tickets/*.md"} {
-				if !bytes.Contains(tc.fixture, []byte(want)) {
-					t.Errorf("usage fixture (%s) is missing %q", tc.name, want)
+			for _, banned := range []string{
+				"Миграция старых тикетов",
+				"Migrating old tickets",
+				"sed -i -E",
+				"tickets/*.md",
+			} {
+				if bytes.Contains(tc.fixture, []byte(banned)) {
+					t.Errorf("usage fixture (%s) still carries %q", tc.name, banned)
 				}
+			}
+			if bytes.Contains(tc.fixture, []byte("5s")) {
+				t.Errorf("usage fixture (%s) hardcodes the default lock timeout (5s)", tc.name)
+			}
+			if !bytes.Contains(tc.fixture, []byte("TICKET_LOCK_TIMEOUT")) {
+				t.Errorf("usage fixture (%s) is missing %q", tc.name, "TICKET_LOCK_TIMEOUT")
 			}
 		})
 	}

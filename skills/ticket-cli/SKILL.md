@@ -1,8 +1,8 @@
 ---
 name: ticket-cli
-version: "1.3"
+version: "1.4"
 created: 2026-09-04
-modified: 2026-09-09
+modified: 2026-10-27
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets."
@@ -105,7 +105,7 @@ Labels are bilingual under the RU default locale:
 3. 🔴 NEVER write secrets (passwords, tokens, keys) into tickets.
 4. 🔴 Closing gate: verify the fix FIRST, then IMMEDIATELY `ticket set N done "<comment with evidence>"`. The comment MUST state what was checked: command + result, file:line. `done` without evidence is forbidden; NEVER batch status flips "for later".
 5. 🔴 BEFORE working on a ticket, read its `## User comments` section — the user leaves remarks there; the agent NEVER writes there. The agent's working notes go to `## Comments`.
-6. Old Russian-header ticket format is unsupported; a one-time sed migration snippet exists — see `reference.md`.
+6. Tickets with Russian-only headers (`## Кратко`, `- Статус:`) are NOT parsed: those fields stay empty and the next `set` rewrites the file in the current format without them — fix such files by hand. There is no migration command. Files in the pre-MD022 format (current format without the blank line after the heading) are read and normalised on the next `set`.
 
 ## Workflow quick reference
 
@@ -125,7 +125,7 @@ ticket-cli/
 
 ## See also
 
-- `reference.md` — verbatim `ticket` help output + sed migration snippet for old Russian-header tickets.
+- `reference.md` — verbatim `ticket` help output (RU).
 
 ## File History & Known Issues
 
@@ -135,3 +135,4 @@ ticket-cli/
 | 2026-09-04 | Review round 1: bilingual file format missing, type non-canonical, no See also | Added bilingual/EN label forms, TICKET_LANG + dir discovery notes, type: guide, See also | 1.1 |
 | 2026-09-07 | T-0057: global flag + 3-tier discovery, init simplified | — | 1.2 |
 | 2026-09-09 | Stale vs v1.2.3: `list --json` (T-0081) and `-P` on new/list missing; pitfall 1 described fixed bug T-0041 | Added `-P`/`--json` to new+list, rewrote pitfall 1 (verified empirically in /tmp sandbox) | 1.3 |
+| 2026-10-27 | T-0094: `TICKET_LOCK_TIMEOUT` not documented; T-0095: migration sed snippet removed | Rewrote pitfall 6 and See also to match the parser behaviour | 1.4 |
