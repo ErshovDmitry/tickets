@@ -59,9 +59,11 @@ Disabled rules, and why:
 - **MD013** (line length) — prose in `docs/` is written as long single lines (up to 420 characters); wrapping it would be a mass reflow of every document, outside the scope of this change.
 - **MD060** (table column style) — 36 violations across 7 tables that mix compact and padded column styles; unifying table formatting is a separate task.
 
-Scope: `tickets/archive/**` is excluded by user decision (2026-10-26, item 2b); active `tickets/*.md` are linted. Also excluded: `docs_api/**`, `AGENTS.md`, `AGENTS_ARCHITECTURE.md`, `DEPLOY.md`, `node_modules/**`, `dist/**`, `internal/cli/testdata/golden-*.md` — the byte-exact golden fixtures of the generator are outside the lint scope; their format is checked by the golden test.
+Scope: `tickets/archive/**` is excluded by user decision (2026-10-26, item 2b); active `tickets/*.md` are linted. The `tickets/` directory is not tracked by git, so CI does not check those files. Also excluded: `docs_api/**`, `AGENTS.md`, `AGENTS_ARCHITECTURE.md`, `DEPLOY.md`, `node_modules/**`, `dist/**`, `internal/cli/testdata/golden-*.md` — the byte-exact golden fixtures of the generator are outside the lint scope; their format is checked by the golden test.
 
-Local run — the CLI version is pinned in .github/workflows/ci.yml:
+Ticket formatting is set by the generator, and the fix will come in PR #1 (fix-md022-md032), so until that PR is merged a local run over the tickets may report findings.
+
+Local run — use the same markdownlint-cli2 version that CI pins in `.github/workflows/ci.yml`:
 
 ```bash
 markdownlint-cli2 --no-globs $(git ls-files '*.md')
