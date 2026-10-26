@@ -43,7 +43,7 @@ ticket version
 
 Пример вывода `ticket list all` — колонка проекта появляется, когда проекты в выводе различаются:
 
-```
+```text
 T-0001  tmp         open     BUG: Экспорт падает
 T-0002  tmp         open     ENH: Broken export
 T-0003  otherproj   open     BUG: Cross proj
@@ -51,7 +51,7 @@ T-0003  otherproj   open     BUG: Cross proj
 
 С фильтром `-P` колонка проекта исчезает (проект один):
 
-```
+```text
 T-0003  open     BUG: Cross proj
 ```
 
@@ -59,7 +59,7 @@ T-0003  open     BUG: Cross proj
 
 Полная справка по командам — вербатим вывод `ticket help` (первая строка — версия бинаря, `dev`, если собран без `-ldflags`):
 
-```
+```text
 ticket version dev
 ticket — тикеты проекта (файлы T-NNNN-<status>.md в <проект>/tickets/).
 

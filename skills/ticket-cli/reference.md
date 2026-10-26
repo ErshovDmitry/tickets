@@ -14,7 +14,7 @@ Captured from `ticket` v1.2.3 (PATH binary) help on 2026-09-09 (`TICKET_LANG` de
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes; the first output line shows the binary version.
 
-```
+```text
 ticket version 1.2.3
 ticket — тикеты проекта (файлы T-NNNN-<status>.md в <проект>/tickets/).
 

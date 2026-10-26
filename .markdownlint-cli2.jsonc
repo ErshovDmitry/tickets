@@ -1,0 +1,35 @@
+// markdownlint-cli2 configuration for the ticket repository.
+// Run locally:  markdownlint-cli2 --no-globs $(git ls-files '*.md')
+// CI pins the version — see .github/workflows/ci.yml, job "lint" (single source of truth).
+{
+  "globs": ["**/*.md"],
+  "ignores": [
+    "tickets/archive/**",
+    "docs_api/**",
+    "AGENTS.md",
+    "AGENTS_ARCHITECTURE.md",
+    "DEPLOY.md",
+    "node_modules/**",
+    "dist/**",
+    // Golden fixtures are a byte-exact reference of the generator output
+    // (compared with bytes.Equal in internal/cli/golden_test.go).
+    // Their format is defined by the generator, not by the prose we lint:
+    // MD022/MD032 in a fixture is a property of the generator, not a
+    // documentation defect.
+    "internal/cli/testdata/golden-*.md"
+  ],
+  "config": {
+    // MD013/line-length: prose in docs/ is written as long single lines
+    // (hundreds of characters). Wrapping them would be a mass reflow of
+    // every document and is out of scope here; the rule carries no
+    // semantic value.
+    "MD013": false,
+    // MD060/table-column-style: tables that mix compact and padded
+    // column styles. Unifying table formatting is a separate task; until
+    // then the rule would only produce noise.
+    "MD060": false
+    // MD041 is NOT configured: the README files were fixed instead
+    // (H1 must be the first line).
+    // Semantic rules (MD022, MD031, MD032, MD033, MD034) stay enabled.
+  }
+}

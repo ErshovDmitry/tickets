@@ -48,6 +48,29 @@ gofmt -l . && go vet ./...      # must be clean before commit
 go test ./...                   # must be green before marking done
 ```
 
+## Markdown lint
+
+Documentation is linted with [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2); the config lives in `.markdownlint-cli2.jsonc`.
+
+What it checks: Markdown structure and hygiene — blank lines around headings (MD022) and code blocks (MD031), lists surrounded by blank lines (MD032), no inline HTML where a Markdown construct fits (MD033), no bare URLs (MD034), and a language tag on every fenced code block (MD040).
+
+Disabled rules, and why:
+
+- **MD013** (line length) — prose in `docs/` is written as long single lines (hundreds of characters); wrapping it would be a mass reflow of every document, outside the scope of this change.
+- **MD060** (table column style) — violations across several tables that mix compact and padded column styles; unifying table formatting is a separate task.
+
+Scope: `tickets/archive/**` is excluded by user decision (2026-10-26, item 2b); active `tickets/*.md` are linted. The `tickets/` directory is not tracked by git, so CI does not check those files. Also excluded: `docs_api/**`, `AGENTS.md`, `AGENTS_ARCHITECTURE.md`, `DEPLOY.md`, `node_modules/**`, `dist/**`, `internal/cli/testdata/golden-*.md` — the byte-exact golden fixtures of the generator are outside the lint scope; their format is checked by the golden test.
+
+Ticket formatting is set by the generator, and the fix will come in PR #1 (fix-md022-md032), so until that PR is merged a local run over the tickets may report findings.
+
+Local run — use the same markdownlint-cli2 version that CI pins in `.github/workflows/ci.yml`:
+
+```bash
+markdownlint-cli2 --no-globs $(git ls-files '*.md')
+```
+
+A plain `markdownlint-cli2` run (without `--no-globs`) additionally lints the active tickets `tickets/*.md` (the `tickets/archive/**` directory is excluded by the config), while the `--no-globs` command above checks only the tracked repository content.
+
 ## Windows smoke
 
 Cross-compile `dist/ticket.exe` (windows/amd64, see the table above) and run `scripts/smoke-windows.ps1` on a Windows host (manually over SSH):
