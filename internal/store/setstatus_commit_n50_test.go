@@ -2,8 +2,10 @@ package store
 
 // Load variant of TestConcurrent_CreateAndSetStatus_NoJournalLoss with
 // N = 50, adopted under T-0084 (originated in an uncommitted session
-// 2026-09-08, T-0063). Mirrors setstatus_commit_test.go:122 except the
-// constant n and a longer 15s deadline (vs 5s for the N=5 original).
+// 2026-09-08, T-0063). Same invariants as the N=5 original at higher
+// contention; the lock budget and the vanish deadline come from the shared
+// consts in setstatus_commit_test.go, so this test does not depend on the
+// ambient TICKET_LOCK_TIMEOUT either.
 
 import (
 	"errors"
@@ -23,7 +25,9 @@ import (
 // one open → wip transition line per ticket) at higher contention.
 func TestConcurrent_CreateAndSetStatus_NoJournalLoss_N50(t *testing.T) {
 	s, dir := newStore(t)
+	setConcurrentLockBudget(t)
 	const n = 50
+	start := time.Now()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -38,7 +42,7 @@ func TestConcurrent_CreateAndSetStatus_NoJournalLoss_N50(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			deadline := time.Now().Add(15 * time.Second)
+			deadline := time.Now().Add(concurrentAppearDeadline)
 			for {
 				_, err := s.Find(i)
 				if err == nil {
@@ -60,6 +64,7 @@ func TestConcurrent_CreateAndSetStatus_NoJournalLoss_N50(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	t.Logf("N50: %d tickets in %s", n, time.Since(start))
 	for i := 1; i <= n; i++ {
 		body := string(mustRead(t, dir, i))
 		wipName := filepath.Join(dir, fmt.Sprintf("T-%04d-wip.md", i))
