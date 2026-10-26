@@ -56,7 +56,7 @@ func TestConcurrent_CreateAndSetStatus_NoJournalLoss_N50(t *testing.T) {
 					t.Errorf("ticket %d never appeared", i)
 					return
 				}
-				time.Sleep(time.Millisecond)
+				time.Sleep(concurrentFindPollBackoff)
 			}
 			if _, _, err := s.SetStatus(i, domain.StatusWip, "tester", fmt.Sprintf("go %d", i)); err != nil {
 				t.Errorf("SetStatus(%d): %v", i, err)

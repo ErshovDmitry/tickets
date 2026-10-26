@@ -130,6 +130,15 @@ const concurrentLockBudget = 60 * time.Second
 // concurrentLockBudget because creating that ticket needs the same lock.
 const concurrentAppearDeadline = 2 * concurrentLockBudget
 
+// concurrentFindPollBackoff is the pause between Find polls in the
+// concurrent Create+SetStatus waiters. Find is a full directory scan
+// (FindNamed -> FindRaw -> scan -> scanDir) that takes no store lock, so
+// polling every millisecond does not hold the lock longer by itself; the
+// scans compete with lock holders for CPU and filesystem bandwidth on slow
+// 2-vCPU runners, which does lengthen how long the lock is held. The value
+// trades ticket-detection delay against the cost of each scan.
+const concurrentFindPollBackoff = 5 * time.Millisecond
+
 // setConcurrentLockBudget pins TICKET_LOCK_TIMEOUT for the concurrent tests.
 // withLock re-reads the variable on every call (store.parseLockTimeout), so
 // goroutines started after this call observe the value. The tests must not
@@ -176,7 +185,7 @@ func TestConcurrent_CreateAndSetStatus_NoJournalLoss(t *testing.T) {
 					t.Errorf("ticket %d never appeared", i)
 					return
 				}
-				time.Sleep(time.Millisecond)
+				time.Sleep(concurrentFindPollBackoff)
 			}
 			if _, _, err := s.SetStatus(i, domain.StatusWip, "tester", fmt.Sprintf("go %d", i)); err != nil {
 				t.Errorf("SetStatus(%d): %v", i, err)
