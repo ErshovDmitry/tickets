@@ -33,9 +33,13 @@ const (
 // deferred, not terminating: a recognized section header after the journal
 // resumes parsing (a repeated Journal header merges its entries and sets
 // Ticket.JournalDup), while the first non-blank, non-header line still ends
-// the recognized tail — Unknown starts at any pending blank run — so manual
-// edits survive parse/render round trips intact. A pending blank run at EOF
-// becomes Unknown too, so trailing blank bytes survive.
+// the recognized tail — Unknown starts at any pending blank run, EXCEPT the
+// single blank line Render emits right after the first Journal header
+// (MD022): that one is markup, not content, and is swallowed, so a ticket
+// with an empty journal stays byte-stable across parse/render cycles — so
+// manual edits survive parse/render round trips intact. A pending blank run at
+// EOF becomes Unknown too, so trailing blank bytes survive (blanks after the
+// LAST journal entry included).
 func Parse(data []byte) (*Ticket, []byte, error) {
 	t := &Ticket{
 		RawTemplates: rawTemplates{
@@ -46,6 +50,10 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 	var details, userComments, comments []string
 	sec := secHead
 	seenJournal := false
+	// journalHeaderBlank marks the one MD022 blank line accepted right after
+	// the FIRST journal header (see the doc comment). It is raised only on
+	// entering the journal section and is cleared by the very next line.
+	journalHeaderBlank := false
 
 	// Detect language first (LOCK D4).
 	t.Lang = detectLang(data)
@@ -80,6 +88,15 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 		pos = end
 		line := string(trimEOL(data[start:end]))
 		if sec == secJournal {
+			if journalHeaderBlank {
+				// Exactly one blank line after the first journal header is the
+				// MD022 blank Render prints: swallow it instead of starting a
+				// pending blank run (which would become Unknown and grow).
+				journalHeaderBlank = false
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+			}
 			if strings.TrimSpace(line) == "" {
 				if blankRunStart < 0 {
 					blankRunStart = start
@@ -118,9 +135,12 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 			// repeat journal: flag repeats so the store can warn, same as
 			// the in-journal adjacent-dup branch above (T-0070 F1).
 			if seenJournal {
+				// A repeated journal header (adjacent or not) never raises the
+				// blank-flag: the blank line after it is separators/content.
 				t.JournalDup = true
 			} else {
 				seenJournal = true
+				journalHeaderBlank = true
 			}
 		}
 	}
