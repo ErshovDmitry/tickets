@@ -68,8 +68,10 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 			// the same.
 			t.UserComments = ""
 		}
-		// The free-form "## Комментарии" section has no stub: its bytes are
-		// kept verbatim with no blanking (T-0035).
+		// The free-form "## Comments (Комментарии)" section has no stub: only
+		// ONE leading blank line is trimmed — the one Render prints after the
+		// header (MD022). Any further leading blank line is content and stays
+		// byte-verbatim (T-0035).
 		t.Comments = strings.Join(trimTrailingEmpty(trimLeadingOneEmpty(comments)), "\n")
 	}
 	blankRunStart := -1
