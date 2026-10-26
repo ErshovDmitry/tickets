@@ -56,8 +56,8 @@ What it checks: Markdown structure and hygiene — blank lines around headings (
 
 Disabled rules, and why:
 
-- **MD013** (line length) — prose in `docs/` is written as long single lines (up to 420 characters); wrapping it would be a mass reflow of every document, outside the scope of this change.
-- **MD060** (table column style) — 36 violations across 7 tables that mix compact and padded column styles; unifying table formatting is a separate task.
+- **MD013** (line length) — prose in `docs/` is written as long single lines (hundreds of characters); wrapping it would be a mass reflow of every document, outside the scope of this change.
+- **MD060** (table column style) — violations across several tables that mix compact and padded column styles; unifying table formatting is a separate task.
 
 Scope: `tickets/archive/**` is excluded by user decision (2026-10-26, item 2b); active `tickets/*.md` are linted. The `tickets/` directory is not tracked by git, so CI does not check those files. Also excluded: `docs_api/**`, `AGENTS.md`, `AGENTS_ARCHITECTURE.md`, `DEPLOY.md`, `node_modules/**`, `dist/**`, `internal/cli/testdata/golden-*.md` — the byte-exact golden fixtures of the generator are outside the lint scope; their format is checked by the golden test.
 
