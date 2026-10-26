@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.3"
+version: "1.4"
 created: 2026-09-04
-modified: 2026-09-09
+modified: 2026-10-27
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -10,12 +10,12 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Captured from `ticket` v1.2.3 (PATH binary) help on 2026-09-09 (`TICKET_LANG` default RU).
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-10-27 (T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
-Maintenance: regenerate with `go run ./cmd/ticket help` after code changes; the first output line shows the binary version.
+Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
 ```text
-ticket version 1.2.3
+ticket version <ver>
 ticket — тикеты проекта (файлы T-NNNN-<status>.md в <проект>/tickets/).
 
   ticket init
@@ -47,22 +47,11 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 
 Поиск каталога тикетов (первое совпадение выигрывает): -C/--tickets-dir → $TICKETS_DIR → восходящий поиск tickets/ от текущего каталога.
 
+Блокировка каталога: TICKET_LOCK_TIMEOUT задаёт, сколько ticket ждёт захват .lock, прежде чем вернуть ошибку; значение — Go-длительность с обязательной единицей (30s, 2m, 500ms); пустое или невалидное значение молча даёт дефолт; 0 или меньше — одна попытка без ожидания; действует на new, set и archive.
+
 Статусы: open — новый; wip — в работе; done — исправлено; closed — отклонён/дубликат.
 Типы: BUG — поломка; OPS — инцидент/обслуживание; TD — техдолг; ENH — улучшение.
 Секреты (пароли, токены, ключи) в тикеты НЕ писать.
-
-Миграция старых тикетов: старый формат с русскими заголовками не поддерживается новыми версиями; выполните один раз над tickets/*.md:
-
-sed -i -E \
- -e 's/^## Кратко$/## Summary (Кратко)/' \
- -e 's/^## Подробности$/## Details (Подробности)/' \
- -e 's/^## Комментарии от пользователя$/## User comments (Комментарии от пользователя)/' \
- -e 's/^## Комментарии$/## Comments (Комментарии)/' \
- -e 's/^## Журнал$/## Journal (Журнал)/' \
- -e 's/^- Статус:/- Status (Статус):/' \
- -e 's/^- Приоритет:/- Priority (Приоритет):/' \
- -e 's/^- Создан: (.*) · кем: (.*)$/- Created (Создан): \1 · by (кем): \2/' \
- -e 's/^- Проект:/- Project (Проект):/' tickets/*.md
 ```
 
 ## File History & Known Issues
@@ -72,3 +61,4 @@ sed -i -E \
 | 2026-09-04 | Initial version | Captured verbatim help output | 1.0 |
 | 2026-09-07 | Missing `-P` option, stale version, blank line | Regenerated after FIX 2+4 (T-0056) | 1.1 |
 | 2026-09-09 | Stale vs v1.2.3: `list --json` (T-0081) missing | Regenerated from v1.2.3 help | 1.3 |
+| 2026-10-27 | T-0094: `TICKET_LOCK_TIMEOUT` missing; T-0095: migration/sed section removed | Re-synced with `internal/cli/templates/usage.ru.txt` | 1.4 |
