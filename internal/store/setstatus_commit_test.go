@@ -114,6 +114,31 @@ func TestSetStatus_RollbackAlsoFails_BreachText(t *testing.T) {
 // Concurrent Create + SetStatus racing each other (h)
 // ----------------------------------------------------------------------------
 
+// concurrentLockBudget is the per-acquisition lock wait budget for the
+// concurrent Create+SetStatus tests. Each ticket costs one Create plus one
+// SetStatus behind a single store lock, and every write is fsynced (Create
+// commits in place, SetStatus via link or rename), so the load variant
+// serialises 2N such operations behind that lock. The shipped default
+// (defaultLockTimeout in internal/store/store.go) is one interactive
+// operation's budget, not a load test's, and the load variant has been
+// observed to exhaust it on CI; both tests therefore pin the budget
+// explicitly instead of depending on the ambient TICKET_LOCK_TIMEOUT.
+const concurrentLockBudget = 60 * time.Second
+
+// concurrentAppearDeadline bounds how long a worker waits for its ticket to
+// appear before reporting it as vanished. It must exceed
+// concurrentLockBudget because creating that ticket needs the same lock.
+const concurrentAppearDeadline = 2 * concurrentLockBudget
+
+// setConcurrentLockBudget pins TICKET_LOCK_TIMEOUT for the concurrent tests.
+// withLock re-reads the variable on every call (store.parseLockTimeout), so
+// goroutines started after this call observe the value. The tests must not
+// use t.Parallel: testing forbids Setenv there.
+func setConcurrentLockBudget(t *testing.T) {
+	t.Helper()
+	t.Setenv("TICKET_LOCK_TIMEOUT", concurrentLockBudget.String())
+}
+
 // TestConcurrent_CreateAndSetStatus_NoJournalLoss runs Create and SetStatus
 // genuinely in parallel: one producer goroutine creates n tickets while n
 // waiter goroutines each poll for their number and transition it as soon as
@@ -121,6 +146,7 @@ func TestSetStatus_RollbackAlsoFails_BreachText(t *testing.T) {
 // creation line and exactly one byte-exact open → wip transition line.
 func TestConcurrent_CreateAndSetStatus_NoJournalLoss(t *testing.T) {
 	s, dir := newStore(t)
+	setConcurrentLockBudget(t)
 	const n = 5
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -136,7 +162,7 @@ func TestConcurrent_CreateAndSetStatus_NoJournalLoss(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			deadline := time.Now().Add(5 * time.Second)
+			deadline := time.Now().Add(concurrentAppearDeadline)
 			for {
 				_, err := s.Find(i)
 				if err == nil {
