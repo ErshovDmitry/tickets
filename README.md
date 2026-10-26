@@ -34,7 +34,7 @@ ticket set 7 done "fixed, tests green"                  # change status, renames
 
 - [Installation](docs/installation.md) — putting `ticket` on your `PATH`, tickets-directory resolution (`-C`, `$TICKETS_DIR`, upward scan), one binary for many projects, migration note.
 - [Usage](docs/usage.md) — full command reference, ticket file format.
-- [Configuration](docs/configuration.md) — environment variables `TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`.
+- [Configuration](docs/configuration.md) — environment variables `TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`.
 - [Scenarios](docs/scenarios.md) — typical workflows: agent integration (`AGENTS.md` block), agent skill, archiving, cross-project tickets.
 - [Development](docs/development.md) — building from source, cross-compilation, testing, Windows smoke.
 
