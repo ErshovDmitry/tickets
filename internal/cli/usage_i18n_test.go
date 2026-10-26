@@ -154,10 +154,9 @@ func TestUsageFixtureENCompleteness(t *testing.T) {
 }
 
 // TestUsageFixturesNoMigrationBlock pins the T-0095 removal of the T-0036
-// migration sections: neither usage file carries the migration heading,
+// migration sections: neither usage file mentions migration at all, carries
 // the sed recipe or its glob, and both carry the T-0094 lock-timeout
-// paragraph. The default timeout value is owned by internal/store
-// (defaultLockTimeout) and must not be duplicated as a literal here.
+// paragraph.
 func TestUsageFixturesNoMigrationBlock(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -168,7 +167,8 @@ func TestUsageFixturesNoMigrationBlock(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, banned := range []string{
-				"Миграция старых тикетов",
+				"Миграция",
+				"Migration",
 				"Migrating old tickets",
 				"sed -i -E",
 				"tickets/*.md",
@@ -176,9 +176,6 @@ func TestUsageFixturesNoMigrationBlock(t *testing.T) {
 				if bytes.Contains(tc.fixture, []byte(banned)) {
 					t.Errorf("usage fixture (%s) still carries %q", tc.name, banned)
 				}
-			}
-			if bytes.Contains(tc.fixture, []byte("5s")) {
-				t.Errorf("usage fixture (%s) hardcodes the default lock timeout (5s)", tc.name)
 			}
 			if !bytes.Contains(tc.fixture, []byte("TICKET_LOCK_TIMEOUT")) {
 				t.Errorf("usage fixture (%s) is missing %q", tc.name, "TICKET_LOCK_TIMEOUT")

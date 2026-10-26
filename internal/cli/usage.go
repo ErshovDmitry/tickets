@@ -15,11 +15,11 @@ var usageFS embed.FS
 // from usageFS in init() for compatibility with existing tests.
 // templates/usage.ru.txt descends from the bash reference (the usage()
 // heredoc documented in docs_api/reference-init-tickets.md) but has long
-// diverged from it — ticket init, -P/--json on new and list, the global
-// -C/--tickets-dir flag; usage.en.txt is a translation with an identical
-// line layout. The T-0036 ticket-migration section was removed in T-0095,
-// so neither file documents a migration recipe any more. The version line
-// is prepended at runtime (T-0028), not in the templates.
+// diverged from it — ticket init, -P on new and list, --json on list only,
+// the global -C/--tickets-dir flag; usage.en.txt is a translation with an
+// identical line layout. The T-0036 ticket-migration section was removed in
+// T-0095, so neither file documents a migration recipe any more. The version
+// line is prepended at runtime (T-0028), not in the templates.
 var usageTextRU string
 var usageTextEN string
 

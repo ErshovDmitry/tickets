@@ -10,12 +10,12 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Captured from `ticket` v1.2.3 (PATH binary) help on 2026-09-09 (`TICKET_LANG` default RU), then re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-10-27 (T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section). The first line is the runtime version line, not part of the template.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-10-27 (T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is the runtime version line, not part of the template: it is an EXAMPLE showing what a release build prints, and it goes stale with every new commit — always read the real value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes; the first output line shows the binary version.
 
 ```text
-ticket version 1.2.3
+ticket version 1.2.3-8-gdca96ef
 ticket — тикеты проекта (файлы T-NNNN-<status>.md в <проект>/tickets/).
 
   ticket init

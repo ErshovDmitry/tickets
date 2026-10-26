@@ -66,10 +66,9 @@ T-0003  open     BUG: Cross-project entry
 
 ## Full command reference
 
-Verbatim output of `ticket help` (`TICKET_LANG=en`; the first line shows the binary version, `dev` if built without `-ldflags`):
+Help text (`TICKET_LANG=en`), byte-identical to the embedded template `internal/cli/templates/usage.en.txt`. The binary prepends a version line (`ticket version <ver>`, `dev` when built without `-ldflags`) that is not part of the template:
 
 ```text
-ticket version dev
 ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
 
   ticket init
@@ -78,11 +77,12 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       create a ticket (status open), prints the file path;
       -P overrides the project (default = basename of tickets/ parent);
       warning to stderr if the project is seen for the first time
-  ticket list [active|open|wip|done|closed|archive|all] [-P <project>]
+  ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]
       list tickets; default active (= open + wip);
       archive — closed tickets moved into the archive;
       -P filters by project (exact match, case-sensitive);
-      project column shown when output tickets have differing projects
+      project column shown when output tickets have differing projects;
+      --json outputs a JSON array (6 fields: number, status, type, priority, title, created); empty = []
   ticket show <number|filename>
       show a ticket (the archive is searched too)
   ticket set <number> <status> ["comment"]
