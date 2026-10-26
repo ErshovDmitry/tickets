@@ -61,11 +61,13 @@ go test ./...                   # обязательно зелёное пере
 
 Скоуп: `tickets/archive/**` исключён по решению пользователя (2026-10-26, пункт 2b); активные `tickets/*.md` линтуются. Также исключены: `docs_api/**`, `AGENTS.md`, `AGENTS_ARCHITECTURE.md`, `DEPLOY.md`, `node_modules/**`, `dist/**`, `internal/cli/testdata/**` — побайтовые golden-фикстуры генератора исключены из lint-скоупа, их формат проверяет golden-тест.
 
-Локальный запуск — версия в CI зафиксирована (0.23.3):
+Локальный запуск — версия CLI зафиксирована в .github/workflows/ci.yml:
 
 ```bash
 markdownlint-cli2 --no-globs $(git ls-files '*.md')
 ```
+
+Обычный запуск `markdownlint-cli2` (без `--no-globs`) дополнительно проверяет активные тикеты `tickets/*.md` (каталог `tickets/archive/**` исключён конфигом), а команда с `--no-globs` выше проверяет только трекаемое содержимое репозитория.
 
 ## Windows smoke
 
