@@ -12,7 +12,7 @@ import (
 // cmdArchive implements `archive [<номер>]`: move closed tickets into
 // tickets/archive/. Without an argument every done/closed ticket is
 // archived; with an argument only the named one. Each moved file's path
-// is echoed, mirroring bash cmd_archive (tickets/bin/ticket:161–188).
+// is echoed, mirroring the legacy bash cmd_archive.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
 func cmdArchive(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
@@ -48,8 +48,8 @@ func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io
 	return 0
 }
 
-// archiveError maps a failed archive to the pinned bash messages
-// (tickets/bin/ticket:166–171). The store never spells out UI text: it
+// archiveError maps a failed archive to the pinned messages
+// of the legacy bash cmd_archive. The store never spells out UI text: it
 // returns sentinels and typed errors that this function renders with the
 // single «ticket: » prefix.
 func archiveError(stderr io.Writer, lang domain.Lang, numArg string, err error) int {

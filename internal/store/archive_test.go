@@ -16,7 +16,7 @@ import (
 
 // assertJournalArchived finds the archive journal line in body and asserts
 // it byte-equals the bash shape "- <ts> — перенесён в архив (<who>)" with
-// no trailing dot (bash cmd_archive printf, tickets/bin/ticket:177).
+// no trailing dot (the legacy bash cmd_archive printf).
 func assertJournalArchived(t *testing.T, body, who string) {
 	t.Helper()
 	const marker = " — перенесён в архив ("
