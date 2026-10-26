@@ -10,7 +10,11 @@
     "AGENTS_ARCHITECTURE.md",
     "DEPLOY.md",
     "node_modules/**",
-    "dist/**"
+    "dist/**",
+    // Golden fixtures are a byte-exact reference of the generator output;
+    // their format is pinned by the golden test (internal/cli/golden_test.go).
+    // Linting them only produces false positives (MD022/MD032) until PR #1.
+    "internal/cli/testdata/**"
   ],
   "config": {
     // MD013/line-length: prose in docs/ is written as long single lines
