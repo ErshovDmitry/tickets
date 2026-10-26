@@ -40,7 +40,7 @@ Parse warnings from `list` are printed to stderr; the command returns exit code 
 Command shapes at a glance:
 
 - `ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who] [-P <project>]`
-- `ticket list [active|open|wip|done|closed|archive|all] [-P <project>]`
+- `ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]`
 - `ticket show <number|filename>`
 - `ticket set <number> <status> ["comment"]`
 - `ticket archive [<number>]`
