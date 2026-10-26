@@ -37,7 +37,7 @@ ticket version
 
 Предупреждения разбора печатаются в stderr; команда возвращает код выхода 0 и показывает успешно распарсенные тикеты.
 
-Переменные окружения (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`) и глобальный флаг `-C`/`--tickets-dir`: [configuration.md](configuration.md).
+Переменные окружения (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`) и глобальный флаг `-C`/`--tickets-dir`: [configuration.md](configuration.md).
 
 ## Пример вывода list
 

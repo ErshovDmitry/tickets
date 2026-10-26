@@ -46,7 +46,7 @@ Command shapes at a glance:
 - `ticket archive [<number>]`
 - `ticket version`
 
-Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`) and the global `-C` / `--tickets-dir` flag: [configuration.md](configuration.md).
+Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`) and the global `-C` / `--tickets-dir` flag: [configuration.md](configuration.md).
 
 ## List output
 

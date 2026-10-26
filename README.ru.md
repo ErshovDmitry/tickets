@@ -34,7 +34,7 @@ ticket set 7 done "починено, тесты зелёные"             # с
 
 - [Установка](docs/ru/installation.md) — бинарник в `PATH`, резолюция каталога тикетов (`-C`, `$TICKETS_DIR`, восходящий поиск), один бинарь на все проекты, примечание о миграции.
 - [Использование](docs/ru/usage.md) — полная справка по командам, формат файла тикета.
-- [Конфигурация](docs/ru/configuration.md) — переменные окружения `TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`.
+- [Конфигурация](docs/ru/configuration.md) — переменные окружения `TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`.
 - [Сценарии](docs/ru/scenarios.md) — типовые рабочие сценарии: интеграция с агентами (блок `AGENTS.md`), скилл для агентов, архив, кросс-проектные тикеты.
 - [Разработка](docs/ru/development.md) — сборка из исходников, кросс-компиляция, тесты, Windows-smoke.
 
