@@ -109,9 +109,9 @@ func TestUnknownPreservedAfterJournal(t *testing.T) {
 	}
 }
 
-// TestUnknownBlankLinesPreservedAfterJournal documents that a blank line in
-// "## Journal (Журнал)" is Unknown by design, not a parser bug: bytes after the last
-// recognized journal line — blank or manual — are preserved verbatim.
+// TestUnknownBlankLinesPreservedAfterJournal: blanks AFTER the last recognized
+// journal line stay Unknown verbatim (T-0070, by design, not a parser bug);
+// only the single MD022 blank right after the FIRST header is markup.
 func TestUnknownBlankLinesPreservedAfterJournal(t *testing.T) {
 	cases := []struct {
 		name string
