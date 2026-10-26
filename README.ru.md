@@ -1,6 +1,6 @@
-[English](README.md) | **Русский**
-
 # ticket
+
+[English](README.md) | **Русский**
 
 Кроссплатформенная (Windows / Linux / macOS) CLI-система тикетов на Go.
 

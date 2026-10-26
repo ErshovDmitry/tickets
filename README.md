@@ -1,6 +1,6 @@
-**English** | [Русский](README.ru.md)
-
 # ticket
+
+**English** | [Русский](README.ru.md)
 
 Cross-platform (Windows / Linux / macOS) CLI ticket system in Go.
 

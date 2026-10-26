@@ -48,6 +48,25 @@ gofmt -l . && go vet ./...      # must be clean before commit
 go test ./...                   # must be green before marking done
 ```
 
+## Markdown lint
+
+Documentation is linted with [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2); the config lives in `.markdownlint-cli2.jsonc`.
+
+What it checks: Markdown structure and hygiene — blank lines around headings (MD022) and code blocks (MD031), lists surrounded by blank lines (MD032), no inline HTML where a Markdown construct fits (MD033), no bare URLs (MD034), and a language tag on every fenced code block (MD040).
+
+Disabled rules, and why:
+
+- **MD013** (line length) — prose in `docs/` is written as long single lines (up to 420 characters); wrapping it would be a mass reflow of every document, outside the scope of this change.
+- **MD060** (table column style) — 36 violations across 7 tables that mix compact and padded column styles; unifying table formatting is a separate task.
+
+Scope: `tickets/archive/**` is excluded by user decision (2026-10-26, item 2b); active `tickets/*.md` are linted. Also excluded: `docs_api/**`, `AGENTS.md`, `AGENTS_ARCHITECTURE.md`, `DEPLOY.md`, `node_modules/**`, `dist/**`.
+
+Local run — the version used in CI is pinned (0.23.3):
+
+```bash
+markdownlint-cli2 --no-globs $(git ls-files '*.md')
+```
+
 ## Windows smoke
 
 Cross-compile `dist/ticket.exe` (windows/amd64, see the table above) and run `scripts/smoke-windows.ps1` on a Windows host (manually over SSH):

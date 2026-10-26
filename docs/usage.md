@@ -52,7 +52,7 @@ Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`) and the globa
 
 Example `ticket list all` output — the project column appears only when projects differ in the output:
 
-```
+```text
 T-0001  tmp         open     BUG: Export fails on large files
 T-0002  tmp         open     ENH: Add JSON output to list
 T-0003  otherproj   open     BUG: Cross-project entry
@@ -60,7 +60,7 @@ T-0003  otherproj   open     BUG: Cross-project entry
 
 With a `-P` filter the project column is dropped (single project):
 
-```
+```text
 T-0003  open     BUG: Cross-project entry
 ```
 
@@ -68,7 +68,7 @@ T-0003  open     BUG: Cross-project entry
 
 Verbatim output of `ticket help` (`TICKET_LANG=en`; the first line shows the binary version, `dev` if built without `-ldflags`):
 
-```
+```text
 ticket version dev
 ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
 

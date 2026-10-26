@@ -33,6 +33,16 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      # markdownlint-cli2 version is pinned: rule behaviour and the config
+      # schema (globs/ignores/config) change between releases.
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Markdown lint
+        run: npx --yes markdownlint-cli2@0.23.3 "**/*.md"
+
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

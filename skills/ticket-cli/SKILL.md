@@ -28,7 +28,7 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 
 ### `init`
 
-```
+```text
 ticket init
 ```
 
@@ -36,7 +36,7 @@ Creates `tickets/` and `tickets/archive/` in the current directory. Idempotent: 
 
 ### `new`
 
-```
+```text
 ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who] [-P <project>]
 ```
 
@@ -44,7 +44,7 @@ Creates a ticket with status `open` and prints the file path. `-w` sets the auth
 
 ### `list`
 
-```
+```text
 ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]
 ```
 
@@ -52,7 +52,7 @@ Default is `active` (= open + wip). `archive` lists tickets already moved into `
 
 ### `show`
 
-```
+```text
 ticket show <number|filename>
 ```
 
@@ -60,7 +60,7 @@ Shows a ticket; searches the archive too.
 
 ### `set`
 
-```
+```text
 ticket set <number> <status> ["comment"]
 ```
 
@@ -68,7 +68,7 @@ Renames the file and appends a journal line. Re-setting the SAME status WITH a c
 
 ### `archive`
 
-```
+```text
 ticket archive [<number>]
 ```
 
@@ -117,7 +117,7 @@ Labels are bilingual under the RU default locale:
 
 ## Structure
 
-```
+```text
 ticket-cli/
 ├── SKILL.md
 └── reference.md
