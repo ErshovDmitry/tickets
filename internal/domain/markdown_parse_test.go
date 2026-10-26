@@ -137,9 +137,9 @@ func TestCreatedRawSegmentsGrammar(t *testing.T) {
 func TestParseCreatedRawRoundTrip(t *testing.T) {
 	src := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): low\n" +
 		"- Created: 2026-01-02 03:04 · by: alice\n- Project (Проект): p\n\n" +
-		"## Summary (Кратко)\nx\n\n## Details (Подробности)\ndetail\n\n" +
+		"## Summary (Кратко)\n\nx\n\n## Details (Подробности)\n\ndetail\n\n" +
 		"## User comments (Комментарии от пользователя)\n\n" +
-		"## Comments (Комментарии)\n\n## Journal (Журнал)\n- 2026-01-02 03:04 — тикет создан (alice).\n"
+		"## Comments (Комментарии)\n\n## Journal (Журнал)\n\n- 2026-01-02 03:04 — тикет создан (alice).\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -189,9 +189,9 @@ func roundTripSrc(head string, lang Lang) string {
 	d := getDict(lang)
 	journal := fmt.Sprintf(d.journalCreation, "2026-01-02 03:04", "alice") + "\n"
 	return "# T-0001 · BUG: x\n\n" + head + "\n\n" +
-		d.headers[0] + "\nx\n\n" + d.headers[1] + "\ndetail\n\n" +
-		d.headers[2] + "\nuser text\n\n" + d.headers[3] + "\n\n" +
-		d.headers[4] + "\n" + journal
+		d.headers[0] + "\n\nx\n\n" + d.headers[1] + "\n\ndetail\n\n" +
+		d.headers[2] + "\n\nuser text\n\n" + d.headers[3] + "\n\n" +
+		d.headers[4] + "\n\n" + journal
 }
 
 // TestRawMetaSegmentsLiteralPercentS pins the T-0036 🔴 fix: raw meta
@@ -266,13 +266,13 @@ func TestParseHeader(t *testing.T) {
 	}
 
 	// Stop at the first section header; the body is never parsed.
-	full := head + "## Summary (Кратко)\nsummary\n\n## Details (Подробности)\ndetails\n"
+	full := head + "## Summary (Кратко)\n\nsummary\n\n## Details (Подробности)\n\ndetails\n"
 	if tk2, err := ParseHeader([]byte(full)); err != nil || tk2.Title != "real" || tk2.Details != "" {
 		t.Errorf("stop at ##: tk=%+v err=%v", tk2, err)
 	}
 
 	// An unrecognized "## " header also ends the head (mirrors secHead).
-	if tk3, err := ParseHeader([]byte("# T-0002 · TD: x\n\n## Не раздел\n- Status: ignored")); err != nil || tk3.Number != 2 || tk3.Status != "" {
+	if tk3, err := ParseHeader([]byte("# T-0002 · TD: x\n\n## Не раздел\n\n- Status: ignored")); err != nil || tk3.Number != 2 || tk3.Status != "" {
 		t.Errorf("unrecognized header: tk=%+v err=%v", tk3, err)
 	}
 

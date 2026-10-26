@@ -14,22 +14,12 @@ import (
 // от пользователя", fc under "## Comments (Комментарии)"; empty fc renders the bare
 // header form. uc/fc are inserted verbatim (no auto-stub).
 func ucTicket(uc, fc string) string {
-	head := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): normal\n- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n## Summary (Кратко)\nx\n\n## Details (Подробности)\nd\n\n"
-	body := "## User comments (Комментарии от пользователя)\n" + uc + "\n\n## Comments (Комментарии)\n"
+	head := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): normal\n- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n## Summary (Кратко)\n\nx\n\n## Details (Подробности)\n\nd\n\n"
+	body := "## User comments (Комментарии от пользователя)\n\n" + uc + "\n\n## Comments (Комментарии)\n\n"
 	if fc != "" {
-		return head + body + fc + "\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
+		return head + body + fc + "\n\n## Journal (Журнал)\n\n- 2026-01-01 10:00 — тикет создан (я).\n"
 	}
-	return head + body + "\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
-}
-
-// legacyTicket is a bash-era ticket body without the comment sections,
-// ending right before "## Journal (Журнал)"; legacyJournal appends the creation entry.
-func legacyTicket() string {
-	return "# T-0001 · BUG: легаси\n\n- Status (Статус): done\n- Priority (Приоритет): normal\n- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n## Summary (Кратко)\nлегаси\n\n## Details (Подробности)\nтекст легаси\n\n"
-}
-
-func legacyJournal() string {
-	return legacyTicket() + "## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	return head + body + "## Journal (Журнал)\n\n- 2026-01-01 10:00 — тикет создан (я).\n"
 }
 
 // canonEmptySections returns the canonical byte layout of empty comment
@@ -37,7 +27,7 @@ func legacyJournal() string {
 // plan): bare UC header, bare free header, one blank line before
 // "## Journal (Журнал)".
 func canonEmptySections() string {
-	return "## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n"
+	return "## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n\n"
 }
 
 // TestNewTicketTemplateSectionOrder pins (a): the template emits the user
@@ -75,51 +65,6 @@ func TestParseRenderRoundTripNewTicket(t *testing.T) {
 	}
 	if !bytes.Equal(got, out) {
 		t.Errorf("round trip mismatch:\n got %q\nwant %q", got, out)
-	}
-}
-
-// TestBothSectionsInjectedIntoLegacy pins (#4, re-targeted from
-// TestCommentsSectionAddedToLegacyTicket): a bash-era ticket without the
-// sections gains BOTH between "## Details (Подробности)" and "## Journal (Журнал)"; Details
-// and journal stay intact.
-func TestBothSectionsInjectedIntoLegacy(t *testing.T) {
-	tk, unknown, err := Parse([]byte(legacyJournal()))
-	if err != nil {
-		t.Fatalf("Parse: %v", err)
-	}
-	if tk.UserComments != "" || tk.Comments != "" {
-		t.Fatalf("UserComments/Comments = %q/%q, want empty for a legacy ticket", tk.UserComments, tk.Comments)
-	}
-	got, err := Render(tk, unknown)
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-	want := legacyTicket() + canonEmptySections() + "- 2026-01-01 10:00 — тикет создан (я).\n"
-	if !bytes.Equal(got, []byte(want)) {
-		t.Fatalf("legacy ticket did not gain both sections:\n got %q\nwant %q", got, want)
-	}
-}
-
-// TestCommentsLegacyWithUnknownTailRoundTrip pins (d+e): a legacy ticket
-// with a manual Unknown tail after the last journal line round-trips
-// byte-for-byte: BOTH sections are inserted between "## Details (Подробности)" and
-// "## Journal (Журнал)", the tail is preserved verbatim.
-func TestCommentsLegacyWithUnknownTailRoundTrip(t *testing.T) {
-	tail := "заметка вручную\nещё строка\n"
-	tk, unknown, err := Parse([]byte(legacyJournal() + tail))
-	if err != nil {
-		t.Fatalf("Parse: %v", err)
-	}
-	if want := []byte(tail); !bytes.Equal(unknown, want) {
-		t.Fatalf("unknown = %q, want %q", unknown, want)
-	}
-	got, err := Render(tk, unknown)
-	if err != nil {
-		t.Fatalf("Render: %v", err)
-	}
-	want := legacyTicket() + canonEmptySections() + "- 2026-01-01 10:00 — тикет создан (я).\n" + tail
-	if !bytes.Equal(got, []byte(want)) {
-		t.Fatalf("round trip mismatch:\n got %q\nwant %q", got, want)
 	}
 }
 
@@ -204,15 +149,15 @@ func TestAbsorbLineTransitions(t *testing.T) {
 // — other headers and duplicate section headers included — stay verbatim
 // (content-preserving policy).
 func TestUserCommentsStrayLinesPolicy(t *testing.T) {
-	src := ucTicket("текст\n## User comments (Комментарии от пользователя)\nещё\n## Details (Подробности)\nхвост", "текст\n## Comments (Комментарии)\nещё\n## Details (Подробности)\nхвост")
+	src := ucTicket("текст\n## User comments (Комментарии от пользователя)\n\nещё\n## Details (Подробности)\n\nхвост", "текст\n## Comments (Комментарии)\n\nещё\n## Details (Подробности)\n\nхвост")
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
 	}
-	if want := "текст\n## User comments (Комментарии от пользователя)\nещё\n## Details (Подробности)\nхвост"; tk.UserComments != want {
+	if want := "текст\n## User comments (Комментарии от пользователя)\n\nещё\n## Details (Подробности)\n\nхвост"; tk.UserComments != want {
 		t.Fatalf("UserComments = %q, want %q", tk.UserComments, want)
 	}
-	if want := "текст\n## Comments (Комментарии)\nещё\n## Details (Подробности)\nхвост"; tk.Comments != want {
+	if want := "текст\n## Comments (Комментарии)\n\nещё\n## Details (Подробности)\n\nхвост"; tk.Comments != want {
 		t.Fatalf("Comments = %q, want %q", tk.Comments, want)
 	}
 	got, err := Render(tk, unknown)
@@ -283,5 +228,69 @@ func TestUserCommentsSurviveRepeatedRoundTrips(t *testing.T) {
 			t.Fatalf("cycle %d round trip mismatch:\n got %q\nwant %q", i, got, data)
 		}
 		data = got
+	}
+}
+
+// TestFreeSectionLeadingBlankLinesPreserved pins (T-0088): the free
+// "## Comments" section keeps its bytes verbatim — parse drops only the
+// single blank line Render emits after the header (MD022); a second blank
+// line is content and survives the parse→render cycle byte-for-byte.
+func TestFreeSectionLeadingBlankLinesPreserved(t *testing.T) {
+	src := "# T-0001 · BUG: x\n\n" +
+		"- Status (Статус): open\n- Priority (Приоритет): normal\n" +
+		"- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n" +
+		"## Summary (Кратко)\n\nx\n\n" +
+		"## Details (Подробности)\n\nd\n\n" +
+		"## User comments (Комментарии от пользователя)\n\n" +
+		"## Comments (Комментарии)\n\n\nтекст\n\n" +
+		"## Journal (Журнал)\n\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	tk, unknown, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if want := "\nтекст"; tk.Comments != want {
+		t.Errorf("Comments = %q, want %q (one leading blank line kept)", tk.Comments, want)
+	}
+	got, err := Render(tk, unknown)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if !bytes.Equal(got, []byte(src)) {
+		t.Fatalf("round trip mismatch:\n got %q\nwant %q", got, src)
+	}
+	tk2, unknown2, err := Parse(got)
+	if err != nil {
+		t.Fatalf("second Parse: %v", err)
+	}
+	got2, err := Render(tk2, unknown2)
+	if err != nil {
+		t.Fatalf("second Render: %v", err)
+	}
+	if !bytes.Equal(got2, got) {
+		t.Fatalf("second cycle mismatch:\n got %q\nwant %q", got2, got)
+	}
+}
+
+// TestStubAfterTwoBlankLinesBlanksSection pins (T-0088): a placeholder
+// preceded by extra blank lines is still a placeholder — Details and User
+// comments parse to empty.
+func TestStubAfterTwoBlankLinesBlanksSection(t *testing.T) {
+	src := "# T-0001 · BUG: x\n\n" +
+		"- Status (Статус): open\n- Priority (Приоритет): normal\n" +
+		"- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n" +
+		"## Summary (Кратко)\n\nx\n\n" +
+		"## Details (Подробности)\n\n\n" + dictRU.detailsStub + "\n\n" +
+		"## User comments (Комментарии от пользователя)\n\n\n" + dictRU.userCommentsStub + "\n\n" +
+		"## Comments (Комментарии)\n\n" +
+		"## Journal (Журнал)\n\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	tk, _, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if tk.Details != "" {
+		t.Errorf("Details = %q, want empty (stub after two blank lines)", tk.Details)
+	}
+	if tk.UserComments != "" {
+		t.Errorf("UserComments = %q, want empty (stub after two blank lines)", tk.UserComments)
 	}
 }

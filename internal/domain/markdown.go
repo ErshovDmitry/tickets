@@ -50,13 +50,19 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 	// Detect language first (LOCK D4).
 	t.Lang = detectLang(data)
 
+	// At most ONE leading blank line is trimmed alongside trailing ones:
+	// Render emits exactly one blank line after each section header
+	// (MD022), and without that trim the blank would be re-absorbed as
+	// content and accumulate one extra blank per parse/render round trip.
+	// Any FURTHER leading blank lines are content and stay verbatim
+	// (T-0035: the "## Comments" section is byte-verbatim).
 	finish := func() {
-		t.Details = strings.Join(trimTrailingEmpty(details), "\n")
-		if isStubLine(t.Details) {
+		t.Details = strings.Join(trimTrailingEmpty(trimLeadingOneEmpty(details)), "\n")
+		if isStubLine(strings.TrimLeft(t.Details, "\n")) {
 			t.Details = "" // stub from any dict means empty Details
 		}
-		t.UserComments = strings.Join(trimTrailingEmpty(userComments), "\n")
-		if isStubLine(t.UserComments) {
+		t.UserComments = strings.Join(trimTrailingEmpty(trimLeadingOneEmpty(userComments)), "\n")
+		if isStubLine(strings.TrimLeft(t.UserComments, "\n")) {
 			// Placeholder means no user remarks. Known limitation (by
 			// design): user text byte-identical to the stub is treated
 			// the same.
@@ -64,7 +70,7 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 		}
 		// The free-form "## Комментарии" section has no stub: its bytes are
 		// kept verbatim with no blanking (T-0035).
-		t.Comments = strings.Join(trimTrailingEmpty(comments), "\n")
+		t.Comments = strings.Join(trimTrailingEmpty(trimLeadingOneEmpty(comments)), "\n")
 	}
 	blankRunStart := -1
 	for pos := 0; pos < len(data); {
@@ -160,18 +166,19 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	}
 	b.WriteString("\n")
 
-	// Section headers: prefer raw templates, else dict.
+	// Section headers: prefer raw templates, else dict. Every header is
+	// followed by a blank line (MD022 blanks-around-headings).
 	if raw, ok := t.RawTemplates.Headers[secNameSummary]; ok {
-		b.WriteString(raw + "\n")
+		b.WriteString(raw + "\n\n")
 	} else {
-		b.WriteString(d.headers[0] + "\n")
+		b.WriteString(d.headers[0] + "\n\n")
 	}
 	fmt.Fprintf(&b, "%s\n\n", t.Title)
 
 	if raw, ok := t.RawTemplates.Headers[secNameDetails]; ok {
-		b.WriteString(raw + "\n")
+		b.WriteString(raw + "\n\n")
 	} else {
-		b.WriteString(d.headers[1] + "\n")
+		b.WriteString(d.headers[1] + "\n\n")
 	}
 	if t.Details == "" {
 		b.WriteString(d.detailsStub)
@@ -181,9 +188,9 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	b.WriteString("\n\n")
 
 	if raw, ok := t.RawTemplates.Headers[secNameUserComments]; ok {
-		b.WriteString(raw + "\n")
+		b.WriteString(raw + "\n\n")
 	} else {
-		b.WriteString(d.headers[2] + "\n")
+		b.WriteString(d.headers[2] + "\n\n")
 	}
 	// Empty section renders the bare header: the long placeholder is no
 	// longer emitted (plan "User comments" Option A) — new tickets create
@@ -193,35 +200,30 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	if t.UserComments != "" {
 		b.WriteString(t.UserComments)
 	}
-	// Conditional separator mirrors the Comments section: an empty section
-	// yields exactly one blank line before the next header — never "\n\n\n".
-	if t.UserComments == "" {
-		b.WriteString("\n")
-	} else {
+	// Separator after content: a non-empty section ends with a blank line
+	// before the next header; an empty section needs nothing — the header
+	// already emitted its own trailing blank line.
+	if t.UserComments != "" {
 		b.WriteString("\n\n")
 	}
 
 	if raw, ok := t.RawTemplates.Headers[secNameComments]; ok {
-		b.WriteString(raw + "\n")
+		b.WriteString(raw + "\n\n")
 	} else {
-		b.WriteString(d.headers[3] + "\n")
+		b.WriteString(d.headers[3] + "\n\n")
 	}
 	if t.Comments != "" {
 		b.WriteString(t.Comments)
 	}
-	// Conditional journal separator (review fix c2, T-0035): with an empty
-	// free section the output must be "## Комментарии\n\n## Журнал\n" —
-	// exactly one blank line, never "\n\n\n".
-	if t.Comments == "" {
-		b.WriteString("\n")
-	} else {
+	// Same conditional separator as User comments above.
+	if t.Comments != "" {
 		b.WriteString("\n\n")
 	}
 
 	if raw, ok := t.RawTemplates.Headers[secNameJournal]; ok {
-		b.WriteString(raw + "\n")
+		b.WriteString(raw + "\n\n")
 	} else {
-		b.WriteString(d.headers[4] + "\n")
+		b.WriteString(d.headers[4] + "\n\n")
 	}
 	for _, e := range t.Journal {
 		writeJournalLine(&b, e, t.Lang)
@@ -256,6 +258,18 @@ func parseTS(s string) time.Time {
 func trimTrailingEmpty(lines []string) []string {
 	for len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
+	}
+	return lines
+}
+
+// trimLeadingOneEmpty drops AT MOST ONE blank line at the start of a
+// section body: exactly the blank line Render emits after each section
+// header (MD022) must not become content on the next parse. Every further
+// leading blank line is content and stays verbatim — the free "## Comments"
+// section is byte-verbatim (T-0035).
+func trimLeadingOneEmpty(lines []string) []string {
+	if len(lines) > 0 && lines[0] == "" {
+		return lines[1:]
 	}
 	return lines
 }

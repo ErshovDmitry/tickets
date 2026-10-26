@@ -52,11 +52,11 @@ func TestRenderNewTicketGolden(t *testing.T) {
 				"- Priority (Приоритет): normal\n" +
 				"- Created (Создан): 2026-09-02 03:24 · by (кем): agent\n" +
 				"- Project (Проект): tickets\n\n" +
-				"## Summary (Кратко)\nЛомается\n\n" +
-				"## Details (Подробности)\nдетали\n\n" +
+				"## Summary (Кратко)\n\nЛомается\n\n" +
+				"## Details (Подробности)\n\nдетали\n\n" +
 				"## User comments (Комментарии от пользователя)\n\n" +
 				"## Comments (Комментарии)\n\n" +
-				"## Journal (Журнал)\n- 2026-09-02 03:24 — тикет создан (agent).\n",
+				"## Journal (Журнал)\n\n- 2026-09-02 03:24 — тикет создан (agent).\n",
 		},
 		{
 			lang: LangEN,
@@ -65,11 +65,11 @@ func TestRenderNewTicketGolden(t *testing.T) {
 				"- Priority: normal\n" +
 				"- Created: 2026-09-02 03:24 · by: agent\n" +
 				"- Project: tickets\n\n" +
-				"## Summary\nЛомается\n\n" +
-				"## Details\nдетали\n\n" +
+				"## Summary\n\nЛомается\n\n" +
+				"## Details\n\nдетали\n\n" +
 				"## User comments\n\n" +
 				"## Comments\n\n" +
-				"## Journal\n- 2026-09-02 03:24 — ticket created (agent).\n",
+				"## Journal\n\n- 2026-09-02 03:24 — ticket created (agent).\n",
 		},
 	}
 	for _, tc := range tests {
@@ -96,11 +96,11 @@ func TestRenderNewTicketEmptyDetailsStub(t *testing.T) {
 				"- Priority (Приоритет): normal\n" +
 				"- Created (Создан): 2026-09-02 03:24 · by (кем): agent\n" +
 				"- Project (Проект): tickets\n\n" +
-				"## Summary (Кратко)\nЛомается\n\n" +
-				"## Details (Подробности)\n" + dictRU.detailsStub + "\n\n" +
+				"## Summary (Кратко)\n\nЛомается\n\n" +
+				"## Details (Подробности)\n\n" + dictRU.detailsStub + "\n\n" +
 				"## User comments (Комментарии от пользователя)\n\n" +
 				"## Comments (Комментарии)\n\n" +
-				"## Journal (Журнал)\n- 2026-09-02 03:24 — тикет создан (agent).\n",
+				"## Journal (Журнал)\n\n- 2026-09-02 03:24 — тикет создан (agent).\n",
 		},
 		{
 			lang: LangEN,
@@ -109,11 +109,11 @@ func TestRenderNewTicketEmptyDetailsStub(t *testing.T) {
 				"- Priority: normal\n" +
 				"- Created: 2026-09-02 03:24 · by: agent\n" +
 				"- Project: tickets\n\n" +
-				"## Summary\nЛомается\n\n" +
-				"## Details\n" + dictEN.detailsStub + "\n\n" +
+				"## Summary\n\nЛомается\n\n" +
+				"## Details\n\n" + dictEN.detailsStub + "\n\n" +
 				"## User comments\n\n" +
 				"## Comments\n\n" +
-				"## Journal\n- 2026-09-02 03:24 — ticket created (agent).\n",
+				"## Journal\n\n- 2026-09-02 03:24 — ticket created (agent).\n",
 		},
 	}
 	for _, tc := range tests {

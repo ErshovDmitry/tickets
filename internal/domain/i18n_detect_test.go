@@ -105,7 +105,7 @@ func TestDetectLangDictPrecedence(t *testing.T) {
 		{"free header then RU dict meta", "## Summary (任意)\n- Priority (Приоритет): normal\n", LangRU},
 		{"RU dict meta then free meta", "- Status (Статус): open\n- Priority (任意): low\n", LangRU},
 		{"plain EN meta then RU dict meta", "- Status: open\n- Priority (Приоритет): normal\n", LangEN},
-		{"plain EN header then RU header", "## Summary\n## Details (Подробности)\n", LangEN},
+		{"plain EN header then RU header", "## Summary\n\n## Details (Подробности)\n", LangEN},
 		{"only free signals", "- Status (任意): open\n## Summary (任意)\n", LangEN},
 	}
 	for _, tc := range cases {

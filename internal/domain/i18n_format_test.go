@@ -42,17 +42,21 @@ func TestByteStabilityENPlain(t *testing.T) {
 - Project: test
 
 ## Summary
+
 English ticket
 
 ## Details
+
 This is an English ticket.
 
 ## User comments
+
 _User remarks: write here — the agent reads this section before working on the ticket. The agent does not write here._
 
 ## Comments
 
 ## Journal
+
 - 2026-01-02 10:00 — ticket created (alice).
 `
 	tk, unknown, err := Parse([]byte(src))
@@ -82,18 +86,23 @@ func TestByteStabilityFreeSuffix(t *testing.T) {
 - Project (项目): free
 
 ## Summary (摘要)
+
 free suffix
 
 ## Details (详情)
+
 Free suffix test.
 
 ## User comments (用户评论)
+
 user text
 
 ## Comments (评论)
+
 agent text
 
 ## Journal (日志)
+
 - 2026-01-03 10:00 — ticket created (bob).
 `
 	tk, unknown, err := Parse([]byte(src))
@@ -121,12 +130,15 @@ func TestLegacyRUOnlyTolerant(t *testing.T) {
 - Проект: legacy
 
 ## Кратко
+
 legacy
 
 ## Подробности
+
 legacy details
 
 ## Журнал
+
 - 2026-01-04 10:00 — тикет создан (user).
 `
 	tk, _, err := Parse([]byte(src))
@@ -156,17 +168,21 @@ const ticketT0007FreeMeta = `# T-0007 · BUG: x
 - Project (Проект): p
 
 ## Summary (Кратко)
+
 x
 
 ## Details (Подробности)
+
 detail
 
 ## User comments (Комментарии от пользователя)
+
 user text
 
 ## Comments (Комментарии)
 
 ## Journal (Журнал)
+
 - 2026-01-02 03:04 — тикет создан (carol).
 `
 

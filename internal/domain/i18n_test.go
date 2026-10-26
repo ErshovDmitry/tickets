@@ -15,9 +15,11 @@ func TestLangDetectionRUBilingual(t *testing.T) {
 - Project (Проект): p
 
 ## Summary (Кратко)
+
 test
 
 ## Details (Подробности)
+
 details
 
 ## User comments (Комментарии от пользователя)
@@ -25,6 +27,7 @@ details
 ## Comments (Комментарии)
 
 ## Journal (Журнал)
+
 - 2026-01-01 10:00 — тикет создан (user).
 `
 	tk, unknown, err := Parse([]byte(src))
@@ -55,9 +58,11 @@ func TestLangDetectionENPlain(t *testing.T) {
 - Project: p
 
 ## Summary
+
 test
 
 ## Details
+
 details
 
 ## User comments
@@ -65,6 +70,7 @@ details
 ## Comments
 
 ## Journal
+
 - 2026-01-01 10:00 — ticket created (user).
 `
 	tk, unknown, err := Parse([]byte(src))
@@ -95,17 +101,21 @@ func TestLangDetectionFreeSuffix(t *testing.T) {
 - Project (项目): p
 
 ## Summary (任意语言)
+
 test
 
 ## Details (自由后缀)
+
 details
 
 ## User comments (用户评论)
+
 text
 
 ## Comments (评论)
 
 ## Journal (日志)
+
 - 2026-01-01 10:00 — ticket created (user).
 `
 	tk, unknown, err := Parse([]byte(src))
@@ -128,7 +138,7 @@ text
 // TestLangDetectionGarbageFile tests that a garbage file (no recognized
 // headers/meta) defaults to LangEN and parses tolerantly without panic.
 func TestLangDetectionGarbageFile(t *testing.T) {
-	src := "garbage\nno structure\n## Unknown Section\nmore garbage\n"
+	src := "garbage\nno structure\n## Unknown Section\n\nmore garbage\n"
 	tk, _, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)

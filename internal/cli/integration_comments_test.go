@@ -54,7 +54,7 @@ func legacyBody(status, comments string) string {
 // remark, the bare free-form header, and no stub residue.
 func assertCommentsIntact(t *testing.T, body []byte, remark, label string) {
 	t.Helper()
-	if !strings.Contains(string(body), "## User comments (Комментарии от пользователя)\n"+remark+"\n") {
+	if !strings.Contains(string(body), "## User comments (Комментарии от пользователя)\n\n"+remark+"\n") {
 		t.Fatalf("%s: user section or remark lost:\n%s", label, body)
 	}
 	if !strings.Contains(string(body), "## Comments (Комментарии)\n") {
@@ -135,7 +135,7 @@ func TestUserCommentsSurviveSetCycle(t *testing.T) {
 // (the seeded legacy stub blanks to "" on parse and is not re-emitted).
 func assertFreeCommentsIntact(t *testing.T, body []byte, freeText, label string) {
 	t.Helper()
-	if !strings.Contains(string(body), "## Comments (Комментарии)\n"+freeText+"\n") {
+	if !strings.Contains(string(body), "## Comments (Комментарии)\n\n"+freeText+"\n") {
 		t.Fatalf("%s: free comments text lost:\n%s", label, body)
 	}
 	if n := strings.Count(string(body), userCommentsPlaceholder); n != 0 {
@@ -206,7 +206,7 @@ func TestSetInjectsUserSectionIntoLegacyWithComments(t *testing.T) {
 	}
 	body := string(wipData)
 	userIdx := strings.Index(body, "## User comments (Комментарии от пользователя)\n\n")
-	freeIdx := strings.Index(body, "## Comments (Комментарии)\n"+freeText+"\n")
+	freeIdx := strings.Index(body, "## Comments (Комментарии)\n\n"+freeText+"\n")
 	if userIdx < 0 || freeIdx < 0 {
 		t.Fatalf("wip ticket missing the injected user section or the free text:\n%s", body)
 	}
