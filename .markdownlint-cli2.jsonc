@@ -1,6 +1,6 @@
 // markdownlint-cli2 configuration for the ticket repository.
 // Run locally:  markdownlint-cli2 --no-globs $(git ls-files '*.md')
-// CI pins the version (0.23.3) — see .github/workflows/ci.yml, job "lint".
+// CI pins the version — see .github/workflows/ci.yml, job "lint" (single source of truth).
 {
   "globs": ["**/*.md"],
   "ignores": [
