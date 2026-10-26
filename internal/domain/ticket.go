@@ -1,5 +1,5 @@
 // Package domain holds the ticket model and its markdown/filename codecs.
-// The layout is byte-compatible with the bash reference tickets/bin/ticket
+// The layout is byte-compatible with the legacy bash reference implementation
 // except for the "## Комментарии от пользователя" and "## Комментарии"
 // sections (T-0032, T-0035): the Go implementation emits them on every
 // ticket it renders, while bash has no such sections — bash byte-compat of
@@ -23,7 +23,7 @@ const (
 )
 
 // Ticket is one ticket file. Fields mirror the markdown layout produced by
-// tickets/bin/ticket.
+// the legacy bash implementation.
 type Ticket struct {
 	Number   int
 	Status   Status

@@ -233,7 +233,7 @@ func TestCmdListArchiveFilter(t *testing.T) {
 }
 
 // TestUsageArchiveKeyLines compares the embedded usage fixture with the
-// bash usage() contract (tickets/bin/ticket:14–37) on the lines the
+// usage() contract of the legacy bash implementation on the lines the
 // archive feature added or touched: the list/show/set/archive blocks.
 func TestUsageArchiveKeyLines(t *testing.T) {
 	usage := string(usageFixture)
