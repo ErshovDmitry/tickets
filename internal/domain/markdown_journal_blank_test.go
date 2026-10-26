@@ -2,12 +2,18 @@ package domain
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 )
 
 // jbEntry is one canonical creation journal line (RU dict template).
 const jbEntry = "- 2026-09-02 03:24 — тикет создан (erdmitry).\n"
+
+// The two section header literals have exactly one owner in this file.
+const (
+	jbJournalHeader  = "## Journal (Журнал)"
+	jbCommentsHeader = "## Comments (Комментарии)"
+	jbManualNote     = "- заметка вручную\n"
+)
 
 // jbHead is the canonical harness ticket head plus its empty "User comments"
 // section: everything rendered before the Comments section.
@@ -33,8 +39,8 @@ const jbHead = "# T-0001 · ENH: Journal blank harness\n" +
 // section, the Comments section BODY as it follows the MD022 blank line, and
 // the Journal tail as it follows the Journal header line.
 func jbTicket(commentsBody, journalTail string) string {
-	return jbHead + "## Comments (Комментарии)\n\n" + commentsBody +
-		"## Journal (Журнал)\n" + journalTail
+	return jbHead + jbCommentsHeader + "\n\n" + commentsBody +
+		jbJournalHeader + "\n" + journalTail
 }
 
 // jbResult is one Parse→Render cycle over a ticket source.
@@ -157,13 +163,10 @@ func TestJournalBlankCommentsVerbatim(t *testing.T) {
 // right after the header blank line starts at the note itself — the render is
 // still byte-identical to the source.
 func TestJournalBlankManualTailRightAfterHeader(t *testing.T) {
-	src := jbTicket("", "\n- заметка вручную\nещё строка\n")
+	src := jbTicket("", "\n"+jbManualNote+"ещё строка\n")
 	r := jbRun(t, src)
-	if want := []byte("- заметка вручную\nещё строка\n"); !bytes.Equal(r.unknown, want) {
+	if want := []byte(jbManualNote + "ещё строка\n"); !bytes.Equal(r.unknown, want) {
 		t.Errorf("unknown = %q, want %q", r.unknown, want)
-	}
-	if strings.HasPrefix(string(r.unknown), "\n") {
-		t.Errorf("unknown starts with a blank line: %q", r.unknown)
 	}
 	if len(r.tk.Journal) != 0 {
 		t.Errorf("len(Journal) = %d, want 0", len(r.tk.Journal))
@@ -171,6 +174,7 @@ func TestJournalBlankManualTailRightAfterHeader(t *testing.T) {
 	if !bytes.Equal(r.rendered, []byte(src)) {
 		t.Fatalf("round trip mismatch:\n got %q\nwant %q", r.rendered, src)
 	}
+	jbStable(t, src, 3)
 }
 
 // TestJournalBlankExactlyOneSwallowed is case 6: only ONE blank line is
@@ -187,14 +191,15 @@ func TestJournalBlankExactlyOneSwallowed(t *testing.T) {
 	if !bytes.Equal(r.rendered, []byte(src)) {
 		t.Fatalf("round trip mismatch:\n got %q\nwant %q", r.rendered, src)
 	}
+	jbStable(t, src, 3)
 }
 
 // TestJournalBlankAdjacentDupHeader is case 7: an adjacent repeated Journal
 // header does not swallow the blank line that separates it from a manual note.
 func TestJournalBlankAdjacentDupHeader(t *testing.T) {
-	src := jbTicket("", "\n"+jbEntry+"## Journal (Журнал)\n\n- заметка вручную\n")
+	src := jbTicket("", "\n"+jbEntry+jbJournalHeader+"\n\n"+jbManualNote)
 	r := jbRun(t, src)
-	if want := []byte("\n- заметка вручную\n"); !bytes.Equal(r.unknown, want) {
+	if want := []byte("\n" + jbManualNote); !bytes.Equal(r.unknown, want) {
 		t.Errorf("unknown = %q, want %q", r.unknown, want)
 	}
 	if !r.tk.JournalDup {
@@ -202,6 +207,12 @@ func TestJournalBlankAdjacentDupHeader(t *testing.T) {
 	}
 	if len(r.tk.Journal) != 1 {
 		t.Errorf("len(Journal) = %d, want 1", len(r.tk.Journal))
+	}
+	// Render is lossy here: the duplicate journal header is dropped, so the
+	// rendered bytes are the canonical single-header ticket plus the manual
+	// note — pinned byte-exactly so a regression that eats the note fails.
+	if want := []byte(jbTicket("", "\n"+jbEntry) + "\n" + jbManualNote); !bytes.Equal(r.rendered, want) {
+		t.Errorf("rendered = %q, want %q", r.rendered, want)
 	}
 	jbStable(t, string(r.rendered), 2)
 }
@@ -209,10 +220,10 @@ func TestJournalBlankAdjacentDupHeader(t *testing.T) {
 // TestJournalBlankNonAdjacentDupHeader is case 8: a repeated Journal header
 // reached from another section also keeps the separating blank line in Unknown.
 func TestJournalBlankNonAdjacentDupHeader(t *testing.T) {
-	src := jbTicket("", "\n"+jbEntry) + "## Comments (Комментарии)\n\n" +
-		"## Journal (Журнал)\n\n- заметка вручную\n"
+	src := jbTicket("", "\n"+jbEntry) + jbCommentsHeader + "\n\n" +
+		jbJournalHeader + "\n\n" + jbManualNote
 	r := jbRun(t, src)
-	if want := []byte("\n- заметка вручную\n"); !bytes.Equal(r.unknown, want) {
+	if want := []byte("\n" + jbManualNote); !bytes.Equal(r.unknown, want) {
 		t.Errorf("unknown = %q, want %q", r.unknown, want)
 	}
 	if !r.tk.JournalDup {
@@ -221,5 +232,34 @@ func TestJournalBlankNonAdjacentDupHeader(t *testing.T) {
 	if len(r.tk.Journal) != 1 {
 		t.Errorf("len(Journal) = %d, want 1", len(r.tk.Journal))
 	}
+	// Same lossy render as case 7: only one journal header survives.
+	if want := []byte(jbTicket("", "\n"+jbEntry) + "\n" + jbManualNote); !bytes.Equal(r.rendered, want) {
+		t.Errorf("rendered = %q, want %q", r.rendered, want)
+	}
 	jbStable(t, string(r.rendered), 2)
+}
+
+// TestJournalBlankWhitespaceOnlyLineAfterHeader is case 9: only a strictly
+// empty line is MD022 markup — a hand-edited whitespace-only line right after
+// the journal header is content: it stays verbatim in Unknown (no data loss)
+// and the round trip stays byte-stable.
+func TestJournalBlankWhitespaceOnlyLineAfterHeader(t *testing.T) {
+	// The whitespace-only line sits immediately after the header, i.e. in the
+	// slot where the swallowed MD022 blank may appear: it must NOT be treated
+	// as that markup.
+	src := jbTicket("", "   \n"+jbManualNote)
+	r := jbRun(t, src)
+	if want := []byte("   \n" + jbManualNote); !bytes.Equal(r.unknown, want) {
+		t.Errorf("unknown = %q, want %q", r.unknown, want)
+	}
+	if len(r.tk.Journal) != 0 {
+		t.Errorf("len(Journal) = %d, want 0", len(r.tk.Journal))
+	}
+	// Render restores the MD022 blank line before the preserved whitespace
+	// line; that form is then byte-stable on every further cycle.
+	want := []byte(jbTicket("", "\n   \n"+jbManualNote))
+	if !bytes.Equal(r.rendered, want) {
+		t.Errorf("rendered = %q, want %q", r.rendered, want)
+	}
+	jbStable(t, src, 3)
 }
