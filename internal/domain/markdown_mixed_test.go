@@ -17,17 +17,21 @@ const ticketMixedOrder = `# T-0002 · BUG: Mixed section order
 - Project (Проект): tickets
 
 ## Journal (Журнал)
+
 - 2026-09-10 10:00 — тикет создан (tester).
 
 ## Summary (Кратко)
+
 Mixed section order
 
 ## Details (Подробности)
+
 details body
 
 ## User comments (Комментарии от пользователя)
 
 ## Comments (Комментарии)
+
 `
 
 // TestParseMixedOrderJournalFirst documents that a Journal section placed
@@ -57,7 +61,7 @@ func TestParseMixedOrderJournalFirst(t *testing.T) {
 // still sets Ticket.JournalDup: the duplicate detection covers the
 // absorbLine transition path, not only the in-journal branch (T-0070 F1).
 func TestParseNonAdjacentDuplicateJournal(t *testing.T) {
-	src := ticketMixedOrder + "\n## Journal (Журнал)\n- 2099-01-01 10:00 — статус: open → wip · dup (someone)\n"
+	src := ticketMixedOrder + "\n## Journal (Журнал)\n\n- 2099-01-01 10:00 — статус: open → wip · dup (someone)\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -81,7 +85,7 @@ func TestParseNonAdjacentDuplicateJournal(t *testing.T) {
 // section adjacent to the first merges its entries into the canonical
 // journal and sets Ticket.JournalDup (T-0070).
 func TestParseDuplicateJournalMerges(t *testing.T) {
-	src := ticketT0001 + "\n## Journal (Журнал)\n- 2099-01-01 10:00 — статус: open → wip · dup (someone)\n"
+	src := ticketT0001 + "\n## Journal (Журнал)\n\n- 2099-01-01 10:00 — статус: open → wip · dup (someone)\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -105,7 +109,7 @@ func TestParseDuplicateJournalMerges(t *testing.T) {
 // Journal section the first manual line ends the tail: Unknown starts at the
 // pending blank run before it (T-0070).
 func TestParseDuplicateJournalManualTail(t *testing.T) {
-	src := ticketT0001 + "\n## Journal (Журнал)\n- 2099-01-01 10:00 — статус: open → wip · dup (someone)\n\nручная заметка\n"
+	src := ticketT0001 + "\n## Journal (Журнал)\n\n- 2099-01-01 10:00 — статус: open → wip · dup (someone)\n\nручная заметка\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -158,7 +162,7 @@ func TestParseJournalEntriesAfterBlank(t *testing.T) {
 // section header after the journal resumes parsing and stores its raw line
 // (T-0070); following brief text is ignored, not captured.
 func TestParseJournalFreeSuffixHeaderResumes(t *testing.T) {
-	src := ticketT0001 + "\n## Summary (any lang)\nMixed section order\n"
+	src := ticketT0001 + "\n## Summary (any lang)\n\nMixed section order\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)

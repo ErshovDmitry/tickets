@@ -15,17 +15,21 @@ const ticketT0001 = `# T-0001 · ENH: Реализовать Go-версию tic
 - Project (Проект): tickets
 
 ## Summary (Кратко)
+
 Реализовать Go-версию ticket по AGENTS_ARCHITECTURE.md
 
 ## Details (Подробности)
+
 Bootstrap завершён 2026-09-02: схема project_tickets, AGENTS.md, AGENTS_ARCHITECTURE.md, локальные тикеты. Реализация: cmd/ticket + internal/{domain,store,lock,paths,cli}, шаблоны через go:embed. Гейт: план в wiki -> план-ревью -> код.
 
 ## User comments (Комментарии от пользователя)
+
 _Замечания пользователя: пишите сюда — агент прочитает эту секцию перед работой над тикетом. Агент сюда не пишет._
 
 ## Comments (Комментарии)
 
 ## Journal (Журнал)
+
 - 2026-09-02 03:24 — тикет создан (erdmitry).
 `
 
@@ -195,7 +199,7 @@ func TestParseTolerantNeverErrors(t *testing.T) {
 		"мусор без структуры",
 		"# T-XXXX · ???",
 		"# T-1 · BUG: x\n- Status (Статус): bogus\n- Created (Создан): мусор · by (кем): \n",
-		"## Journal (Журнал)\nне журнал вовсе\n",
+		"## Journal (Журнал)\n\nне журнал вовсе\n",
 		"# T-999999999999999999999 · BUG: overflow\n",
 	} {
 		tk, unknown, err := Parse([]byte(src))
@@ -213,7 +217,7 @@ func TestParseTolerantNeverErrors(t *testing.T) {
 }
 
 func TestParseUnknownDetailsKept(t *testing.T) {
-	src := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): low\n- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n## Summary (Кратко)\nx\n\n## Details (Подробности)\nстрока1\n\nстрока2\n\n## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	src := "# T-0001 · BUG: x\n\n- Status (Статус): open\n- Priority (Приоритет): low\n- Created (Создан): 2026-01-01 10:00 · by (кем): я\n- Project (Проект): p\n\n## Summary (Кратко)\n\nx\n\n## Details (Подробности)\n\nстрока1\n\nстрока2\n\n## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n## Journal (Журнал)\n\n- 2026-01-01 10:00 — тикет создан (я).\n"
 	tk, unknown, err := Parse([]byte(src))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
@@ -295,5 +299,53 @@ func TestParseUserCommentsStubCollision(t *testing.T) {
 	}
 	if !bytes.Equal(got, []byte(src)) {
 		t.Errorf("round trip mismatch:\n got %q\nwant %q", got, src)
+	}
+}
+
+// TestLegacyNoBlankAfterHeaderNormalizes pins the MD022/MD032 migration
+// (T-0198): a pre-MD022 ticket whose section headers are immediately
+// followed by content still parses correctly, and Render emits the new
+// canonical form with one blank line after every section header — no
+// content is lost and no blanks accumulate on repeated round trips.
+func TestLegacyNoBlankAfterHeaderNormalizes(t *testing.T) {
+	legacy := "# T-0001 · BUG: x\n\n" +
+		"- Status (Статус): open\n" +
+		"- Priority (Приоритет): normal\n" +
+		"- Created (Создан): 2026-01-01 10:00 · by (кем): я\n" +
+		"- Project (Проект): p\n\n" +
+		"## Summary (Кратко)\nx\n\n" +
+		"## Details (Подробности)\nd1\n\nd2\n\n" +
+		"## User comments (Комментарии от пользователя)\nзамечание\n\n" +
+		"## Comments (Комментарии)\nзаметка\n\n" +
+		"## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	want := "# T-0001 · BUG: x\n\n" +
+		"- Status (Статус): open\n" +
+		"- Priority (Приоритет): normal\n" +
+		"- Created (Создан): 2026-01-01 10:00 · by (кем): я\n" +
+		"- Project (Проект): p\n\n" +
+		"## Summary (Кратко)\n\nx\n\n" +
+		"## Details (Подробности)\n\nd1\n\nd2\n\n" +
+		"## User comments (Комментарии от пользователя)\n\nзамечание\n\n" +
+		"## Comments (Комментарии)\n\nзаметка\n\n" +
+		"## Journal (Журнал)\n\n- 2026-01-01 10:00 — тикет создан (я).\n"
+	tk, unknown, err := Parse([]byte(legacy))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if tk.Details != "d1\n\nd2" || tk.UserComments != "замечание" || tk.Comments != "заметка" {
+		t.Fatalf("content drift: Details=%q UC=%q FC=%q", tk.Details, tk.UserComments, tk.Comments)
+	}
+	got, err := Render(tk, unknown)
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if !bytes.Equal(got, []byte(want)) {
+		t.Fatalf("legacy did not normalize to canonical form:\n got %q\nwant %q", got, want)
+	}
+	// A second parse/render round trip is byte-stable (no accumulation).
+	tk2, unknown2, _ := Parse(got)
+	got2, _ := Render(tk2, unknown2)
+	if !bytes.Equal(got2, got) {
+		t.Fatalf("second round trip not byte-stable:\n first %q\nsecond %q", got, got2)
 	}
 }

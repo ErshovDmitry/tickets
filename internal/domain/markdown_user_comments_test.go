@@ -2,7 +2,7 @@ package domain
 
 // New-domain tests for the T-0035 two-section layout (plan #1, #2, #3, #7).
 // Split from markdown_comments_test.go: the combined suite exceeded the
-// 300-line file budget. Helpers (ucTicket, legacyTicket, canonEmptySections)
+// 300-line file budget. Helpers (ucTicket, preT0035Ticket, canonEmptySections)
 // live in markdown_comments_test.go, same package.
 
 import (
@@ -61,7 +61,7 @@ func TestUserSectionInjectedBeforeExistingFreeSection(t *testing.T) {
 		{"plain text", "пометка агента"},
 		{"old T-0034 stub", oldStub},
 	} {
-		src := legacyTicket() + "## Comments (Комментарии)\n" + tc.fc + "\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
+		src := preT0035Ticket() + "## Comments (Комментарии)\n" + tc.fc + "\n\n## Journal (Журнал)\n\n- 2026-01-01 10:00 — тикет создан (я).\n"
 		tk, unknown, err := Parse([]byte(src))
 		if err != nil {
 			t.Fatalf("%s: Parse: %v", tc.name, err)
@@ -70,13 +70,13 @@ func TestUserSectionInjectedBeforeExistingFreeSection(t *testing.T) {
 			t.Errorf("%s: Comments = %q, want %q (must NOT be blanked)", tc.name, tk.Comments, tc.fc)
 		}
 		if tk.UserComments != "" {
-			t.Errorf("%s: UserComments = %q, want empty for a legacy ticket", tc.name, tk.UserComments)
+			t.Errorf("%s: UserComments = %q, want empty for a pre-T-0035 ticket", tc.name, tk.UserComments)
 		}
 		got, err := Render(tk, unknown)
 		if err != nil {
 			t.Fatalf("%s: Render: %v", tc.name, err)
 		}
-		want := legacyTicket() + "## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n" + tc.fc + "\n\n## Journal (Журнал)\n- 2026-01-01 10:00 — тикет создан (я).\n"
+		want := preT0035Ticket() + "## User comments (Комментарии от пользователя)\n\n## Comments (Комментарии)\n\n" + tc.fc + "\n\n## Journal (Журнал)\n\n- 2026-01-01 10:00 — тикет создан (я).\n"
 		if !bytes.Equal(got, []byte(want)) {
 			t.Errorf("%s: round trip mismatch:\n got %q\nwant %q", tc.name, got, want)
 		}
@@ -89,6 +89,11 @@ func TestUserSectionInjectedBeforeExistingFreeSection(t *testing.T) {
 // compares against src minus the stub line.
 func legacyRoundTripWant(src string) string {
 	for _, entry := range allDicts {
+		// Stub line plus its trailing blank (the fixture layout where the
+		// section header is already followed by a blank line, MD022):
+		// removing both leaves exactly the canonical "header\n\n## next".
+		src = strings.Replace(src, entry.d.userCommentsStub+"\n\n", "", 1)
+		// Bare stub line (pre-MD022 fixture layout: header, stub, blank).
 		src = strings.Replace(src, entry.d.userCommentsStub+"\n", "", 1)
 	}
 	return src
