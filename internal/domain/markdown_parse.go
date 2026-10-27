@@ -7,7 +7,7 @@ import (
 
 // absorbLine consumes one line outside the journal section, updating the
 // ticket and returning the new section. Transition rules preserve the
-// pre-T-0036 state machine (bash reference): only the NEXT section's header
+// pre-T-0036 state machine (bash era): only the NEXT section's header
 // ends the current one, an unrecognized "## ..." line in head/brief leaves
 // for brief (content ignored there, no meta capture), and every other line
 // stays verbatim in the current section. Raw templates are stored only on a

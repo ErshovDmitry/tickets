@@ -11,7 +11,7 @@ import (
 )
 
 // cmdSet implements `set <номер> <статус> ["комментарий"]`. The comment
-// is the whitespace-join of all remaining arguments (bash ${*:-}).
+// is the whitespace-join of all remaining arguments.
 // A same-status set with a non-empty comment appends a journal-only
 // entry (status and file name unchanged); without one it exits 1.
 // lang selects the usage text language for argument errors.

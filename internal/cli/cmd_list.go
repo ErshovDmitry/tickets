@@ -13,10 +13,10 @@ import (
 // cmdList implements `list [active|open|wip|done|closed|archive|all] [-P project]`
 // with the default filter active. The archive filter lists tickets under
 // tickets/archive/ instead of the main directory. An empty first argument
-// falls back to the default (bash `want="${1:-active}"` treats an empty
-// $1 as unset). T-0040: -P flag filters by exact project name match
-// (case-sensitive); unknown flags error (deliberate deviation from bash
-// parity for typo protection). Signature per wave-1 dispatch contract
+// falls back to the default (an empty first argument counts as unset).
+// T-0040: -P flag filters by exact project name match
+// (case-sensitive); unknown flags error (deliberate deviation from the
+// pre-Go behaviour, for typo protection). Signature per wave-1 dispatch contract
 // (wiki 8bd93a4e, A1).
 func cmdList(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	// Parse flags: -P can appear anywhere, --json is bare flag, positional filter = first non-flag arg
@@ -42,7 +42,7 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 			}
 			jsonMode = true
 		} else if strings.HasPrefix(args[i], "-") {
-			// Unknown flag (T-0040: deliberate deviation from bash parity)
+			// Unknown flag (T-0040: deliberate deviation from the pre-Go behaviour)
 			fmt.Fprintln(stderr, domain.ErrUnknownFlagList(lang, args[i]))
 			return 1
 		} else {

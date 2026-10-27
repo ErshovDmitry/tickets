@@ -1,9 +1,17 @@
 // Package domain holds the ticket model and its markdown/filename codecs.
-// The layout is byte-compatible with the legacy bash reference implementation
+// The layout is byte-compatible with the bash-era (pre-Go) implementation
 // except for the "## Комментарии от пользователя" and "## Комментарии"
 // sections (T-0032, T-0035): the Go implementation emits them on every
-// ticket it renders, while bash has no such sections — bash byte-compat of
-// `new` is intentionally diverged for new tickets.
+// ticket it renders, while the bash-era layout has no such sections —
+// byte-compat of `new` is intentionally diverged for new tickets.
+//
+// The pre-Go bash implementation is not part of this repository: the
+// upstream prompt file was replaced by this Go binary. Mentions of the bash
+// era are provenance markers for the on-disk format, not a specification:
+// the bash source is not part of the repo (the copy under docs_api/ is a
+// different, stale revision) and must not be
+// consulted. The authoritative definitions are this package (file format),
+// internal/cli (UX) and the golden fixtures in internal/cli/testdata.
 package domain
 
 import (
@@ -22,8 +30,8 @@ const (
 	Strict
 )
 
-// Ticket is one ticket file. Fields mirror the markdown layout produced by
-// the legacy bash implementation.
+// Ticket is one ticket file. Fields mirror the markdown layout inherited
+// from the bash era.
 type Ticket struct {
 	Number   int
 	Status   Status

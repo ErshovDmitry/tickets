@@ -107,7 +107,7 @@ func TestShow_UnreadableTicketReportsRealError(t *testing.T) {
 }
 
 // TestShowAbsentNumberNotFound pins the absent-number contract: with no
-// matching file, `show` exits 1 with the bash-compatible «не найден»
+// matching file, `show` exits 1 with the established «не найден»
 // message quoting the user's argument. In an empty store the hint names
 // the emptiness (T-0076 branch 2).
 func TestShowAbsentNumberNotFound(t *testing.T) {
@@ -181,7 +181,7 @@ func writeTicketFile(t *testing.T, dir string, n int) {
 }
 
 // TestShowExtraArgumentsWarned pins T-0076: arguments after the first
-// are ignored bash-compatibly with a one-line warning on stderr; exit
+// are ignored (as in the bash era) with a one-line warning on stderr; exit
 // code and stdout (the ticket bytes) stay unchanged.
 func TestShowExtraArgumentsWarned(t *testing.T) {
 	dir := t.TempDir()

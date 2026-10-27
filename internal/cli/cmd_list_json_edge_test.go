@@ -48,7 +48,7 @@ func TestListJSON_BrokenFile(t *testing.T) {
 
 // TestListJSON_InvalidFlags pins typo protection: an unknown flag,
 // the --json=true form and a duplicate --json all error with exit 1
-// (T-0040 deliberate deviation from bash parity).
+// (T-0040 deliberate deviation from the pre-Go behaviour).
 func TestListJSON_InvalidFlags(t *testing.T) {
 	dir := newJSONTicketsDir(t)
 	tests := []struct {

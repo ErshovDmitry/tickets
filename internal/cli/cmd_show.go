@@ -20,7 +20,7 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 		usage(stdout, lang)
 		return 1
 	}
-	// T-0076: extra arguments are ignored bash-compatibly, but the silent
+	// T-0076: extra arguments are ignored (as in the bash era), but the silent
 	// truncation is surfaced as a warning; the exit code stays 0.
 	if len(args) > 1 {
 		fmt.Fprintln(stderr, domain.WarnExtraArgsIgnored(lang, strings.Join(args[1:], " ")))
@@ -59,7 +59,7 @@ func cmdShow(st *store.Store, args []string, who, project string, lang domain.La
 	return 0
 }
 
-// notFound prints the bash-compatible «не найден» message; the quoted
+// notFound prints the established «не найден» message; the quoted
 // value is the user's original argument.
 func notFound(stderr io.Writer, lang domain.Lang, arg string) int {
 	fmt.Fprintln(stderr, domain.ErrTicketNotFound(lang, arg))
@@ -114,8 +114,8 @@ func scanMax(st *store.Store) (maxNum int, warned bool) {
 	return maxNum, len(warns) > 0 || len(archiveWarns) > 0
 }
 
-// parseTicketNumber strips every non-digit (bash ${1//[^0-9]/}) and
-// parses the remainder base-10 (bash $((10#...))). ok=false when no
+// parseTicketNumber strips every non-digit and parses the remainder
+// base-10 (both inherited from the bash era). ok=false when no
 // digits remain or the number overflows.
 func parseTicketNumber(arg string) (int, bool) {
 	digits := strings.Map(func(r rune) rune {

@@ -12,7 +12,7 @@ import (
 // cmdArchive implements `archive [<номер>]`: move closed tickets into
 // tickets/archive/. Without an argument every done/closed ticket is
 // archived; with an argument only the named one. Each moved file's path
-// is echoed, mirroring the legacy bash cmd_archive.
+// is echoed, as the pre-Go implementation did.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
 func cmdArchive(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
@@ -31,9 +31,9 @@ func cmdArchive(st *store.Store, args []string, who, project string, lang domain
 }
 
 // archiveAll archives every done/closed ticket. No closed tickets is a
-// success (bash rc=0) with the pinned notice on stdout. Paths archived
-// before a mid-run failure are still printed, as bash echoes each target
-// as it goes.
+// success (exit 0, as in the bash era) with the pinned notice on stdout.
+// Paths archived before a mid-run failure are still printed, because each
+// target is echoed as it goes.
 func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io.Writer) int {
 	moved, err := st.ArchiveClosed(who)
 	for _, path := range moved {
@@ -49,7 +49,7 @@ func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io
 }
 
 // archiveError maps a failed archive to the pinned messages
-// of the legacy bash cmd_archive. The store never spells out UI text: it
+// inherited from the pre-Go implementation. The store never spells out UI text: it
 // returns sentinels and typed errors that this function renders with the
 // single «ticket: » prefix.
 func archiveError(stderr io.Writer, lang domain.Lang, numArg string, err error) int {

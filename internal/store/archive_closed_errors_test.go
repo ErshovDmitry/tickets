@@ -79,8 +79,8 @@ func TestArchiveClosed_WarningsArchiveValidTickets(t *testing.T) {
 	assertNoTmpFiles(t, filepath.Join(dir, "archive"))
 }
 
-// TestArchiveClosed_WarningsOnlyNoClosed pins the exception to the bash
-// rc=0 contract: warnings with zero done/closed tickets yield an empty
+// TestArchiveClosed_WarningsOnlyNoClosed pins the exception to the
+// exit-0 contract: warnings with zero done/closed tickets yield an empty
 // move list plus a *ScanWarningsError.
 func TestArchiveClosed_WarningsOnlyNoClosed(t *testing.T) {
 	s, dir := newStore(t)

@@ -23,7 +23,7 @@ type newFlags struct {
 }
 
 // cmdNew implements `new "<кратко>" [-t T] [-p P] [-d D] [-w W] [-P PROJECT]`.
-// The title must come before any flag (bash: title=$1; shift).
+// The title must come before any flag (order inherited from the pre-Go CLI).
 // lang selects the usage text language for argument errors AND the file
 // format language of the created ticket (T-0036: both come from the same
 // resolved lang, plan §C). Signature per wave-1 dispatch contract (wiki
@@ -33,7 +33,7 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		usage(stdout, lang)
 		return 1
 	}
-	// Deliberate deviation from bash parity (T-0041): reject titles
+	// Deliberate deviation from the pre-Go behaviour (T-0041): reject titles
 	// starting with '-' to prevent accidental flag-as-title bugs.
 	if strings.HasPrefix(args[0], "-") {
 		fmt.Fprintln(stderr, domain.ErrTitleStartsWithDash(lang))
@@ -112,7 +112,7 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	return 0
 }
 
-// parseNewFlags consumes `-t/-p/-d/-w/-P` value pairs exactly like bash:
+// parseNewFlags consumes `-t/-p/-d/-w/-P` value pairs left to right (as the bash era did):
 // blind value consumption, unknown flag dies at once, values are
 // validated after the loop. ok=false after printing the error.
 func parseNewFlags(title string, flags []string, who string, lang domain.Lang, stderr io.Writer) (newFlags, bool) {

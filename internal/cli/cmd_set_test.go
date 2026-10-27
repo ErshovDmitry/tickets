@@ -32,7 +32,7 @@ var setJournalRe = regexp.MustCompile(`(?m)^- ` + tsPattern + ` — статус
 var sameStatusJournalRe = regexp.MustCompile(`(?m)^- ` + tsPattern + ` — статус: open → open · заметка \(agent\)$`)
 
 // TestSetHappyPath pins plan §6 item 7(e): set rewrites the status line,
-// appends the bash-shaped journal entry, prints the NEW path to stdout,
+// appends the journal entry in the inherited bash-era shape, prints the NEW path to stdout,
 // and removes the old-status file.
 func TestSetHappyPath(t *testing.T) {
 	// Resolve symlinks: the binary prints an EvalSymlinks-resolved path
@@ -218,7 +218,7 @@ func TestSet_UnreadableTicketReportsRealError(t *testing.T) {
 }
 
 // TestSetAbsentNumberNotFound pins the absent-number contract: setting
-// a status on a number with no file exits 1 with the bash-compatible
+// a status on a number with no file exits 1 with the established
 // «не найден» message plus the empty-store hint (T-0076 branch 2) and
 // leaves the dir empty.
 func TestSetAbsentNumberNotFound(t *testing.T) {
