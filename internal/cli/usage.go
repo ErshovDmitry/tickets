@@ -51,5 +51,5 @@ func usage(w io.Writer, lang domain.Lang) {
 		// file (see the checklist in docs_api/add-language.md).
 		panic(fmt.Sprintf("usage: read %s: %v", fname, err))
 	}
-	_, _ = io.WriteString(w, string(data))
+	_, _ = w.Write(data)
 }
