@@ -43,13 +43,6 @@ jobs:
           go install github.com/securego/gosec/v2/cmd/gosec@v2.30.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      # staticcheck runs without exclusions: the only two known findings
-      # (SA4006 in internal/cli/integration_flag_test.go, SA6006 in
-      # internal/cli/usage.go) are owned by ticket T-0102, so suppressing them
-      # here would hide regressions in every other file.
-      - name: Staticcheck
-        run: staticcheck ./...
-
       # gosec -exclude-rules format is path-regex:rules; the path key is a
       # regex that is NOT anchored at the start and only pins the '$' tail,
       # so a differently named sibling (store.go.bak) is still scanned,
@@ -77,6 +70,13 @@ jobs:
       - name: Gosec
         run: |
           gosec -exclude-rules='internal/store/tmpfile\.go$:G304,G302;internal/store/store\.go$:G304,G302;internal/store/safeopen_open_unix\.go$:G304;internal/store/probe\.go$:G304;internal/lock/lock\.go$:G304;internal/store/archive\.go$:G301;internal/cli/cmd_init\.go$:G301;internal/store/safeopen\.go$:G104' ./...
+
+      # staticcheck runs without exclusions: the only two known findings
+      # (SA4006 in internal/cli/integration_flag_test.go, SA6006 in
+      # internal/cli/usage.go) are owned by ticket T-0102, so suppressing them
+      # here would hide regressions in every other file.
+      - name: Staticcheck
+        run: staticcheck ./...
 
       # markdownlint-cli2 version is pinned: rule behaviour and the config
       # schema (globs/ignores/config) change between releases.
