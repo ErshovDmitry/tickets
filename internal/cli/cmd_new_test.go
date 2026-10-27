@@ -134,7 +134,10 @@ func TestNewFlagErrors(t *testing.T) {
 			if !strings.Contains(stderr.String(), tc.wantSub) {
 				t.Fatalf("stderr %q does not contain %q", stderr.String(), tc.wantSub)
 			}
-			created, _ := filepath.Glob(filepath.Join(dir, "T-*.md"))
+			created, err := filepath.Glob(filepath.Join(dir, "T-*.md"))
+			if err != nil {
+				t.Fatalf("glob: %v", err)
+			}
 			if len(created) != 0 {
 				t.Fatalf("ticket file created despite validation error: %v", created)
 			}
@@ -185,7 +188,10 @@ func TestNewEmptyTitleRejected(t *testing.T) {
 			if !strings.Contains(stderr.String(), "краткое описание не может быть пустым") {
 				t.Fatalf("stderr %q does not contain the empty-title error", stderr.String())
 			}
-			created, _ := filepath.Glob(filepath.Join(dir, "T-*.md"))
+			created, err := filepath.Glob(filepath.Join(dir, "T-*.md"))
+			if err != nil {
+				t.Fatalf("glob: %v", err)
+			}
 			if len(created) != 0 {
 				t.Fatalf("ticket file created despite empty title: %v", created)
 			}
@@ -268,7 +274,11 @@ func TestNewTitleStartingWithDash(t *testing.T) {
 			if !strings.Contains(stderr.String(), "ticket: краткое описание не может начинаться с '-'") {
 				t.Fatalf("stderr %q missing the dash-title error", stderr.String())
 			}
-			if created, _ := filepath.Glob(filepath.Join(dir, "T-*.md")); len(created) != 0 {
+			created, err := filepath.Glob(filepath.Join(dir, "T-*.md"))
+			if err != nil {
+				t.Fatalf("glob: %v", err)
+			}
+			if len(created) != 0 {
 				t.Fatalf("ticket file created despite dash title: %v", created)
 			}
 		})
