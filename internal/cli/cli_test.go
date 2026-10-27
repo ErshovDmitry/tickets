@@ -117,7 +117,11 @@ func TestSubcommandHelp(t *testing.T) {
 			} else if !strings.Contains(stderr.String(), "не может начинаться с '-'") {
 				t.Fatalf("stderr %q missing the dash-title error", stderr.String())
 			}
-			if created, _ := filepath.Glob(filepath.Join(dir, "T-*.md")); len(created) != 0 {
+			created, err := filepath.Glob(filepath.Join(dir, "T-*.md"))
+			if err != nil {
+				t.Fatalf("glob: %v", err)
+			}
+			if len(created) != 0 {
 				t.Fatalf("ticket file created: %v", created)
 			}
 		})
@@ -289,7 +293,11 @@ func TestRunRejectsNewlineInWho(t *testing.T) {
 			// No ticket file may exist for the `new` case (others would
 			// also fail before any write because whoFrom validation
 			// runs in dispatch before the command handler).
-			if matches, _ := filepath.Glob(filepath.Join(dir, "T-*.md")); len(matches) != 0 {
+			matches, err := filepath.Glob(filepath.Join(dir, "T-*.md"))
+			if err != nil {
+				t.Fatalf("glob: %v", err)
+			}
+			if len(matches) != 0 {
 				t.Errorf("Run(... who=%q) created ticket files: %v", tc.who, matches)
 			}
 		})

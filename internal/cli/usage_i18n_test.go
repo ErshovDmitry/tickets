@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	_ "embed"
+	"maps"
 	"testing"
 
 	"ticket/internal/cli"
@@ -23,9 +24,7 @@ var usageFixtureEN []byte
 func langEnv(t *testing.T, vars map[string]string) map[string]string {
 	t.Helper()
 	env := testEnv(t)
-	for k, v := range vars {
-		env[k] = v
-	}
+	maps.Copy(env, vars)
 	return env
 }
 
