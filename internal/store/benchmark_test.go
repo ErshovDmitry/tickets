@@ -55,9 +55,8 @@ func BenchmarkList(b *testing.B) {
 	if len(tickets) != n {
 		b.Fatalf("List returned %d tickets, want %d (warnings=%v)", len(tickets), n, warns)
 	}
-	b.ResetTimer()
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		s.List()
 	}
 }
