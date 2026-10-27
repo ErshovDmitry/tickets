@@ -61,8 +61,7 @@ func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lan
 		// the message via the i18n layer (parity with T-0044 title
 		// check above) instead of surfacing the raw
 		// "store: journal ..." line.
-		var inv *store.ErrInvalidJournalInput
-		if errors.As(err, &inv) {
+		if _, ok := errors.AsType[*store.ErrInvalidJournalInput](err); ok {
 			fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
 			return 1
 		}
