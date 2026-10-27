@@ -95,6 +95,9 @@ func TestFlagTicketsDirForeignCWD(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("set: code=%d stderr=%q", code, stderr)
 		}
+		if want := filepath.Join(ticketsEval, "T-0001-wip.md") + "\n"; out != want {
+			t.Fatalf("set stdout = %q, want %q", out, want)
+		}
 		if _, err := os.Stat(filepath.Join(ticketsEval, "T-0001-wip.md")); err != nil {
 			t.Fatalf("T-0001-wip.md missing after set: %v", err)
 		}

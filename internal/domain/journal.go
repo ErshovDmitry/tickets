@@ -168,7 +168,8 @@ func appendJournalLine(t *Ticket, line string) bool {
 // appended by set/archive) emits the lang's dict format.
 func writeJournalLine(b *bytes.Buffer, e JournalEntry, lang Lang) {
 	if e.Raw != "" {
-		b.WriteString(e.Raw + "\n")
+		b.WriteString(e.Raw)
+		b.WriteString("\n")
 		return
 	}
 	d := getDict(lang)
