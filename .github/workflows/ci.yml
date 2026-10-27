@@ -51,10 +51,25 @@ jobs:
         run: staticcheck ./...
 
       # gosec -exclude-rules format is path-regex:rules; the path key is a
-      # regex anchored with '$', so only that exact file is excluded and a
-      # similarly named sibling file is still checked. Every exclusion was
-      # triaged as a false positive / accepted risk; see the wiki review page
-      # ff563497-52dc-4ed8-8a2e-8bd360051390.
+      # regex that is NOT anchored at the start and only pins the '$' tail,
+      # so a differently named sibling (store.go.bak) is still scanned,
+      # while a nested copy carrying the identical path tail would match
+      # as well. Every exclusion was triaged as a false positive / accepted
+      # risk; the triage table lives in the plan page
+      # d5a137cb-8f9a-45b7-a4d2-ab682c27d3fb.
+      #
+      # G304 — the scanned path is the user's own tickets directory (chosen
+      #   via -C / $TICKETS_DIR / upward scan); opens go through
+      #   openValidated (internal/store/safeopen_open_unix.go: O_NOFOLLOW +
+      #   os.SameFile identity check, T-0010). The CLI has no privilege
+      #   boundary, so these are false positives.
+      # G302/G301 — 0644 files and 0755 directories are the modes the tool
+      #   itself uses for ticket files and the archive/ dir (store.go:273,
+      #   tmpfile.go:60, archive.go:182, cmd_init.go:46); ticket content is
+      #   user markdown, not secrets.
+      # G104 — unchecked f.Close() on the validation-failure path in
+      #   internal/store/safeopen.go:64,68: the primary error is already
+      #   returned and a close error cannot change the outcome.
       - name: Gosec
         run: |
           gosec -exclude-rules='internal/store/tmpfile\.go$:G304,G302;internal/store/store\.go$:G304,G302;internal/store/safeopen_open_unix\.go$:G304;internal/store/probe\.go$:G304;internal/lock/lock\.go$:G304;internal/store/archive\.go$:G301;internal/cli/cmd_init\.go$:G301;internal/store/safeopen\.go$:G104' ./...
