@@ -169,22 +169,36 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	// placeholders, so a literal "%s" in a user free suffix or value is
 	// emitted verbatim. Absent entries emit the dict form.
 	if seg, ok := t.RawTemplates.Meta["Status"]; ok {
-		b.WriteString(seg.Prefix + string(t.Status) + seg.Suffix + "\n")
+		b.WriteString(seg.Prefix)
+		b.WriteString(string(t.Status))
+		b.WriteString(seg.Suffix)
+		b.WriteString("\n")
 	} else {
 		fmt.Fprintf(&b, d.statusFmt+"\n", t.Status)
 	}
 	if seg, ok := t.RawTemplates.Meta["Priority"]; ok {
-		b.WriteString(seg.Prefix + string(t.Priority) + seg.Suffix + "\n")
+		b.WriteString(seg.Prefix)
+		b.WriteString(string(t.Priority))
+		b.WriteString(seg.Suffix)
+		b.WriteString("\n")
 	} else {
 		fmt.Fprintf(&b, d.priorityFmt+"\n", t.Priority)
 	}
 	if seg, ok := t.RawTemplates.Meta["Created"]; ok {
-		b.WriteString(seg.Prefix + t.Created.Format(tsLayout) + seg.Middle + t.Who + seg.Suffix + "\n")
+		b.WriteString(seg.Prefix)
+		b.WriteString(t.Created.Format(tsLayout))
+		b.WriteString(seg.Middle)
+		b.WriteString(t.Who)
+		b.WriteString(seg.Suffix)
+		b.WriteString("\n")
 	} else {
 		fmt.Fprintf(&b, d.createdFmt+"\n", t.Created.Format(tsLayout), t.Who)
 	}
 	if seg, ok := t.RawTemplates.Meta["Project"]; ok {
-		b.WriteString(seg.Prefix + string(t.Project) + seg.Suffix + "\n")
+		b.WriteString(seg.Prefix)
+		b.WriteString(string(t.Project))
+		b.WriteString(seg.Suffix)
+		b.WriteString("\n")
 	} else {
 		fmt.Fprintf(&b, d.projectFmt+"\n", t.Project)
 	}
@@ -193,16 +207,20 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	// Section headers: prefer raw templates, else dict. Every header is
 	// followed by a blank line (MD022 blanks-around-headings).
 	if raw, ok := t.RawTemplates.Headers[secNameSummary]; ok {
-		b.WriteString(raw + "\n\n")
+		b.WriteString(raw)
+		b.WriteString("\n\n")
 	} else {
-		b.WriteString(d.headers[0] + "\n\n")
+		b.WriteString(d.headers[0])
+		b.WriteString("\n\n")
 	}
 	fmt.Fprintf(&b, "%s\n\n", t.Title)
 
 	if raw, ok := t.RawTemplates.Headers[secNameDetails]; ok {
-		b.WriteString(raw + "\n\n")
+		b.WriteString(raw)
+		b.WriteString("\n\n")
 	} else {
-		b.WriteString(d.headers[1] + "\n\n")
+		b.WriteString(d.headers[1])
+		b.WriteString("\n\n")
 	}
 	if t.Details == "" {
 		b.WriteString(d.detailsStub)
@@ -212,9 +230,11 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	b.WriteString("\n\n")
 
 	if raw, ok := t.RawTemplates.Headers[secNameUserComments]; ok {
-		b.WriteString(raw + "\n\n")
+		b.WriteString(raw)
+		b.WriteString("\n\n")
 	} else {
-		b.WriteString(d.headers[2] + "\n\n")
+		b.WriteString(d.headers[2])
+		b.WriteString("\n\n")
 	}
 	// Empty section renders the bare header: the long placeholder is no
 	// longer emitted (plan "User comments" Option A) — new tickets create
@@ -232,9 +252,11 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	}
 
 	if raw, ok := t.RawTemplates.Headers[secNameComments]; ok {
-		b.WriteString(raw + "\n\n")
+		b.WriteString(raw)
+		b.WriteString("\n\n")
 	} else {
-		b.WriteString(d.headers[3] + "\n\n")
+		b.WriteString(d.headers[3])
+		b.WriteString("\n\n")
 	}
 	if t.Comments != "" {
 		b.WriteString(t.Comments)
@@ -245,9 +267,11 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	}
 
 	if raw, ok := t.RawTemplates.Headers[secNameJournal]; ok {
-		b.WriteString(raw + "\n\n")
+		b.WriteString(raw)
+		b.WriteString("\n\n")
 	} else {
-		b.WriteString(d.headers[4] + "\n\n")
+		b.WriteString(d.headers[4])
+		b.WriteString("\n\n")
 	}
 	for _, e := range t.Journal {
 		writeJournalLine(&b, e, t.Lang)
