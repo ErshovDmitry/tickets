@@ -12,7 +12,7 @@ var templates embed.FS
 
 // newTicketData feeds new_ticket.md.tmpl. Number, Timestamp and Author are
 // pre-formatted views of Ticket fields: the template prints the H1 number
-// zero-padded (as the legacy bash implementation does) and uses the timestamp
+// zero-padded (as the pre-Go implementation did) and uses the timestamp
 // layout tsLayout. Outer fields shadow the promoted Ticket fields. All
 // localized strings — the four meta lines, the five section headers, the
 // empty-Details stub and the journal creation line — are pre-formatted

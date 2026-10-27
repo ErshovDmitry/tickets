@@ -13,8 +13,8 @@ var usageFS embed.FS
 
 // usageTextRU and usageTextEN are the embedded usage messages, populated
 // from usageFS in init() for compatibility with existing tests.
-// templates/usage.ru.txt descends from the bash reference (the usage()
-// heredoc documented in docs_api/reference-init-tickets.md) but has long
+// templates/usage.ru.txt descends from the pre-Go bash-era usage message
+// (not part of this repository; docs_api/ keeps only a stale copy of another revision) but has long
 // diverged from it — ticket init, -P on new and list, --json on list only,
 // the global -C/--tickets-dir flag; usage.en.txt is a translation with an
 // identical line layout. The T-0036 ticket-migration section was removed in

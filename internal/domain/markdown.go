@@ -22,7 +22,7 @@ const (
 	secBrief                       // inside "## Summary" (duplicates Title — ignored)
 	secDetails                     // inside "## Details"
 	secUserComments                // inside "## User comments" (T-0035)
-	secComments                    // inside "## Comments" (T-0032, no bash counterpart)
+	secComments                    // inside "## Comments" (T-0032, no bash-era counterpart)
 	secJournal                     // inside "## Journal"
 )
 

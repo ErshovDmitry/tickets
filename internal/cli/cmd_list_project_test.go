@@ -166,7 +166,7 @@ func TestListProjectWhitespace(t *testing.T) {
 }
 
 // TestListUnknownFlag verifies unknown flag is rejected (T-0040 deliberate
-// deviation from bash parity).
+// deviation from the pre-Go behaviour).
 func TestListUnknownFlag(t *testing.T) {
 	dir := t.TempDir()
 	env := map[string]string{"TICKETS_DIR": dir}

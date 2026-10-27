@@ -12,7 +12,7 @@ import (
 )
 
 // Golden reference ticket: canonical output of the Go renderer
-// (internal/cli/testdata/golden-T-0001-open.md); bash byte-compat of `new`
+// (internal/cli/testdata/golden-T-0001-open.md); byte-compat with the bash era for `new`
 // was already intentionally broken by T-0032 + T-0035 (two comment
 // sections) and T-0036 adds the bilingual headers/meta below. Title/type/
 // priority/details must match the golden file exactly for the byte
@@ -86,7 +86,7 @@ func TestNewGoldenBytes(t *testing.T) {
 }
 
 // TestNewDefaults checks default type=BUG, priority=normal and the
-// empty-details stub from the bash heredoc template.
+// empty-details stub inherited from the bash-era template.
 func TestNewDefaults(t *testing.T) {
 	dir := t.TempDir()
 	var stdout, stderr bytes.Buffer
@@ -111,7 +111,7 @@ func TestNewDefaults(t *testing.T) {
 	}
 }
 
-// TestNewFlagErrors checks bash die() messages and exit code 1; no ticket
+// TestNewFlagErrors checks the argument-error messages and exit code 1; no ticket
 // file may be created when validation fails.
 func TestNewFlagErrors(t *testing.T) {
 	cases := []struct {

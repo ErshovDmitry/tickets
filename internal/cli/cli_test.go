@@ -124,9 +124,9 @@ func TestSubcommandHelp(t *testing.T) {
 	}
 }
 
-// TestListEmptyFilterDefaultsActive pins the bash parity fix: `list ""`
-// must behave as the default active filter (bash want="${1:-active}")
-// instead of failing as an invalid filter.
+// TestListEmptyFilterDefaultsActive pins the empty-filter contract:
+// `list ""` must behave as the default active filter (an empty argument
+// counts as unset) instead of failing as an invalid filter.
 func TestListEmptyFilterDefaultsActive(t *testing.T) {
 	dir := t.TempDir()
 	env := map[string]string{"TICKETS_DIR": dir}
@@ -261,7 +261,7 @@ func TestRunRejectsNewlineInWho(t *testing.T) {
 		who  string
 		args []string
 	}{
-		// who with bare LF — the bash `$'evil\n- ...'` injection.
+		// who with bare LF — newline injection into the journal line.
 		{"new LF", "evil\n- forged", []string{"new", "x"}},
 		{"set LF", "evil\n- forged", []string{"set", "1", "wip", "go"}},
 		// who with bare CR.

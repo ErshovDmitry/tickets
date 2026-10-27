@@ -77,12 +77,12 @@ func (e *ScanWarningsError) Error() string {
 
 // Archive moves ticket n from tickets/ to tickets/archive/, appending a
 // "перенесён в архив" journal line, and returns the full path of the
-// archived file (the cli prints it, mirroring bash `echo "$target"`).
+// archived file (the cli prints it, as the pre-Go implementation did).
 //
 // Errors: ErrNotFound (absent number), ErrAlreadyArchived (already under
 // archive/), *NotClosedError (status is not done/closed) and
 // *CollisionError (target exists). The status check runs after the
-// already-archived check, matching bash cmd_archive.
+// already-archived check, as in the pre-Go implementation.
 //
 // Mutations on a read-only Store (NewReadOnly) are rejected by withLock
 // with ErrReadOnly.
@@ -101,9 +101,9 @@ func (s *Store) Archive(n int, who string) (string, error) {
 
 // ArchiveClosed moves every done/closed ticket from tickets/ to
 // tickets/archive/ and returns the full paths of the moved files in the
-// bash glob order: all done files first, then all closed files, each
-// group in ticket-number order (bash cmd_archive iterates the two globs
-// back to back). No closed tickets is NOT an error (bash rc=0) — but
+// inherited order: all done files first, then all closed files, each
+// group in ticket-number order (the two passes run back to back, as in
+// the bash era). No closed tickets is NOT an error (exit 0) — but
 // only when the scan produced no warnings: the result is an empty slice
 // with a nil error, and the cli prints the
 // "Нет закрытых тикетов для архивации." line.
@@ -119,7 +119,7 @@ func (s *Store) Archive(n int, who string) (string, error) {
 //     *ScanWarningsError accumulated so far (warnings are never lost).
 //
 // On failure the paths archived before the error are still returned, so
-// the caller can report the work that did land (bash echoes each target
+// the caller can report the work that did land (each target is echoed
 // as it goes, then dies).
 func (s *Store) ArchiveClosed(who string) ([]string, error) {
 	var moved []string
@@ -132,7 +132,7 @@ func (s *Store) ArchiveClosed(who string) ([]string, error) {
 		if len(warnings) > 0 {
 			warnErr = &ScanWarningsError{Warnings: warnings}
 		}
-		// Two passes over the number-sorted entries mirror the bash
+		// Two passes over the number-sorted entries follow the bash-era
 		// glob sequence T-NNNN-done.md then T-NNNN-closed.md.
 		for _, want := range []domain.Status{domain.StatusDone, domain.StatusClosed} {
 			for _, e := range entries {

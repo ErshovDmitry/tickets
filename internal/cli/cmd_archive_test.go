@@ -39,7 +39,7 @@ func runArchive(env map[string]string, args ...string) (int, string, string) {
 }
 
 // TestCmdArchiveOnePrintsTargetPath pins A24: archiving a done ticket
-// prints the REAL archive target path (bash echo "$target").
+// prints the REAL archive target path.
 func TestCmdArchiveOnePrintsTargetPath(t *testing.T) {
 	env, dir := newTicketDir(t)
 	runSet(t, env, "1", "done")
@@ -59,7 +59,7 @@ func TestCmdArchiveOnePrintsTargetPath(t *testing.T) {
 	}
 }
 
-// TestCmdArchiveErrorsBashContract pins A26: the exact bash error texts
+// TestCmdArchiveErrorsBashContract pins A26: the exact error texts
 // and rc=1. Exact string equality enforces the single «ticket: » prefix —
 // a doubled "ticket: ticket:" cannot match (cycle-1 regression).
 func TestCmdArchiveErrorsBashContract(t *testing.T) {
@@ -103,7 +103,7 @@ func TestCmdArchiveErrorsBashContract(t *testing.T) {
 }
 
 // TestCmdArchiveCollisionKeepsTarget pins A26: archiving over an existing
-// archive file fails with rc=1, the bash wording naming the real target;
+// archive file fails with rc=1, the inherited wording naming the real target;
 // the foreign file's content survives untouched (FOREIGN-CONTENT-KEEP)
 // and the original stays in the main directory (no-replace).
 func TestCmdArchiveCollisionKeepsTarget(t *testing.T) {
@@ -233,7 +233,7 @@ func TestCmdListArchiveFilter(t *testing.T) {
 }
 
 // TestUsageArchiveKeyLines compares the embedded usage fixture with the
-// usage() contract of the legacy bash implementation on the lines the
+// usage text inherited from the pre-Go implementation on the lines the
 // archive feature added or touched: the list/show/set/archive blocks.
 func TestUsageArchiveKeyLines(t *testing.T) {
 	usage := string(usageFixture)

@@ -19,7 +19,7 @@ func newTestTicket() *Ticket {
 		Project:  "tickets",
 		Created:  created,
 		Lang:     LangRU,
-		// Every real bash ticket carries the creation entry; without it
+		// Every real bash-era ticket carries the creation entry; without it
 		// Render (data-driven) legitimately emits no journal while
 		// RenderNewTicket always does.
 		Journal: []JournalEntry{{At: created, From: StatusOpen, To: StatusOpen, Who: "agent"}},

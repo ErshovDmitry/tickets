@@ -62,11 +62,11 @@ func fakeTicket(n int) *domain.Ticket {
 	}
 }
 
-// tsLayout is the bash-compatible journal timestamp layout (§2).
+// tsLayout is the journal timestamp layout inherited from the bash era (§2).
 const tsLayout = "2006-01-02 15:04"
 
 // assertJournalTransition finds the transition journal line in body and
-// asserts it byte-equals the bash reference shape
+// asserts it byte-equals the inherited shape
 // "- <ts> — статус: <from> → <to>[ · <comment>] (<who>)", where <ts> must
 // be exactly len(tsLayout) chars parsing as tsLayout. No regex involved.
 func assertJournalTransition(t *testing.T, body, from, to, comment, who string) {

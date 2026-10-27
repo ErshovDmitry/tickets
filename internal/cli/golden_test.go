@@ -35,12 +35,12 @@ func goldenFixture(t *testing.T) []byte {
 // ticket must equal the immutable fixture
 // internal/cli/testdata/golden-T-0001-open.md byte-for-byte — no
 // normalization, no transformation, no trimming. The fixture is the
-// canonical output of the GO renderer: originally a byte copy of the
-// bash-created tickets/T-0001-open.md, deliberately regenerated when the
+// canonical output of the GO renderer: originally a byte copy of a
+// bash-era tickets/T-0001-open.md, deliberately regenerated when the
 // renderer layout changes by design — T-0032 added the "## Комментарии"
 // section and T-0035 split it into the stubbed
 // "## Комментарии от пользователя" plus the free-form "## Комментарии",
-// intentionally breaking bash byte-compat of `new`; T-0036 re-pinned it to
+// intentionally breaking byte-compat with the bash era; T-0036 re-pinned it to
 // the ru-bilingual renderer output; the empty-UC plan (Option A) dropped
 // the placeholder line — new tickets create the section empty. Any other
 // drift is a renderer bug.

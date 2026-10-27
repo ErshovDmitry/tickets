@@ -30,8 +30,8 @@ import (
 //	func cmdX(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int
 //
 // where cmdNew/cmdShow/cmdSet/cmdList take lang (the resolved ticket
-// language: langFrom, TICKET_LANG → LC_ALL → LANG; new in T-0026, no bash
-// precedent; since T-0036 a domain.Lang that also selects the file format
+// language: langFrom, TICKET_LANG → LC_ALL → LANG; new in T-0026, with no
+// predecessor in the pre-Go era; since T-0036 a domain.Lang that also selects the file format
 // of `new`; T-0040 added lang to cmdList for i18n noTickets/warnings),
 // and so does cmdArchive since T-0080. st is built
 // here from the tickets dir resolved ONCE, who is the resolved user
@@ -198,7 +198,7 @@ func whoFrom(env map[string]string) string {
 // LC_ALL, then LANG. An empty value counts as unset and falls through to
 // the next variable; the first non-empty one decides via langPrefix. All
 // unset defaults to LangRU (language selection itself is new in T-0026
-// and has no bash precedent).
+// and has no pre-Go predecessor).
 func langFrom(env map[string]string) domain.Lang {
 	for _, key := range []string{"TICKET_LANG", "LC_ALL", "LANG"} {
 		if v := env[key]; v != "" {

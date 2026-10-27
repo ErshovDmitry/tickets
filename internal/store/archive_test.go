@@ -15,8 +15,8 @@ import (
 )
 
 // assertJournalArchived finds the archive journal line in body and asserts
-// it byte-equals the bash shape "- <ts> — перенесён в архив (<who>)" with
-// no trailing dot (the legacy bash cmd_archive printf).
+// it byte-equals the inherited shape "- <ts> — перенесён в архив (<who>)"
+// with no trailing dot (the pre-Go implementation's printf).
 func assertJournalArchived(t *testing.T, body, who string) {
 	t.Helper()
 	const marker = " — перенесён в архив ("
@@ -58,7 +58,7 @@ func makeDone(t *testing.T) (*Store, string) {
 }
 
 // TestArchive_MovesDoneTicket pins the happy path: Archive returns the
-// real archive path (bash echo "$target"), removes the main file and
+// real archive path, removes the main file and
 // appends the byte-exact archive journal line.
 func TestArchive_MovesDoneTicket(t *testing.T) {
 	s, dir := makeDone(t)
@@ -185,9 +185,9 @@ func TestArchive_NumberingAccountsArchive(t *testing.T) {
 	}
 }
 
-// TestArchiveClosed_DoneGroupBeforeClosedGroup pins the bash output
+// TestArchiveClosed_DoneGroupBeforeClosedGroup pins the inherited output
 // order: all done files first, then all closed files, each group in
-// ticket-number order (bash iterates the two globs back to back). A
+// ticket-number order (the bash era iterated the two globs back to back). A
 // closed ticket with a LOWER number than a done one proves the grouping:
 // numeric order alone would emit T-0001-closed before T-0002-done.
 func TestArchiveClosed_DoneGroupBeforeClosedGroup(t *testing.T) {
@@ -219,7 +219,7 @@ func TestArchiveClosed_DoneGroupBeforeClosedGroup(t *testing.T) {
 	}
 }
 
-// TestArchiveClosed_NoClosedIsEmptyNoError pins the bash rc=0 contract:
+// TestArchiveClosed_NoClosedIsEmptyNoError pins the exit-0 contract:
 // zero closed tickets is an empty result with a nil error.
 func TestArchiveClosed_NoClosedIsEmptyNoError(t *testing.T) {
 	s, dir := newStore(t)

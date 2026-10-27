@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// archiveLine is the bash archive journal entry appended by cmd_archive
-// (printf shape of the legacy bash cmd_archive: no trailing dot).
+// archiveLine is the archive journal entry appended by cmd_archive
+// (shape inherited from the pre-Go implementation: no trailing dot).
 const archiveLine = "- 2026-09-02 12:00 — перенесён в архив (система)\n"
 
 // TestParseArchiveLine pins the archive codec: the archive journal line
@@ -39,9 +39,9 @@ func TestParseArchiveLine(t *testing.T) {
 	}
 }
 
-// TestRenderArchiveLineByteExact pins the bash printf shape: the archive
+// TestRenderArchiveLineByteExact pins the inherited line shape: the archive
 // entry renders as "- TS — перенесён в архив (who)\n" and must NOT gain a
-// trailing dot (the dot would diverge from the legacy bash printf shape).
+// trailing dot (the dot would diverge from the pre-Go shape).
 // The always-emitted comments section (T-0032) must not disturb the line.
 func TestRenderArchiveLineByteExact(t *testing.T) {
 	at := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)

@@ -43,7 +43,7 @@ func TestRunVersionRouting(t *testing.T) {
 }
 
 // TestRunVersionIgnoresExtraArgs pins the Go-port decision for arguments
-// after a version flag: the bash reference has NO version command, so this
+// after a version flag: the pre-Go implementation had NO version command, so this
 // behavior is ours to define — extra args are ignored by design, the
 // version line is printed and the exit code stays 0 (cli.go routes on
 // args[0] only).
@@ -74,7 +74,7 @@ func TestRunVersionIgnoresExtraArgs(t *testing.T) {
 
 // TestUsageStartsWithVersionLine pins the T-0028 change: usage() prepends
 // the version line to the embedded usage text (the templates themselves
-// stay byte-identical to the bash reference and contain no version line).
+// stay byte-identical to the pre-Go text and contain no version line).
 func TestUsageStartsWithVersionLine(t *testing.T) {
 	cases := []struct {
 		name string

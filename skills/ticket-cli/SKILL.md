@@ -101,7 +101,7 @@ Labels are bilingual under the RU default locale:
 ## Pitfalls
 
 1. `ticket new --help` now prints help (bug T-0041 fixed; verified on v1.2.3 — no garbage ticket is created). Still: after `new`, check the created file before moving on.
-2. 🔴 Test/smoke runs ONLY in a sandbox: set `TICKETS_DIR` or pass `-C /tmp/…` (Go version); copy the script to `/tmp` (bash version). NEVER experiment in the live `tickets/` dir (incident T-0023).
+2. 🔴 Test/smoke runs ONLY in a sandbox: set `TICKETS_DIR` or pass `-C /tmp/…`. NEVER experiment in the live `tickets/` dir (incident T-0023).
 3. 🔴 NEVER write secrets (passwords, tokens, keys) into tickets.
 4. 🔴 Closing gate: verify the fix FIRST, then IMMEDIATELY `ticket set N done "<comment with evidence>"`. The comment MUST state what was checked: command + result, file:line. `done` without evidence is forbidden; NEVER batch status flips "for later".
 5. 🔴 BEFORE working on a ticket, read its `## User comments` section — the user leaves remarks there; the agent NEVER writes there. The agent's working notes go to `## Comments`.
