@@ -17,8 +17,8 @@ import (
 // Run extracts a leading global tickets-dir flag, then dispatches args[0] to the command handler and returns the process
 // exit code. args must not include the program name (main strips argv[0]);
 // unit callers pass the command name and its arguments directly. No command
-// given means help (bash:147 cmd="${1:-help}"); an unknown command prints
-// usage to stdout and exits 1 (bash:154). "version", "--version" and "-v"
+// given means help; an unknown command prints usage to stdout and exits 1.
+// "version", "--version" and "-v"
 // print the version line to stdout and exit 0 without dispatch: like help,
 // they skip tickets-dir resolution and work outside a project; by the same
 // token, the subcommand -h/--help interception (T-0041) below returns
@@ -35,8 +35,8 @@ import (
 // of `new`; T-0040 added lang to cmdList for i18n noTickets/warnings),
 // and so does cmdArchive since T-0080. st is built
 // here from the tickets dir resolved ONCE, who is the resolved user
-// (TICKET_WHO → USER → USERNAME → agent, bash:12) and project is
-// filepath.Base(filepath.Dir(dir)) (bash:10).
+// (TICKET_WHO → USER → USERNAME → agent) and project is
+// filepath.Base(filepath.Dir(dir)).
 
 // extractGlobalDir scans args for a leading -C/--tickets-dir flag and returns
 // the resolved directory plus the remaining (post-flag) args. A trailing
@@ -179,8 +179,7 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 }
 
 // whoFrom resolves the current user: TICKET_WHO, then USER, then USERNAME,
-// then "agent" (bash:12 WHO="${TICKET_WHO:-${USER:-agent}}"; USERNAME
-// covers Windows hosts where USER is normally unset).
+// then "agent"; USERNAME covers Windows hosts where USER is normally unset.
 func whoFrom(env map[string]string) string {
 	if who := env["TICKET_WHO"]; who != "" {
 		return who
