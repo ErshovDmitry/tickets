@@ -42,9 +42,9 @@ func testEnv(t *testing.T) map[string]string {
 	return map[string]string{"TICKETS_DIR": t.TempDir()}
 }
 
-// TestRunHelpRouting checks the bash contract: no args and help variants
+// TestRunHelpRouting checks the help contract: no args and help variants
 // print the version line followed by the usage text verbatim to stdout and
-// exit 0 (bash:147,153).
+// exit 0.
 func TestRunHelpRouting(t *testing.T) {
 	cases := []struct {
 		name string
@@ -160,9 +160,9 @@ func TestListEmptyFilterDefaultsActive(t *testing.T) {
 	}
 }
 
-// TestRunUnknownCommand checks the bash contract: unknown command prints the
+// TestRunUnknownCommand checks the contract: unknown command prints the
 // version line followed by the usage text to stdout and exits 1 without
-// writing to stderr (bash:154).
+// writing to stderr.
 func TestRunUnknownCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := cli.Run([]string{"frobnicate"}, testEnv(t), &stdout, &stderr)

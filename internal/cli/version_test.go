@@ -21,9 +21,9 @@ func TestVersionLine(t *testing.T) {
 	}
 }
 
-// TestRunVersionRouting checks the bash contract for `version`, `--version`
-// and `-v`: all print the version line to stdout, exit 0, write nothing to
-// stderr (bash:155; cli.go routes them before dispatch).
+// TestRunVersionRouting checks `version`, `--version` and `-v`: all print
+// the version line to stdout, exit 0, write nothing to stderr (cli.go routes
+// them before dispatch).
 func TestRunVersionRouting(t *testing.T) {
 	for _, arg := range []string{"version", "--version", "-v"} {
 		var stdout, stderr bytes.Buffer
@@ -101,9 +101,9 @@ func TestUsageStartsWithVersionLine(t *testing.T) {
 	}
 }
 
-// TestRunUnknownCommandExit1 pins the bash contract for an unknown command:
-// usage (version line + Russian text, the lang-less default) on stdout and
-// exit 1 without touching stderr (bash:154).
+// TestRunUnknownCommandExit1 pins the unknown-command contract: usage
+// (version line + Russian text, the lang-less default) on stdout and exit 1
+// without touching stderr.
 func TestRunUnknownCommandExit1(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"frobnicate"}, map[string]string{}, &stdout, &stderr)

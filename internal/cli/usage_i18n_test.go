@@ -30,8 +30,7 @@ func langEnv(t *testing.T, vars map[string]string) map[string]string {
 }
 
 // TestHelpUsageLang pins the lang resolution contract of cli.Run for the
-// help path (bash:11 LANG="${TICKET_LANG:-${LC_ALL:-${LANG:-ru}}}"), as
-// adjusted by T-0036: the first non-empty of TICKET_LANG → LC_ALL → LANG
+// help path, as adjusted by T-0036: the first non-empty of TICKET_LANG → LC_ALL → LANG
 // decides, a locale prefix up to '_'/'.' is matched case-insensitively
 // ("en_US.UTF-8" → en, "ru_RU.KOI8-R" → ru); a known ru/en prefix selects
 // that text, an UNKNOWN non-empty locale falls back to the ENGLISH text
@@ -80,7 +79,7 @@ func TestHelpUsageLang(t *testing.T) {
 
 // TestRunHelpPathLangRouting checks that every help route in cli.Run (no
 // command, explicit help, -h, --help) prints the English usage text when
-// TICKET_LANG=en (bash:147,153).
+// TICKET_LANG=en.
 func TestRunHelpPathLangRouting(t *testing.T) {
 	cases := []struct {
 		name string
@@ -112,7 +111,7 @@ func TestRunHelpPathLangRouting(t *testing.T) {
 
 // TestNewArgErrorLang checks the cmd_new argument-error path: `new` without
 // a title prints the usage text for the resolved lang to stdout and exits 1
-// (usage goes to stdout, stderr stays empty — bash:155 usage; exit 1).
+// (usage goes to stdout, stderr stays empty).
 func TestNewArgErrorLang(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	env := langEnv(t, map[string]string{"TICKET_LANG": "en"})

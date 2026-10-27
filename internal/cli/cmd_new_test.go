@@ -74,7 +74,7 @@ func TestNewGoldenBytes(t *testing.T) {
 	if !strings.Contains(stdout.String(), "T-0001-open.md") {
 		t.Fatalf("stdout %q does not mention the created file", stdout.String())
 	}
-	// §6: project = base name of the tickets dir parent (bash:10).
+	// §6: project = base name of the tickets dir parent.
 	wantProject := "Project (Проект): " + filepath.Base(filepath.Dir(dir))
 	if !strings.Contains(string(created), wantProject) {
 		t.Fatalf("created ticket missing project line %q:\n%s", wantProject, created)
@@ -142,8 +142,8 @@ func TestNewFlagErrors(t *testing.T) {
 	}
 }
 
-// TestNewNoTitle checks the bash contract: `new` without a title prints the
-// usage text to stdout and exits 1 (bash:60). Since T-0028 the usage output
+// TestNewNoTitle checks the contract: `new` without a title prints the
+// usage text to stdout and exits 1. Since T-0028 the usage output
 // is prefixed by the version line, so the expectation is version line +
 // fixture via the shared wantUsage helper (cli_test.go).
 func TestNewNoTitle(t *testing.T) {
@@ -212,9 +212,9 @@ func TestNewTitlePreservedVerbatim(t *testing.T) {
 	}
 }
 
-// TestNewWhoResolution checks the bash who chain TICKET_WHO -> USER ->
-// USERNAME -> agent (bash:12 plus the Windows USERNAME fallback) and that
-// -w overrides the environment (bash:68).
+// TestNewWhoResolution checks the who chain TICKET_WHO -> USER ->
+// USERNAME -> agent (USERNAME covers Windows hosts) and that -w overrides
+// the environment.
 func TestNewWhoResolution(t *testing.T) {
 	cases := []struct {
 		name    string
