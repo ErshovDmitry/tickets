@@ -6,6 +6,10 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       create a ticket (status open), prints the file path;
       -P overrides the project (default = basename of tickets/ parent);
       warning to stderr if the project is seen for the first time
+      -d takes the details: plain text — literally, @<file> — file content, @@name — file named "@name", - — stdin;
+      @ without a path is an error: no ticket is created, the message is localized;
+      the content is copied byte for byte, an empty file or stdin gives an empty Details value — the ticket then shows the Details format block (the same as -d ""); there is no size limit;
+      Details format — a numbered list, one item per line: N. <what> — <file:line>; <fix>
   ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]
       list tickets; default active (= open + wip);
       archive — closed tickets moved into the archive;

@@ -15,7 +15,7 @@ var templates embed.FS
 // zero-padded (as the pre-Go implementation did) and uses the timestamp
 // layout tsLayout. Outer fields shadow the promoted Ticket fields. All
 // localized strings — the four meta lines, the five section headers, the
-// empty-Details stub and the journal creation line — are pre-formatted
+// empty-Details format block and the journal creation line — are pre-formatted
 // from the getDict(t.Lang) dictionary so the template file itself carries
 // no language-specific text (T-0036).
 type newTicketData struct {
@@ -23,7 +23,10 @@ type newTicketData struct {
 	Number    string
 	Timestamp string
 	Author    string
-	Stub      string
+
+	// DetailsFormat is the empty-Details block emitted for a new ticket
+	// without details (T-0109).
+	DetailsFormat string
 
 	// Meta lines with their values already substituted.
 	StatusLine   string
@@ -51,7 +54,7 @@ func newData(t *Ticket) newTicketData {
 		Number:             fmt.Sprintf("%04d", t.Number),
 		Timestamp:          t.Created.Format(tsLayout),
 		Author:             t.Who,
-		Stub:               d.detailsStub,
+		DetailsFormat:      d.detailsFormat,
 		StatusLine:         fmt.Sprintf(d.statusFmt, t.Status),
 		PriorityLine:       fmt.Sprintf(d.priorityFmt, t.Priority),
 		CreatedLine:        fmt.Sprintf(d.createdFmt, t.Created.Format(tsLayout), t.Who),

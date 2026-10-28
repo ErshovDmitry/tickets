@@ -69,6 +69,14 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		fmt.Fprintln(stderr, domain.ErrPriorityInvalid(lang))
 		return 1
 	}
+	// T-0109: the details may reference a file (`@path`) or stdin (`-`).
+	// The resolution happens BEFORE the first-use check and Create, so a
+	// failed read creates no ticket and no journal entry.
+	details, okDetails := resolveDetails(f.details, lang, stderr)
+	if !okDetails {
+		return 1
+	}
+	f.details = details
 	// firstUse check BEFORE Create (T-0040): known projects = unique
 	// t.Project from List+ListArchive
 	firstUse := false
@@ -186,8 +194,8 @@ func priorityByName(s string) (domain.Priority, bool) {
 }
 
 // newTicket assembles the in-memory ticket for Create. lang becomes
-// tk.Lang: RenderNewTicket renders headers, meta and stubs from that
-// language's dictionary (T-0036). The creation journal entry
+// tk.Lang: RenderNewTicket renders headers, meta and the Details format
+// block from that language's dictionary (T-0036). The creation journal entry
 // (From==To==open, empty comment) matches §2 semantics.
 func newTicket(f newFlags, typ domain.Type, prio domain.Priority, project string, lang domain.Lang) *domain.Ticket {
 	now := time.Now()

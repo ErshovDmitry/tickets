@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.4"
+version: "1.5"
 created: 2026-09-04
-modified: 2026-10-27
+modified: 2026-10-29
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-10-27 (T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-10-29 (T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -24,6 +24,10 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       создать тикет (статус open), печатает путь к файлу;
       -P переопределяет проект (по умолчанию = basename родителя tickets/);
       предупреждение в stderr если проект встречается впервые
+      -d принимает детали: обычный текст — буквально, @<файл> — содержимое файла, @@имя — файл с именем "@имя", - — stdin;
+      @ без пути — ошибка: тикет не создаётся, сообщение локализовано;
+      содержимое переносится байт в байт, пустой файл или stdin — пустое значение Details: в тикете показывается блок-формат Details (то же, что при -d ""); ограничения на размер нет;
+      формат Details — нумерованный список, по одному пункту на строку: N. <что> — <файл:строка>; <решение>
   ticket list [active|open|wip|done|closed|archive|all] [-P <проект>] [--json]
       список тикетов; по умолчанию active (= open + wip);
       archive — закрытые тикеты, унесённые в архив;
@@ -62,3 +66,4 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-09-07 | Missing `-P` option, stale version, blank line | Regenerated after FIX 2+4 (T-0056) | 1.1 |
 | 2026-09-09 | Stale vs v1.2.3: `list --json` (T-0081) missing | Regenerated from v1.2.3 help | 1.3 |
 | 2026-10-27 | T-0094: `TICKET_LOCK_TIMEOUT` missing; T-0095: migration/sed section removed | Re-synced with `internal/cli/templates/usage.ru.txt` | 1.4 |
+| 2026-10-29 | T-0109: `-d` input rules and the Details format rule missing in the help text | Re-synced with `internal/cli/templates/usage.ru.txt` | 1.5 |

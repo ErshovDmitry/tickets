@@ -92,6 +92,11 @@ var (
 // that the cli package cannot construct directly.
 var isKnownLangFn = domain.IsKnownLang
 
+// stdinReader is the source of the details text for `-d -` (read the
+// details from stdin). It is a seam for white-box tests: they replace it
+// with a fixture reader and restore the previous value afterwards.
+var stdinReader io.Reader = os.Stdin
+
 func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	flagDir, args, err := extractGlobalDir(args)
 	if err != nil {

@@ -86,7 +86,7 @@ func TestNewGoldenBytes(t *testing.T) {
 }
 
 // TestNewDefaults checks default type=BUG, priority=normal and the
-// empty-details stub inherited from the bash-era template.
+// empty-details format block.
 func TestNewDefaults(t *testing.T) {
 	dir := t.TempDir()
 	var stdout, stderr bytes.Buffer
@@ -103,7 +103,7 @@ func TestNewDefaults(t *testing.T) {
 		"- Status (Статус): open",
 		"- Priority (Приоритет): normal",
 		"## Details (Подробности)",
-		"<!-- что найдено, где (файл:строка), логи/вывод, как воспроизвести, предложение по исправлению -->",
+		"<!-- Details = нумерованный список:\n1. <что> — <файл:строка>; <решение>\n-->",
 	} {
 		if !strings.Contains(string(data), want) {
 			t.Fatalf("created ticket missing %q:\n%s", want, data)

@@ -40,6 +40,11 @@ type dict struct {
 	detailsStub      string
 	userCommentsStub string
 
+	// T-0109: detailsFormat is the NEW empty-Details block (a multiline
+	// HTML comment carrying the numbered-list rule). detailsStub stays the
+	// LEGACY stub, emitted by Render for legacy tickets.
+	detailsFormat string
+
 	// Journal templates for emission (also used for parsing). Three forms:
 	// creation "- TS — ticket created (who).", transition "- TS — status:
 	// from → to[ · comment] (who)", archive "- TS — moved to archive (who)".
@@ -89,12 +94,17 @@ type dict struct {
 	errFlagRequiresValue        string // 1 %s: flag
 	errStatusInvalid            string
 	errTicketAlreadyStatus      string // 1 %d: number, 1 %s: status
-	warnExtraArgsIgnored        string // 1 %s: extra args
-	errTicketNotFound           string // 1 %s: argument
-	hintUseList                 string
-	hintNumbersStartAtOne       string
-	hintStoreEmpty              string
-	hintNumbersUpTo             string // 1 %d: max number
+
+	// T-0109: details resolver errors (file reference / stdin).
+	errDetailsAtBare      string // no placeholders
+	errDetailsFileRead    string // 1 %s: path, 1 %v: cause
+	errDetailsStdinRead   string // 1 %v: error
+	warnExtraArgsIgnored  string // 1 %s: extra args
+	errTicketNotFound     string // 1 %s: argument
+	hintUseList           string
+	hintNumbersStartAtOne string
+	hintStoreEmpty        string
+	hintNumbersUpTo       string // 1 %d: max number
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the
@@ -341,6 +351,7 @@ func loadDict(data []byte) (*dict, error) {
 		ProjectFmt                  string          `json:"projectFmt"`
 		CreatedFmt                  string          `json:"createdFmt"`
 		DetailsStub                 string          `json:"detailsStub"`
+		DetailsFormat               string          `json:"detailsFormat"`
 		UserCommentsStub            string          `json:"userCommentsStub"`
 		JournalCreation             string          `json:"journalCreation"`
 		JournalTransition           string          `json:"journalTransition"`
@@ -373,6 +384,9 @@ func loadDict(data []byte) (*dict, error) {
 		ErrFlagRequiresValue        string          `json:"errFlagRequiresValue"`
 		ErrStatusInvalid            string          `json:"errStatusInvalid"`
 		ErrTicketAlreadyStatus      string          `json:"errTicketAlreadyStatus"`
+		ErrDetailsAtBare            string          `json:"errDetailsAtBare"`
+		ErrDetailsFileRead          string          `json:"errDetailsFileRead"`
+		ErrDetailsStdinRead         string          `json:"errDetailsStdinRead"`
 		WarnExtraArgsIgnored        string          `json:"warnExtraArgsIgnored"`
 		ErrTicketNotFound           string          `json:"errTicketNotFound"`
 		HintUseList                 string          `json:"hintUseList"`
@@ -414,6 +428,15 @@ func loadDict(data []byte) (*dict, error) {
 	}
 	if dj.DetailsStub == "" {
 		return nil, fmt.Errorf("detailsStub: empty")
+	}
+	if dj.DetailsFormat == "" {
+		return nil, fmt.Errorf("detailsFormat: empty")
+	}
+	if !strings.Contains(dj.DetailsFormat, "\n") {
+		return nil, fmt.Errorf("detailsFormat: expected a line break")
+	}
+	if strings.Contains(dj.DetailsFormat, "%s") || strings.Contains(dj.DetailsFormat, "%v") {
+		return nil, fmt.Errorf("detailsFormat: unexpected placeholder")
 	}
 	if dj.UserCommentsStub == "" {
 		return nil, fmt.Errorf("userCommentsStub: empty")
@@ -586,6 +609,24 @@ func loadDict(data []byte) (*dict, error) {
 	if strings.Count(dj.ErrTicketAlreadyStatus, "%s") != 1 {
 		return nil, fmt.Errorf("errTicketAlreadyStatus: expected 1 %%s, got %d", strings.Count(dj.ErrTicketAlreadyStatus, "%s"))
 	}
+	if dj.ErrDetailsAtBare == "" {
+		return nil, fmt.Errorf("errDetailsAtBare: empty")
+	}
+	if dj.ErrDetailsFileRead == "" {
+		return nil, fmt.Errorf("errDetailsFileRead: empty")
+	}
+	if strings.Count(dj.ErrDetailsFileRead, "%s") != 1 {
+		return nil, fmt.Errorf("errDetailsFileRead: expected 1 %%s, got %d", strings.Count(dj.ErrDetailsFileRead, "%s"))
+	}
+	if strings.Count(dj.ErrDetailsFileRead, "%v") != 1 {
+		return nil, fmt.Errorf("errDetailsFileRead: expected 1 %%v, got %d", strings.Count(dj.ErrDetailsFileRead, "%v"))
+	}
+	if dj.ErrDetailsStdinRead == "" {
+		return nil, fmt.Errorf("errDetailsStdinRead: empty")
+	}
+	if strings.Count(dj.ErrDetailsStdinRead, "%v") != 1 {
+		return nil, fmt.Errorf("errDetailsStdinRead: expected 1 %%v, got %d", strings.Count(dj.ErrDetailsStdinRead, "%v"))
+	}
 	if dj.WarnExtraArgsIgnored == "" {
 		return nil, fmt.Errorf("warnExtraArgsIgnored: empty")
 	}
@@ -621,6 +662,7 @@ func loadDict(data []byte) (*dict, error) {
 		projectFmt:                  dj.ProjectFmt,
 		createdFmt:                  dj.CreatedFmt,
 		detailsStub:                 dj.DetailsStub,
+		detailsFormat:               dj.DetailsFormat,
 		userCommentsStub:            dj.UserCommentsStub,
 		journalCreation:             dj.JournalCreation,
 		journalTransition:           dj.JournalTransition,
@@ -653,6 +695,9 @@ func loadDict(data []byte) (*dict, error) {
 		errFlagRequiresValue:        dj.ErrFlagRequiresValue,
 		errStatusInvalid:            dj.ErrStatusInvalid,
 		errTicketAlreadyStatus:      dj.ErrTicketAlreadyStatus,
+		errDetailsAtBare:            dj.ErrDetailsAtBare,
+		errDetailsFileRead:          dj.ErrDetailsFileRead,
+		errDetailsStdinRead:         dj.ErrDetailsStdinRead,
 		warnExtraArgsIgnored:        dj.WarnExtraArgsIgnored,
 		errTicketNotFound:           dj.ErrTicketNotFound,
 		hintUseList:                 dj.HintUseList,
@@ -841,6 +886,24 @@ func ErrStatusInvalid(lang Lang) string {
 // ticket already in the requested status (1 %d: number, 1 %s: status).
 func ErrTicketAlreadyStatus(lang Lang, num int, status string) string {
 	return fmt.Sprintf(getDict(lang).errTicketAlreadyStatus, num, status)
+}
+
+// ErrDetailsAtBare returns the localized rejection for a bare "@" details
+// reference without a path (no placeholders) (T-0109).
+func ErrDetailsAtBare(lang Lang) string {
+	return getDict(lang).errDetailsAtBare
+}
+
+// ErrDetailsFileRead formats the localized failure of reading the details
+// from a file (1 %s: path, 1 %v: cause) (T-0109).
+func ErrDetailsFileRead(lang Lang, path string, cause error) string {
+	return fmt.Sprintf(getDict(lang).errDetailsFileRead, path, cause)
+}
+
+// ErrDetailsStdinRead formats the localized failure of reading the details
+// from stdin (1 %v: error) (T-0109).
+func ErrDetailsStdinRead(lang Lang, err error) string {
+	return fmt.Sprintf(getDict(lang).errDetailsStdinRead, err)
 }
 
 // WarnExtraArgsIgnored formats the localized warning for extra positional

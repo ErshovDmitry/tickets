@@ -10,6 +10,10 @@ Quick start:
 # create a ticket (status open), prints the file path
 ticket new "Export breaks" -t BUG -p high -d "Fails on large files" -w ivan
 
+# long details: from a file (@path) or from stdin (-); the content is copied byte for byte
+ticket new "Export breaks" -d @details.md
+ticket new "Export breaks" -d -
+
 # -P overrides the project (default = basename of tickets/ parent);
 # a warning is printed to stderr when a project name is seen for the first time
 ticket new "Cross-project entry" -P otherproj
@@ -48,6 +52,16 @@ Command shapes at a glance:
 
 Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`) and the global `-C` / `--tickets-dir` flag: [configuration.md](configuration.md).
 
+### Details input (`-d`)
+
+- Plain text — used literally.
+- `@<file>` — the content of that file; the content is copied byte for byte (no trimming, no newline conversion, no size limit — more than 64 KiB is accepted).
+- `@@name` — the file named `@name`: exactly one `@` marker is stripped, `@@` is not an escape.
+- `@` alone — an error: the path after `@` is required.
+- `-` — the content of stdin.
+- An empty file or empty stdin — an empty `Details` value; the command succeeds and the created ticket shows the Details format block (the same as with `-d ""`).
+- A missing file or a failed stdin read — an error: the message is localized (the file error names the path) and no ticket is created.
+
 ## List output
 
 Example `ticket list all` output — the project column appears only when projects differ in the output:
@@ -77,6 +91,10 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       create a ticket (status open), prints the file path;
       -P overrides the project (default = basename of tickets/ parent);
       warning to stderr if the project is seen for the first time
+      -d takes the details: plain text — literally, @<file> — file content, @@name — file named "@name", - — stdin;
+      @ without a path is an error: no ticket is created, the message is localized;
+      the content is copied byte for byte, an empty file or stdin gives an empty Details value — the ticket then shows the Details format block (the same as -d ""); there is no size limit;
+      Details format — a numbered list, one item per line: N. <what> — <file:line>; <fix>
   ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]
       list tickets; default active (= open + wip);
       archive — closed tickets moved into the archive;
@@ -114,7 +132,7 @@ Secrets (passwords, tokens, keys) must NOT be written into tickets.
 - Lifecycle: `open` (new) → `wip` (in progress) → `done` (fixed) / `closed` (rejected/duplicate).
 - Types in the header: `BUG` — breakage; `OPS` — incident/maintenance; `TD` — tech debt; `ENH` — enhancement.
 - i18n: the file format follows `TICKET_LANG` at creation time. An English locale produces plain labels (`## Summary`, `- Status: open`); a Russian locale produces bilingual labels (`## Summary (Кратко)`, `- Status (Статус): open`). Tickets with Russian-only headers (`## Кратко`, `- Статус:`) are not recognised by the parser: those fields stay empty and the next `set` rewrites the file in the current format without them — fix such files by hand. Files in the pre-MD022 format (current format, but without the blank line after the heading) are read and normalised on the next `set`.
-- `ticket new` without `-d` inserts an HTML comment hint into `Details` (what was found, where — file:line, logs, how to reproduce, fix proposal).
+- `ticket new` without `-d` (or with an empty `Details` value, e.g. from an empty file or stdin) inserts a format block into `Details` — the numbered-list rule: one item per line, `N. <what> — <file:line>; <fix>`.
 - Archive: `ticket archive` moves closed tickets into `tickets/archive/`; `list archive` shows the archive; `show` and `set` work with archived tickets — moving one back to `open`/`wip` returns it into work.
 - Secrets (passwords, tokens, keys) must NOT be written into tickets.
 
@@ -132,7 +150,9 @@ Example ticket (`TICKET_LANG=en ticket new "Broken export" -t ENH -p low`):
 Broken export
 
 ## Details
-<!-- what was found, where (file:line), logs/output, how to reproduce, fix proposal -->
+<!-- Details = numbered list:
+1. <what> — <file:line>; <fix>
+-->
 
 ## User comments
 
@@ -145,7 +165,7 @@ Broken export
 ## Sections
 
 - `Summary` — brief description.
-- `Details` — specifics (file:line, logs, reproduction).
+- `Details` — specifics as a numbered list, one item per line: `N. <what> — <file:line>; <fix>` (file:line, logs, reproduction).
 - `User comments` — written by the user, read by the agent before working on the ticket; the agent never writes there.
 - `Comments` — the agent's working notes.
 - `Journal` — append-only log written automatically by `new` / `set`.
