@@ -16,7 +16,7 @@ import (
 // entry (status and file name unchanged); without one it exits 1.
 // lang selects the usage text language for argument errors.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
-func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
+func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
 		printUsage(stdout, stderr, lang)
 		return 1

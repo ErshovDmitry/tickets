@@ -15,7 +15,7 @@ import (
 // number and print its file verbatim.
 // lang selects the usage text language for argument errors.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
-func cmdShow(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
+func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
 		printUsage(stdout, stderr, lang)
 		return 1
