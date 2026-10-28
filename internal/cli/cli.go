@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -77,6 +78,20 @@ func extractGlobalDir(args []string) (dir string, rest []string, err error) {
 	return dir, args[len(args):], nil
 }
 
+// domainInitFn and langFromFn are seams for white-box tests: they let the
+// Run ordering contract (version bypass → domain.Init → langFrom) be
+// asserted without re-initialising the domain package or the locale.
+var (
+	domainInitFn = domain.Init
+	langFromFn   = langFrom
+)
+
+// isKnownLangFn is a seam for white-box tests: it reports whether a language
+// dictionary was actually registered by domain.Init, letting the default
+// language selection be asserted against a degraded (RU-missing) registry
+// that the cli package cannot construct directly.
+var isKnownLangFn = domain.IsKnownLang
+
 func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	flagDir, args, err := extractGlobalDir(args)
 	if err != nil {
@@ -90,15 +105,34 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	if len(args) > 0 {
 		cmd = args[0]
 	}
-	lang := langFrom(env)
+	// Version bypass runs before i18n initialisation and language
+	// resolution: `ticket version` must keep working even if the embedded
+	// dictionaries are broken, and it must not consult the locale at all.
+	switch cmd {
+	case "version", "--version", "-v":
+		_, _ = io.WriteString(stdout, versionLine())
+		return 0
+	}
+
+	// i18n initialisation precedes langFrom and every usage path. A fatal
+	// failure prints exactly one plain line and exits 1 before the locale is
+	// resolved or any template is touched; a degraded failure warns once and
+	// continues (help still exits 0, unknown languages fall back to EN).
+	if err := domainInitFn(); err != nil {
+		fmt.Fprintln(stderr, err)
+		if !errors.Is(err, domain.ErrInitDegraded) {
+			return 1
+		}
+	}
+
+	lang := langFromFn(env)
 	switch cmd {
 	case "init":
 		if len(args) > 1 {
 			if args[1] == "-h" || args[1] == "--help" {
-				usage(stdout, lang)
-				return 0
+				return printUsage(stdout, stderr, lang)
 			}
-			usage(stdout, lang)
+			printUsage(stdout, stderr, lang)
 			return 1
 		}
 		return cmdInit(lang, stdout, stderr)
@@ -111,18 +145,13 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 		// so a --help there must NOT trigger help ("new Тикет -d \"see
 		// --help\"" stays a real ticket creation).
 		if len(args) > 1 && (args[1] == "-h" || args[1] == "--help") {
-			usage(stdout, lang)
-			return 0
+			return printUsage(stdout, stderr, lang)
 		}
 		return dispatch(cmd, args[1:], env, lang, flagDir, stdout, stderr)
 	case "help", "-h", "--help":
-		usage(stdout, lang)
-		return 0
-	case "version", "--version", "-v":
-		_, _ = io.WriteString(stdout, versionLine())
-		return 0
+		return printUsage(stdout, stderr, lang)
 	default:
-		usage(stdout, lang)
+		printUsage(stdout, stderr, lang)
 		return 1
 	}
 }
@@ -198,14 +227,20 @@ func whoFrom(env map[string]string) string {
 // LC_ALL, then LANG. An empty value counts as unset and falls through to
 // the next variable; the first non-empty one decides via langPrefix. All
 // unset defaults to LangRU (language selection itself is new in T-0026
-// and has no pre-Go predecessor).
+// and has no pre-Go predecessor) — but only while RU is actually
+// registered. A degraded initialisation (ru.json broken) must not hand
+// out LangRU: domain.getDict would silently substitute EN while callers
+// believe RU was selected. EN is mandatory, so it is the safe default.
 func langFrom(env map[string]string) domain.Lang {
 	for _, key := range []string{"TICKET_LANG", "LC_ALL", "LANG"} {
 		if v := env[key]; v != "" {
 			return langPrefix(v)
 		}
 	}
-	return domain.LangRU
+	if isKnownLangFn(domain.LangRU) {
+		return domain.LangRU
+	}
+	return domain.LangEN
 }
 
 // langPrefix maps a locale value to a domain.Lang: the prefix up to the
