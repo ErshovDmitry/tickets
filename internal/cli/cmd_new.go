@@ -30,7 +30,7 @@ type newFlags struct {
 // 8bd93a4e, A1).
 func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
-		usage(stdout, lang)
+		printUsage(stdout, stderr, lang)
 		return 1
 	}
 	// Deliberate deviation from the pre-Go behaviour (T-0041): reject titles

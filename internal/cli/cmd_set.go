@@ -18,7 +18,7 @@ import (
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
 func cmdSet(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
-		usage(stdout, lang)
+		printUsage(stdout, stderr, lang)
 		return 1
 	}
 	// T-0068: reject a flag-like arg in the <number> or <status> position.

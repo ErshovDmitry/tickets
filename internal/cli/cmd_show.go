@@ -17,7 +17,7 @@ import (
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
 func cmdShow(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
-		usage(stdout, lang)
+		printUsage(stdout, stderr, lang)
 		return 1
 	}
 	// T-0076: extra arguments are ignored (as in the bash era), but the silent
