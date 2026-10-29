@@ -14,6 +14,7 @@ WikiDB: отсутствуют contracts для четырёх использо�
 Попутная находка T-0103. resources/read config://tools/model_limits, code_map_query, code_graph_impact, get_links вернул Resource not found; get_links эмпирически принимает id, не page_id. Нужно добавить/актуализировать canonical contracts отдельной инфраструктурной задачей; поведение волны не блокирует.
 
 ## User comments (Комментарии от пользователя)
+А зачем для этих тикетов WikiDB? Это же самостоятельный проект.
 
 ## Comments (Комментарии)
 
