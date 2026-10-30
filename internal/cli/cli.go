@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,7 @@ import (
 // exit code. args must not include the program name (main strips argv[0]);
 // unit callers pass the command name and its arguments directly. No command
 // given means help; an unknown command prints usage to stdout and exits 1.
+// The leading global flags (-C/--tickets-dir and --verbose) are consumed here.
 // "version", "--version" and "-v"
 // print the version line to stdout and exit 0 without dispatch: like help,
 // they skip tickets-dir resolution and work outside a project; by the same
@@ -39,24 +41,30 @@ import (
 // (TICKET_WHO → USER → USERNAME → agent) and project is
 // filepath.Base(filepath.Dir(dir)).
 
-// extractGlobalDir scans args for a leading -C/--tickets-dir flag and returns
-// the resolved directory plus the remaining (post-flag) args. A trailing
-// flag with no value (`-C` / `--tickets-dir` at the end) or with an empty
-// value (`--tickets-dir=` / `-C ""` / `--tickets-dir ""`) is reported as
-// err so Run can fail fast before command routing — silent fallthrough
-// degraded `ticket -C` into help (exit 0, 47 lines of usage). Glued
-// `-C=` is intentionally left to paths.Resolve (dir "=" → later error),
-// and glued `-Cpath` keeps working as before.
-func extractGlobalDir(args []string) (dir string, rest []string, err error) {
+// extractGlobalFlags scans args for the LEADING global flags and returns the
+// tickets dir, the --verbose switch and the remaining (post-flag) args. The
+// scan stops at the first non-flag token, so a --verbose AFTER the command
+// stays a subcommand argument. A trailing flag with no value (`-C` /
+// `--tickets-dir` at the end) or with an empty value (`--tickets-dir=` /
+// `-C ""` / `--tickets-dir ""`) is reported as err so Run can fail fast
+// before command routing — silent fallthrough degraded `ticket -C` into help
+// (exit 0, 47 lines of usage). Glued `-C=` is intentionally left to
+// paths.Resolve (dir "=" → later error), and glued `-Cpath` keeps working as
+// before. A -C value is taken blindly, so `-C --verbose` swallows the switch
+// as a dir value.
+func extractGlobalFlags(args []string) (dir string, verbose bool, rest []string, err error) {
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
+		case a == "--verbose":
+			verbose = true
+			continue
 		case a == "--tickets-dir" || a == "-C":
 			if i+1 >= len(args) {
-				return "", nil, fmt.Errorf("ticket: flag %s requires a value", a)
+				return "", false, nil, fmt.Errorf("ticket: flag %s requires a value", a)
 			}
 			if args[i+1] == "" {
-				return "", nil, fmt.Errorf("ticket: flag %s requires a non-empty value", a)
+				return "", false, nil, fmt.Errorf("ticket: flag %s requires a non-empty value", a)
 			}
 			dir = args[i+1]
 			i++
@@ -64,7 +72,7 @@ func extractGlobalDir(args []string) (dir string, rest []string, err error) {
 		case strings.HasPrefix(a, "--tickets-dir="):
 			val := strings.SplitN(a, "=", 2)[1]
 			if val == "" {
-				return "", nil, fmt.Errorf("ticket: flag %s requires a non-empty value", a)
+				return "", false, nil, fmt.Errorf("ticket: flag %s requires a non-empty value", a)
 			}
 			dir = val
 			continue
@@ -72,10 +80,10 @@ func extractGlobalDir(args []string) (dir string, rest []string, err error) {
 			dir = a[2:]
 			continue
 		default:
-			return dir, args[i:], nil
+			return dir, verbose, args[i:], nil
 		}
 	}
-	return dir, args[len(args):], nil
+	return dir, verbose, args[len(args):], nil
 }
 
 // domainInitFn and langFromFn are seams for white-box tests: they let the
@@ -98,7 +106,7 @@ var isKnownLangFn = domain.IsKnownLang
 var stdinReader io.Reader = os.Stdin
 
 func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
-	flagDir, args, err := extractGlobalDir(args)
+	flagDir, verbose, args, err := extractGlobalFlags(args)
 	if err != nil {
 		// Missing/empty -C/--tickets-dir is a one-line user error: print and
 		// exit 1 BEFORE any command routing (incl. help/version/unknown) —
@@ -152,7 +160,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 		if len(args) > 1 && (args[1] == "-h" || args[1] == "--help") {
 			return printUsage(stdout, stderr, lang)
 		}
-		return dispatch(cmd, args[1:], env, lang, flagDir, stdout, stderr)
+		return runLogged(cmd, args[1:], env, lang, flagDir, verbose, stdout, stderr)
 	case "help", "-h", "--help":
 		return printUsage(stdout, stderr, lang)
 	default:
@@ -161,26 +169,49 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	}
 }
 
+// runLogged runs one scoped command with its own logger: the logger opens
+// first, the command lifecycle is logged around the dispatch, and a close
+// error is reported after the command output without changing the exit code.
+// The logger stays off unless --verbose or a non-empty TICKET_LOG is present.
+func runLogged(cmd string, args []string, env map[string]string, lang domain.Lang, flagDir string, verbose bool, stdout, stderr io.Writer) int {
+	lg, closeLog, err := newLoggerFn(stderr, env, verbose)
+	if err != nil {
+		_, _ = io.WriteString(stderr, err.Error()+"\n")
+		return 1
+	}
+	defer func() {
+		if cerr := closeLog(); cerr != nil {
+			_, _ = io.WriteString(stderr, cerr.Error()+"\n")
+		}
+	}()
+	lg.Info("command.start", "command", cmd)
+	return dispatch(cmd, args, env, lang, flagDir, lg, stdout, stderr)
+}
+
 // dispatch resolves the tickets dir once using flag, environment, then cwd.
 // lang is passed to handlers that print usage or i18n messages
 // (new/show/set/list/archive).
-func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang, flagDir string, stdout, stderr io.Writer) int {
+func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang, flagDir string, lg *slog.Logger, stdout, stderr io.Writer) int {
 	// Getwd/Executable failures are handled by paths.Resolve input checks.
 	cwd, _ := os.Getwd()
+	src := paths.Source(env, flagDir)
 	dir, err := paths.Resolve(env, cwd, flagDir)
 	if err != nil {
+		lg.Error("dir.resolve.fail", "source", src)
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
+	lg.Debug("dir.resolve", "source", src, "dir", dir)
 	// Only mutating commands open the Store writable (write probe);
 	// list/show use NewReadOnly, which never mutates the tickets dir.
 	var st *store.Store
 	if cmd == "new" || cmd == "set" || cmd == "archive" {
-		st, err = store.New(dir)
+		st, err = store.New(dir, store.WithLogger(lg))
 	} else { // list, show
-		st, err = store.NewReadOnly(dir)
+		st, err = store.NewReadOnly(dir, store.WithLogger(lg))
 	}
 	if err != nil {
+		lg.Error("store.open", "dir", dir)
 		// store errors are user-facing and self-prefixed ("store: ...");
 		// adding die()'s "ticket: " here would double-prefix (wave-1 #1).
 		fmt.Fprintln(stderr, err)
@@ -198,18 +229,21 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		return 1
 	}
 	project := filepath.Base(filepath.Dir(dir))
+	var code int
 	switch cmd {
 	case "new":
-		return cmdNew(st, args, who, project, lang, stdout, stderr)
+		code = cmdNew(st, args, who, project, lang, stdout, stderr)
 	case "list":
-		return cmdList(st, args, who, project, lang, stdout, stderr)
+		code = cmdList(st, args, who, project, lang, stdout, stderr)
 	case "show":
-		return cmdShow(st, args, who, project, lang, stdout, stderr)
+		code = cmdShow(st, args, who, project, lang, stdout, stderr)
 	case "set":
-		return cmdSet(st, args, who, project, lang, stdout, stderr)
+		code = cmdSet(st, args, who, project, lang, stdout, stderr)
 	default: // "archive"
-		return cmdArchive(st, args, who, project, lang, stdout, stderr)
+		code = cmdArchive(st, args, who, project, lang, stdout, stderr)
 	}
+	lg.Info("command.done", "command", cmd, "code", code)
+	return code
 }
 
 // whoFrom resolves the current user: TICKET_WHO, then USER, then USERNAME,

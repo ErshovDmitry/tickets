@@ -53,6 +53,11 @@ func newLogger(stderr io.Writer, env map[string]string, verbose bool) (*slog.Log
 	return slog.New(&logHandler{st: st, w: f}), lf.close, nil
 }
 
+// newLoggerFn is the seam through which runLogged builds its logger. Production
+// code always takes newLogger; tests replace it to inject a deterministic
+// close failure and restore the previous value in t.Cleanup.
+var newLoggerFn = newLogger
+
 // logState is the write state shared by every handler copy derived from one
 // logger: the mutex serialises whole lines and the first write error is kept
 // until the deferred close surfaces it.
