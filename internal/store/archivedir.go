@@ -75,20 +75,22 @@ func (s *Store) archiveScan() (string, []fileEntry, error) {
 func (s *Store) ListArchive() ([]domain.Ticket, []ParseWarning) {
 	resolved, aerr := validArchiveDir(s.Dir)
 	if aerr != nil {
-		return nil, []ParseWarning{{Name: filepath.Join(s.Dir, "archive"), Err: aerr}}
+		return nil, []ParseWarning{{Name: filepath.Join(s.Dir, "archive"), Err: aerr, Reason: archiveReason(aerr)}}
 	}
 	if resolved == "" {
 		return nil, nil
 	}
 	entries, warnings, dirErr := scanDir(resolved)
 	if dirErr != nil {
-		return nil, []ParseWarning{{Name: resolved, Err: dirErr}}
+		// The archive directory itself could not be read: dir-read is assigned
+		// here, never derived.
+		return nil, []ParseWarning{{Name: resolved, Err: dirErr, Reason: reasonDirRead}}
 	}
 	var tickets []domain.Ticket
 	for _, e := range entries {
 		tk, err := readTicketHeader(filepath.Join(resolved, e.Name), e.Number)
 		if err != nil {
-			warnings = append(warnings, ParseWarning{Name: e.Name, Err: err})
+			warnings = append(warnings, ParseWarning{Name: e.Name, Err: err, Reason: archiveReason(err)})
 			continue
 		}
 		tk.Status = e.Status

@@ -105,6 +105,39 @@ func TestScan_BadFilenameProducesWarning(t *testing.T) {
 	if !names["README.md"] {
 		t.Errorf("expected warning for README.md; got %+v", warns)
 	}
+	// Every bad file also carries its reason: a malformed ticket name is
+	// bad-name (assigned at the producer, never derived), a non-md file
+	// is bad-extension.
+	wantReason := map[string]string{
+		"T-0002-OPEN.md":   reasonBadName,
+		"T-NOTNUM-open.md": reasonBadName,
+		"T-0001-open.txt":  reasonBadExtension,
+		"README.md":        reasonBadName, // .md, but not a ticket name
+	}
+	for _, w := range warns {
+		if w.Reason != wantReason[w.Name] {
+			t.Errorf("warning %q reason = %q, want %q", w.Name, w.Reason, wantReason[w.Name])
+		}
+	}
+}
+
+// TestScan_NotRegularFileWarningReason pins the non-regular producer: a
+// ticket-named symlink is skipped with the not-regular-file reason, not
+// a generic parse failure.
+func TestScan_NotRegularFileWarningReason(t *testing.T) {
+	s, dir := newStore(t)
+	target := filepath.Join(t.TempDir(), "outside.md")
+	makeFile(t, filepath.Dir(target), "outside.md", "# T-0001 \u00b7 BUG: outside\n")
+	if err := os.Symlink(target, filepath.Join(dir, "T-0001-open.md")); err != nil {
+		t.Skipf("symlinks unavailable on this platform: %v", err)
+	}
+	_, warns, err := s.scan()
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(warns) != 1 || warns[0].Reason != reasonNotRegularFile {
+		t.Fatalf("warns = %+v, want one %q warning", warns, reasonNotRegularFile)
+	}
 }
 
 func TestScan_SortsByNumber(t *testing.T) {

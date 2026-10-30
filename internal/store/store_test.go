@@ -251,3 +251,50 @@ func TestSetStatus_NotFound(t *testing.T) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
+
+// TestListWarningReasons pins the two read-path producers in List: a
+// zero-length file is the create-in-progress window (empty-file) and a
+// body whose H1 disagrees with its filename is corrupt (h1-mismatch).
+func TestListWarningReasons(t *testing.T) {
+	s, dir := newStore(t)
+	makeFile(t, dir, "T-0001-open.md", "")
+	makeFile(t, dir, "T-0002-open.md", "# T-0003 · BUG: wrong h1\n\n- Status (Статус): open\n")
+
+	_, warns := s.List()
+	want := map[string]string{"T-0001-open.md": reasonEmptyFile, "T-0002-open.md": reasonH1Mismatch}
+	if len(warns) != len(want) {
+		t.Fatalf("warns = %+v, want exactly %d", warns, len(want))
+	}
+	for _, w := range warns {
+		if w.Reason != want[w.Name] {
+			t.Errorf("warning %q reason = %q, want %q", w.Name, w.Reason, want[w.Name])
+		}
+	}
+}
+
+// TestListDirReadWarningReason pins the List directory-read producer: the
+// injected error is a real *fs.PathError, so dir-read wins over io-error.
+func TestListDirReadWarningReason(t *testing.T) {
+	s, dir := newStore(t)
+	swapReadDir(t, func(string) ([]os.DirEntry, error) { return nil, dirReadPathError(dir) })
+	_, warns := s.List()
+	if len(warns) != 1 || warns[0].Reason != reasonDirRead {
+		t.Fatalf("warns = %+v, want one %q warning (never %q)", warns, reasonDirRead, reasonIOError)
+	}
+}
+
+// TestSetStatusJournalDupWarningReason pins the mutation-path producer:
+// the duplicate-journal notice is journal-dup, assigned, never derived.
+func TestSetStatusJournalDupWarningReason(t *testing.T) {
+	s, dir := newStore(t)
+	if _, err := s.Create(fakeTicket(0)); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "T-0001-open.md")
+	if err := os.WriteFile(path, append(mustRead(t, dir, 1), dupJournalSuffix...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, warns, err := s.SetStatus(1, domain.StatusWip, "tester", "go"); err != nil || len(warns) != 1 || warns[0].Reason != reasonJournalDup {
+		t.Fatalf("SetStatus warns = %+v (err %v), want one %q warning", warns, err, reasonJournalDup)
+	}
+}

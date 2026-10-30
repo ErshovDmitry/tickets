@@ -112,6 +112,9 @@ func TestArchiveDir_SymlinkArchive_BlocksReads(t *testing.T) {
 	if len(warns) != 1 || !errors.Is(warns[0].Err, ErrArchiveInvalid) {
 		t.Fatalf("ListArchive warns = %+v, want 1 warning with ErrArchiveInvalid", warns)
 	}
+	if warns[0].Reason != reasonArchiveDir {
+		t.Fatalf("warning reason = %q, want %q", warns[0].Reason, reasonArchiveDir)
+	}
 
 	got, rerr := os.ReadFile(baitPath)
 	if rerr != nil || !bytes.Equal(got, baitBody) {
@@ -144,6 +147,8 @@ func TestArchiveDir_RegularFileArchive_Rejected(t *testing.T) {
 	}
 	if _, warns := s.ListArchive(); len(warns) != 1 || !errors.Is(warns[0].Err, ErrArchiveInvalid) {
 		t.Fatalf("ListArchive warns = %+v, want ErrArchiveInvalid warning", warns)
+	} else if warns[0].Reason != reasonArchiveDir {
+		t.Fatalf("warning reason = %q, want %q", warns[0].Reason, reasonArchiveDir)
 	}
 
 	if got, rerr := os.ReadFile(archivePath); rerr != nil || string(got) != "not a dir" {
@@ -183,5 +188,27 @@ func TestArchiveDir_ValidArchiveRegression(t *testing.T) {
 	arch, warns := s.ListArchive()
 	if len(arch) != 1 || arch[0].Number != 1 || len(warns) != 0 {
 		t.Fatalf("ListArchive = %+v/%+v, want exactly ticket 1", arch, warns)
+	}
+}
+
+// TestListArchiveWarningReasons pins the two remaining ListArchive
+// producers: an unreadable archive directory is dir-read (the injected
+// error is a real *fs.PathError, so this proves the explicit assignment
+// wins over the io-error reasonOf would derive from it) and a zero-length
+// archived file is empty-file via archiveReason -> reasonOf.
+func TestListArchiveWarningReasons(t *testing.T) {
+	s, dir := newStore(t)
+	archiveDir := filepath.Join(dir, "archive")
+	if err := os.Mkdir(archiveDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	makeFile(t, archiveDir, "T-0002-open.md", "")
+	tickets, warns := s.ListArchive()
+	if len(tickets) != 0 || len(warns) != 1 || warns[0].Reason != reasonEmptyFile {
+		t.Fatalf("ListArchive = %+v / %+v, want one %q warning", tickets, warns, reasonEmptyFile)
+	}
+	swapReadDir(t, func(string) ([]os.DirEntry, error) { return nil, dirReadPathError(archiveDir) })
+	if _, warns = s.ListArchive(); len(warns) != 1 || warns[0].Reason != reasonDirRead {
+		t.Fatalf("warns = %+v, want one %q warning (never %q)", warns, reasonDirRead, reasonIOError)
 	}
 }

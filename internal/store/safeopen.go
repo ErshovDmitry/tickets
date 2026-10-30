@@ -101,9 +101,25 @@ func readTicketFile(path string, wantNum int) (*domain.Ticket, []byte, []byte, e
 		return nil, nil, nil, perr
 	}
 	if tk.Number != wantNum {
-		return nil, nil, nil, fmt.Errorf("H1 number %d does not match filename T-%04d", tk.Number, wantNum)
+		return nil, nil, nil, &h1MismatchError{H1: tk.Number, WantNum: wantNum}
 	}
 	return tk, data, unknown, nil
+}
+
+// h1MismatchError reports a ticket body whose H1 number does not match
+// the number derived from its filename: the file does not name its own
+// ticket, so it is corrupt. It is a typed error rather than a bare
+// fmt.Errorf so reasonOf can classify it with errors.As instead of
+// parsing the message. Error() bytes are user-facing contract and stay
+// exactly as they were.
+type h1MismatchError struct {
+	H1      int
+	WantNum int
+}
+
+// Error renders the mismatch in the historical one-line shape.
+func (e *h1MismatchError) Error() string {
+	return fmt.Sprintf("H1 number %d does not match filename T-%04d", e.H1, e.WantNum)
 }
 
 // errEmptyTicket marks a zero-length T-*.md file: create in progress.
@@ -156,7 +172,7 @@ func readTicketHeader(path string, wantNum int) (*domain.Ticket, error) {
 		return nil, perr
 	}
 	if tk.Number != wantNum {
-		return nil, fmt.Errorf("H1 number %d does not match filename T-%04d", tk.Number, wantNum)
+		return nil, &h1MismatchError{H1: tk.Number, WantNum: wantNum}
 	}
 	return tk, nil
 }

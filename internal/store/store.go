@@ -39,6 +39,9 @@ var (
 type ParseWarning struct {
 	Name string
 	Err  error
+	// Reason is the fixed reason code for Err (see warn_reason.go). It is
+	// additive: Error() ignores it, so warning text is byte-identical.
+	Reason string
 }
 
 // Error renders a one-line, human-readable description of the warning.
@@ -55,7 +58,7 @@ func (w ParseWarning) Error() string {
 // files yield nil.
 func journalDupWarnings(name string, tk *domain.Ticket) []ParseWarning {
 	if tk.JournalDup {
-		return []ParseWarning{{Name: name, Err: domain.ErrJournalDup}}
+		return []ParseWarning{{Name: name, Err: domain.ErrJournalDup, Reason: reasonJournalDup}}
 	}
 	return nil
 }
@@ -233,13 +236,15 @@ func (s *Store) withLock(fn func() error) (err error) {
 func (s *Store) List() ([]domain.Ticket, []ParseWarning) {
 	entries, warnings, dirErr := s.scan()
 	if dirErr != nil {
-		return nil, []ParseWarning{{Name: s.Dir, Err: dirErr}}
+		// The directory itself could not be read: dir-read is assigned here,
+		// so its *fs.PathError never falls through to "parse".
+		return nil, []ParseWarning{{Name: s.Dir, Err: dirErr, Reason: reasonDirRead}}
 	}
 	var tickets []domain.Ticket
 	for _, e := range entries {
 		tk, err := readTicketHeader(filepath.Join(s.Dir, e.Name), e.Number)
 		if err != nil {
-			warnings = append(warnings, ParseWarning{Name: e.Name, Err: err})
+			warnings = append(warnings, ParseWarning{Name: e.Name, Err: err, Reason: reasonOf(err)})
 			continue
 		}
 		// The scan-matched filename status is authoritative (V19): the

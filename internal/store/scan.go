@@ -64,7 +64,7 @@ func scanDir(dirPath string) ([]fileEntry, []ParseWarning, error) {
 		// package falls back to lstat), and IsRegular is portable to
 		// Windows (no type bits set for regular files).
 		if !de.Type().IsRegular() {
-			warn = append(warn, ParseWarning{Name: name, Err: errNotRegularFile})
+			warn = append(warn, ParseWarning{Name: name, Err: errNotRegularFile, Reason: reasonOf(errNotRegularFile)})
 			continue
 		}
 		if !strings.HasSuffix(name, ".md") {
@@ -72,12 +72,14 @@ func scanDir(dirPath string) ([]fileEntry, []ParseWarning, error) {
 			// like a stray README); the plan keeps List never-failing.
 			// Hidden and .tmp names never reach this branch: they were
 			// skipped above.
-			warn = append(warn, ParseWarning{Name: name, Err: errBadExtension})
+			warn = append(warn, ParseWarning{Name: name, Err: errBadExtension, Reason: reasonOf(errBadExtension)})
 			continue
 		}
 		n, st, perr := domain.ParseFilename(name)
 		if perr != nil {
-			warn = append(warn, ParseWarning{Name: name, Err: perr})
+			// ParseFilename rejects the name itself; that error is not a sentinel,
+			// so its reason is assigned here and never derived (never "parse").
+			warn = append(warn, ParseWarning{Name: name, Err: perr, Reason: reasonBadName})
 			continue
 		}
 		out = append(out, fileEntry{Number: n, Status: st, Name: name})
