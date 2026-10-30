@@ -3,8 +3,10 @@ package cli
 // Structured logging of store parse warnings (T-0110, wave 6): the producer
 // side — one "store.read.warning" record per warning a command surfaces. The
 // negative cases (logging off, privacy, silent sites) live in
-// warn_parse_silent_test.go, so the record assertions here stay apart from the
-// assertions about what must not be logged.
+// warn_parse_silent_test.go because one combined file would exceed the
+// project's 300-lines-per-file limit, owned by the ticket record (T-0103,
+// precedents T-0005/T-0088; open follow-ups T-0113/T-0121) — keeping the
+// record assertions here apart from what must not be logged.
 
 import (
 	"os"
