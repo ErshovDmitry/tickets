@@ -28,8 +28,9 @@ var (
 const (
 	envTicketsDir = "TICKETS_DIR"
 	dirName       = "tickets"
-	srcEnv        = "TICKETS_DIR"
+	srcEnv        = envTicketsDir
 	srcFlag       = "--tickets-dir"
+	srcScan       = "scan"
 )
 
 // IsRealDir reports via os.Lstat (never follows a trailing symlink):
@@ -53,12 +54,44 @@ func IsRealDir(path string) (bool, error) {
 	return true, nil
 }
 
-func Resolve(env map[string]string, cwd, flagDir string) (string, error) {
-	if flagDir != "" {
-		return resolveExplicit(flagDir, srcFlag)
+// tier is the selected resolution tier: the value that selected it and the
+// private source label used in diagnostics.
+type tier struct {
+	value string
+	label string
+}
+
+// sourceTier picks the tier from the flag value and the env map only — no
+// filesystem access and no process-environment reads. Precedence:
+// --tickets-dir > $TICKETS_DIR > upward scan (T-0057 hub decision #2).
+func sourceTier(env map[string]string, flagDir string) tier {
+	switch {
+	case flagDir != "":
+		return tier{value: flagDir, label: srcFlag}
+	case env[envTicketsDir] != "":
+		return tier{value: env[envTicketsDir], label: srcEnv}
+	default:
+		return tier{label: srcScan}
 	}
-	if v := env[envTicketsDir]; v != "" {
-		return resolveExplicit(v, srcEnv)
+}
+
+// Source reports which tier selected the tickets directory: the
+// --tickets-dir flag label, the TICKETS_DIR env label or the scan label.
+// It reads no process environment and touches no filesystem — only the
+// given map and the flag value. The scan tier is reported even when an
+// upward scan would find nothing: that is not detectable without
+// filesystem access.
+func Source(env map[string]string, flagDir string) string {
+	return sourceTier(env, flagDir).label
+}
+
+func Resolve(env map[string]string, cwd, flagDir string) (string, error) {
+	t := sourceTier(env, flagDir)
+	// A tier with a nonempty value is an explicit tier (flag or env); the
+	// scan tier carries an empty value. The label is only diagnostics text
+	// and never decides the branch.
+	if t.value != "" {
+		return resolveExplicit(t.value, t.label)
 	}
 	if d, ok := scanUpward(cwd); ok {
 		return d, nil

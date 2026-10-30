@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -59,7 +60,10 @@ func journalDupWarnings(name string, tk *domain.Ticket) []ParseWarning {
 	return nil
 }
 
-// Store is the per-directory handle. The zero value is invalid; use New.
+// Store is the per-directory handle. It is normally built by New (writable)
+// or NewReadOnly; the zero value has no directory and cannot serve ticket
+// operations. Logger is the exception: it is explicitly nil- and zero-value
+// safe and never returns nil.
 type Store struct {
 	// Dir is the absolute path to the tickets directory.
 	Dir string
@@ -67,6 +71,33 @@ type Store struct {
 	// readOnly marks a Store opened via NewReadOnly; withLock rejects
 	// mutations on it. New leaves it false (zero value).
 	readOnly bool
+
+	// logger is the logger injected via WithLogger; nil means unset, and
+	// Logger then falls back to a discarding logger. New and NewReadOnly
+	// leave it nil (zero value).
+	logger *slog.Logger
+}
+
+// Option configures a Store built by New or NewReadOnly.
+type Option func(*Store)
+
+// WithLogger injects l as the Store logger, so callers can hand a command's
+// logger to the store instead of relying on a package global. A nil l counts
+// as no injection: Logger then returns a discarding logger.
+func WithLogger(l *slog.Logger) Option {
+	return func(s *Store) { s.logger = l }
+}
+
+// Logger returns the logger injected by WithLogger. When nothing usable was
+// injected — no option, WithLogger(nil), a zero-value Store or a nil receiver
+// — it builds and returns a discarding logger (slog.DiscardHandler) on
+// demand, so the result is always non-nil and Enabled reports false for every
+// level. Building per call keeps the fallback out of package state.
+func (s *Store) Logger() *slog.Logger {
+	if s != nil && s.logger != nil {
+		return s.logger
+	}
+	return slog.New(slog.DiscardHandler)
 }
 
 // validateDir checks that dir is a non-empty path to an existing
@@ -90,14 +121,27 @@ func validateDir(dir string) error {
 // must exist, be a directory, and be writable by the current user (checked
 // via a unique O_EXCL probe file — probe.go). Read-only commands must open
 // the Store via NewReadOnly instead.
-func New(dir string) (*Store, error) {
+//
+// Options are applied only after validation and the write probe succeed, so
+// no option ever runs against a rejected directory.
+func New(dir string, opts ...Option) (*Store, error) {
 	if err := validateDir(dir); err != nil {
 		return nil, err
 	}
 	if err := probeWritable(dir); err != nil {
 		return nil, err
 	}
-	return &Store{Dir: dir}, nil
+	return newStoreWithOptions(dir, false, opts), nil
+}
+
+// newStoreWithOptions builds a Store for an already-validated directory and
+// applies opts in order.
+func newStoreWithOptions(dir string, readOnly bool, opts []Option) *Store {
+	s := &Store{Dir: dir, readOnly: readOnly}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // NewReadOnly validates the directory and returns a Store for read-only
@@ -105,11 +149,11 @@ func New(dir string) (*Store, error) {
 // opening a directory never mutates it. Mutations (Create, SetStatus,
 // Archive) are rejected at runtime: withLock returns ErrReadOnly for a
 // read-only Store.
-func NewReadOnly(dir string) (*Store, error) {
+func NewReadOnly(dir string, opts ...Option) (*Store, error) {
 	if err := validateDir(dir); err != nil {
 		return nil, err
 	}
-	return &Store{Dir: dir, readOnly: true}, nil
+	return newStoreWithOptions(dir, true, opts), nil
 }
 
 // lockPath returns the per-store advisory lock file.
