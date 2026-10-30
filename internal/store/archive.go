@@ -151,6 +151,12 @@ func (s *Store) ArchiveClosed(who string) ([]string, error) {
 	return moved, err
 }
 
+// logArchiveFailure emits the single terminal failure event of one
+// archiveOneLocked operation; only the number and stage are recorded.
+func (s *Store) logArchiveFailure(n int, stage string) {
+	s.Logger().Error("store.archive.failure", "number", n, "stage", stage)
+}
+
 // archiveOneLocked assumes the per-store advisory lock is held. The
 // filesystem sequence mirrors setStatusLocked: Lstat(target) fast-path,
 // writeTmp in the archive directory, no-replace linkFile commit, tmp
@@ -168,9 +174,11 @@ func (s *Store) archiveOneLocked(n int, who string) (string, error) {
 		return "", err
 	}
 	if filepath.Base(curDir) == "archive" {
+		s.logArchiveFailure(n, "already")
 		return "", ErrAlreadyArchived
 	}
 	if cur.Status != domain.StatusDone && cur.Status != domain.StatusClosed {
+		s.logArchiveFailure(n, "not_closed")
 		return "", &NotClosedError{Status: cur.Status}
 	}
 	archiveDir, aerr := validArchiveDir(s.Dir)
@@ -185,6 +193,7 @@ func (s *Store) archiveOneLocked(n int, who string) (string, error) {
 	}
 	target := filepath.Join(archiveDir, cur.Name)
 	if _, lerr := os.Lstat(target); lerr == nil {
+		s.logArchiveFailure(n, "collision")
 		return "", &CollisionError{Target: target}
 	} else if !errors.Is(lerr, fs.ErrNotExist) {
 		return "", fmt.Errorf("store: lstat target: %w", lerr)
@@ -197,6 +206,7 @@ func (s *Store) archiveOneLocked(n int, who string) (string, error) {
 	if cerr := s.commitArchive(n, cur.Status, body, old, target, archiveDir); cerr != nil {
 		return "", cerr
 	}
+	s.Logger().Info("store.archive.commit", "number", n, "status", cur.Status, "path", target)
 	return target, nil
 }
 
@@ -233,6 +243,7 @@ func renderArchived(path string, entry fileEntry, who string) ([]byte, error) {
 func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target, archiveDir string) error {
 	tmpPath, werr := s.writeTmp(n, st, body, archiveDir)
 	if werr != nil {
+		s.logArchiveFailure(n, "tmp")
 		return werr
 	}
 	if lerr := linkFile(tmpPath, target); lerr != nil {
@@ -241,6 +252,7 @@ func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target,
 		} else {
 			lerr = fmt.Errorf("store: link commit: %w", lerr)
 		}
+		s.logArchiveFailure(n, "link")
 		return errors.Join(lerr, removeTmp(tmpPath))
 	}
 	// tmp and target share one inode now; drop the tmp name via the
@@ -251,6 +263,7 @@ func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target,
 	if rerr := removeTmp(tmpPath); rerr != nil {
 		// The commit already happened (target holds the archived
 		// body); roll it back by removing the target.
+		s.logArchiveFailure(n, "tmp")
 		tmpErr := fmt.Errorf("store: remove tmp %s: %w", tmpPath, rerr)
 		if rbErr := removeFile(target); rbErr != nil {
 			return errors.Join(
@@ -266,6 +279,7 @@ func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target,
 		return tmpErr
 	}
 	if rerr := removeFile(old); rerr != nil && !errors.Is(rerr, fs.ErrNotExist) {
+		s.logArchiveFailure(n, "old")
 		rbErr := removeFile(target)
 		if rbErr != nil {
 			return errors.Join(

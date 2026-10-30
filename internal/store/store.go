@@ -196,15 +196,31 @@ func (s *Store) withLock(fn func() error) (err error) {
 	if s.readOnly {
 		return ErrReadOnly
 	}
-	lk, err := lock.AcquireLocked(s.lockPath(), parseLockTimeout())
+	log, path := s.Logger(), s.lockPath()
+	lk, err := lock.AcquireLocked(path, parseLockTimeout())
 	if err != nil {
+		reason := "error"
+		if errors.Is(err, lock.ErrLocked) {
+			reason = "timeout"
+		}
+		log.Error("store.lock.error", "path", path, "reason", reason)
 		return fmt.Errorf("store: lock: %w", err)
 	}
-	defer func() { err = errors.Join(err, lk.Release()) }()
+	log.Debug("store.lock.acquired", "path", path)
+	defer func() {
+		rerr := lk.Release()
+		if rerr != nil {
+			log.Error("store.lock.error", "path", path, "reason", "error")
+		} else {
+			log.Debug("store.lock.released", "path", path)
+		}
+		err = errors.Join(err, rerr)
+	}()
 	if err := fn(); err != nil {
 		return err
 	}
 	if serr := lk.StillValid(); serr != nil {
+		log.Error("store.lock.error", "path", path, "reason", "swapped")
 		return fmt.Errorf("store: lock: lock file replaced while held — operation may have raced: %w", serr)
 	}
 	return nil
@@ -286,6 +302,7 @@ func (s *Store) Create(t *domain.Ticket) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	s.Logger().Info("store.number.assigned", "number", assigned)
 	return assigned, nil
 }
 
@@ -317,6 +334,8 @@ func (s *Store) createLocked(t *domain.Ticket) (int, error) {
 		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 		if err != nil {
 			if errors.Is(err, fs.ErrExist) {
+				s.Logger().Debug("store.number.retry",
+					"attempt", attempt+1, "max", MaxCreateAttempts, "number", n)
 				lastErr = err
 				continue
 			}
