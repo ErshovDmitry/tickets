@@ -16,6 +16,8 @@ import (
 	"sync"
 	"unicode"
 	"unicode/utf8"
+
+	"ticket/internal/store"
 )
 
 // logFileEnv names the environment variable holding the log destination path.
@@ -25,6 +27,28 @@ const logFileEnv = "TICKET_LOG"
 // logFilePerm is the permission mode for a log file created by newLogger.
 // It is the numeric source of the documented "owner-only" contract.
 const logFilePerm = 0o600
+
+// warnEvent is the single structured-log event name for a store parse warning
+// surfaced by a command.
+const warnEvent = "store.read.warning"
+
+// logParseWarnings emits one warn record per store parse warning. It is the
+// first CLI use of the st.Logger() seam: command handlers have no logger
+// parameter, so the store built by dispatch with store.WithLogger is the only
+// route. Logger() is called once (a store without an injected logger allocates
+// a fresh discarding logger per call) and no Enabled pre-check is done:
+// (*slog.Logger).Warn (log/slog/logger.go:218) calls the unexported
+// (*slog.Logger).log (:240), which evaluates Enabled at :244; it never calls
+// the exported (*slog.Logger).Log (:188).
+func logParseWarnings(st *store.Store, warnings []store.ParseWarning) {
+	if len(warnings) == 0 {
+		return
+	}
+	lg := st.Logger()
+	for _, w := range warnings {
+		lg.Warn(warnEvent, "path", w.Name, "reason", w.Reason)
+	}
+}
 
 // newLogger builds the command logger. When neither verbose nor a non-empty
 // TICKET_LOG is set it returns a discarding logger and opens no file. A

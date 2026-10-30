@@ -83,6 +83,7 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	if project != "" {
 		known := make(map[string]bool)
 		allTickets, warnings := st.List()
+		logParseWarnings(st, warnings)
 		for _, w := range warnings {
 			fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
 		}
@@ -90,6 +91,7 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 			known[t.Project] = true
 		}
 		archiveTickets, warnings2 := st.ListArchive()
+		logParseWarnings(st, warnings2)
 		for _, w := range warnings2 {
 			fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
 		}

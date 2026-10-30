@@ -72,6 +72,7 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	}
 
 	// Parse warnings are non-fatal: list shows successfully parsed tickets and returns 0. Broken ticket files are logged to stderr but do not block shell pipelines or automation.
+	logParseWarnings(st, warnings)
 	for _, w := range warnings {
 		fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
 	}

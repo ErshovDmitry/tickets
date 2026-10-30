@@ -71,6 +71,7 @@ func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, std
 	// Journal section that was merged) are non-fatal notices on stderr;
 	// the command still succeeds. Exact cmd_list.go precedent format.
 	// NOTE(T-0080): plain RU diagnostic text; migrate to the i18n registry when T-0080 lands.
+	logParseWarnings(st, warnings)
 	for _, w := range warnings {
 		fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
 	}

@@ -36,6 +36,11 @@ func cmdArchive(st *store.Store, args []string, who, project string, lang domain
 // target is echoed as it goes.
 func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io.Writer) int {
 	moved, err := st.ArchiveClosed(who)
+	// Store scan warnings ride on the archive error, alone or joined with a
+	// mid-run failure; log them before the moved paths and the human report.
+	if scanWarnings, ok := errors.AsType[*store.ScanWarningsError](err); ok {
+		logParseWarnings(st, scanWarnings.Warnings)
+	}
 	for _, path := range moved {
 		fmt.Fprintln(stdout, path)
 	}
