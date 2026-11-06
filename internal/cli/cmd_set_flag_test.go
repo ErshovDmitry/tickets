@@ -58,7 +58,7 @@ func TestSetFlagInCommentJournaled(t *testing.T) {
 
 // TestSetGlobalFlagLikeCommentJournaled pins T-0068 decision: `set 1 wip
 // c -C /path` — the -C appears after the subcommand, so it is part of the
-// comment (extractGlobalDir only strips a LEADING -C), and the whole
+// comment (extractGlobalFlags only strips a LEADING -C), and the whole
 // «c -C /path» lands in the journal.
 func TestSetGlobalFlagLikeCommentJournaled(t *testing.T) {
 	dir := mustEval(t, t.TempDir())

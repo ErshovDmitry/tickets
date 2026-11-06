@@ -92,10 +92,13 @@ jobs:
         run: |
           gosec -exclude-rules='internal/store/tmpfile\.go$:G304,G302;internal/store/store\.go$:G304,G302;internal/store/safeopen_open_unix\.go$:G304;internal/store/probe\.go$:G304;internal/lock/lock\.go$:G304;internal/store/archive\.go$:G301;internal/cli/cmd_init\.go$:G301;internal/store/safeopen\.go$:G104;internal/cli/log\.go$:G304' ./...
 
-      # staticcheck runs without exclusions: the only two known findings
-      # (SA4006 in internal/cli/integration_flag_test.go, SA6006 in
-      # internal/cli/usage.go) are owned by ticket T-0102, so suppressing them
-      # here would hide regressions in every other file.
+      # staticcheck runs without exclusions: the baseline is clean on the
+      # pinned staticcheck version, so any finding reported here is a new
+      # regression. Suppressing a finding here would hide regressions in
+      # every other file, so file a NEW ticket instead of adding a
+      # suppression. If the linter is bumped to another version, findings
+      # may legitimately change — then update the version pin and re-check
+      # the findings against the new version.
       - name: Staticcheck
         run: staticcheck ./...
 
