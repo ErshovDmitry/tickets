@@ -107,7 +107,6 @@ type dict struct {
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the
 // package initialisation for domain.Init.
-//
 // ErrInitFatal means no dictionary was published at all: the package keeps
 // its safe empty state (empty registry, dictRU nil, dictEN a non-nil EMPTY
 // dict, empty allDicts/patterns), so callers must abort.
