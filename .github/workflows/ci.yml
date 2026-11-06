@@ -21,6 +21,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # tickets/ is local-only by design (.gitignore:2): the ticket tree is a
+      # per-machine source of truth and must never reach a clone. A force-added
+      # ticket file ships one agent's local tree to every checkout (incident
+      # T-0130), so the guard fails early, before spending time on the
+      # toolchain. git ls-files is safe on a checkout without a tickets/
+      # directory: it prints nothing, exit 0.
+      - name: 'Guard: tickets/ must not be tracked'
+        shell: bash
+        run: |
+          tracked=$(git ls-files -- 'tickets/')
+          if [ -n "$tracked" ]; then
+            echo "::error::Forbidden tracked files under tickets/:"
+            echo "$tracked"
+            exit 1
+          fi
+          echo "OK: no tracked files under tickets/"
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
