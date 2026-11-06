@@ -27,7 +27,11 @@
     // MD060/table-column-style: tables that mix compact and padded
     // column styles. Unifying table formatting is a separate task; until
     // then the rule would only produce noise.
-    "MD060": false
+    "MD060": false,
+    // MD024/duplicate-heading: Keep a Changelog deliberately repeats
+    // "### Added"/"### Fixed" under each version, so only same-level
+    // siblings count as duplicates.
+    "MD024": { "siblings_only": true }
     // MD041 is NOT configured: the README files were fixed instead
     // (H1 must be the first line).
     // Semantic rules (MD022, MD031, MD032, MD033, MD034) stay enabled.

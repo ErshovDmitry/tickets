@@ -37,6 +37,7 @@ ticket set 7 done "починено, тесты зелёные"             # с
 - [Конфигурация](docs/ru/configuration.md) — переменные окружения `TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`, `TICKET_LOG`; в разделе про отладочный лог — `--verbose`, формат записи и список событий.
 - [Сценарии](docs/ru/scenarios.md) — типовые рабочие сценарии: интеграция с агентами (блок `AGENTS.md`), скилл для агентов, архив, кросс-проектные тикеты.
 - [Разработка](docs/ru/development.md) — сборка из исходников, кросс-компиляция, тесты, Windows-smoke.
+- [История изменений](CHANGELOG.md) — история релизов в формате Keep a Changelog.
 
 ## Ссылки
 

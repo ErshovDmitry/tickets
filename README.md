@@ -37,6 +37,7 @@ ticket set 7 done "fixed, tests green"                  # change status, renames
 - [Configuration](docs/configuration.md) — environment variables `TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`, `TICKET_LOG`; the debug-log section covers `--verbose`, the record format and the event list.
 - [Scenarios](docs/scenarios.md) — typical workflows: agent integration (`AGENTS.md` block), agent skill, archiving, cross-project tickets.
 - [Development](docs/development.md) — building from source, cross-compilation, testing, Windows smoke.
+- [Changelog](CHANGELOG.md) — release history, Keep a Changelog format.
 
 ## Links
 
