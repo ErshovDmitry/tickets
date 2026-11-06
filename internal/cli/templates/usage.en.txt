@@ -30,6 +30,10 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
 Global flag (before the command, every command except init):
   -C <path>, --tickets-dir <path>
       path to the tickets directory itself (not the project root); works from any current directory
+  --verbose
+      debug log to stderr; TICKET_LOG=<path> also enables logging and sends the records to that file (the file wins over the flag);
+      accepted only BEFORE the command name; after help/version it is ignored; the glued form --verbose=x is not recognised;
+      stdout is never used for log records
 
 Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → upward scan for tickets/ from the current directory.
 
