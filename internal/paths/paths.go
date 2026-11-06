@@ -158,8 +158,46 @@ func isTicketsDir(dir string) bool {
 	}
 	return true // empty or only hidden/transient entries → bootstrap
 }
+
+// sameDir reports whether a and b denote the same directory. The comparison
+// is best-effort: both paths are made absolute and cleaned, and when both
+// exist they are compared through os.Stat/os.SameFile — the only check that
+// also catches a relative TMPDIR, a symlinked temp dir (/tmp ->
+// /private/tmp) and Windows case/8.3 aliases. The Abs+Clean arm is required
+// because os.TempDir does not guarantee that the directory exists.
+func sameDir(a, b string) bool {
+	if abs, err := filepath.Abs(a); err == nil {
+		a = abs
+	}
+	if abs, err := filepath.Abs(b); err == nil {
+		b = abs
+	}
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	if a == b {
+		return true
+	}
+	infoA, errA := os.Stat(a)
+	infoB, errB := os.Stat(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	return os.SameFile(infoA, infoB)
+}
+
+// scanUpward walks from cwd to the filesystem root looking for a tickets
+// subdirectory. The walk stops at the system temp root (os.TempDir) BEFORE
+// that root is inspected: a temp dir is shared by every process on the host
+// and is not a project root, so a leftover <temp-root>/tickets from an
+// earlier smoke run must not hijack resolution from an unrelated cwd
+// (T-0127). Projects INSIDE the temp root still self-locate. The scan stops
+// before the temp root itself, so neither <temp-root>/tickets nor its
+// ancestors are inspected.
 func scanUpward(cwd string) (string, bool) {
+	tempRoot := os.TempDir()
 	for {
+		if sameDir(cwd, tempRoot) {
+			return "", false
+		}
 		c := filepath.Join(cwd, dirName)
 		if i, e := os.Stat(c); e == nil && i.IsDir() {
 			if r, e := filepath.EvalSymlinks(c); e == nil {

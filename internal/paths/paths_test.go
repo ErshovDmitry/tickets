@@ -53,10 +53,9 @@ func assertInvalidDir(t *testing.T, err error, label, hint string) {
 	}
 }
 
-// TestResolveEnv covers the $TICKETS_DIR tier: a valid dir resolves, while
-// a missing path or a regular file yields ErrInvalidDir carrying the
-// (TICKETS_DIR) source label. Assumption: no ancestor of t.TempDir()
-// contains a directory named "tickets" (empty-env rows below).
+// TestResolveEnv covers the $TICKETS_DIR tier (Tier 2): a valid dir resolves,
+// while a missing path or a regular file yields ErrInvalidDir carrying the
+// (TICKETS_DIR) source label.
 func TestResolveEnv(t *testing.T) {
 	root := t.TempDir()
 	tickets := mkdirTemp(t, filepath.Join(root, "tickets"))
@@ -123,9 +122,9 @@ func TestResolveEmptyEnvFallsThrough(t *testing.T) {
 	}
 }
 
-// TestScanUpward covers Tier 2: upward scan from cwd, file rejection and
-// root stopping. Assumption: no ancestor of t.TempDir() contains a directory
-// named "tickets" for the wantOK=false rows.
+// TestScanUpward covers Tier 3: upward scan from cwd, file rejection and
+// root stopping. The walk halts at the system temp root, so the wantOK=false
+// rows never see a host-wide temp "tickets" directory (T-0127).
 func TestScanUpward(t *testing.T) {
 	root := t.TempDir()
 	tickets := mkdirTemp(t, filepath.Join(root, "tickets"))
@@ -162,7 +161,7 @@ func TestScanUpward(t *testing.T) {
 	}
 }
 
-// TestScanUpwardParentSymlink covers the Tier-2 parent-symlink note: the
+// TestScanUpwardParentSymlink covers the Tier-3 parent-symlink note: the
 // accepted candidate is returned through EvalSymlinks. Skipped on hosts
 // where directory symlinks cannot be created (e.g. unprivileged Windows).
 func TestScanUpwardParentSymlink(t *testing.T) {

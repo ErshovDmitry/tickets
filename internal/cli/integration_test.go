@@ -215,10 +215,9 @@ func runBin(t *testing.T, bin, dir, ticketsDir string, args ...string) (string, 
 }
 
 // runBinEnv is runBin with extra key=value pairs appended to the child
-// environment (e.g. TICKET_LANG=en for language-pinned scenarios).
-// extraEnv must NOT contain TICKETS_DIR: a duplicate key would silently
-// override the ticketsDir sandbox, since the last duplicate wins in
-// exec.Cmd.Env.
+// environment (e.g. TICKET_LANG=en). extraEnv must NOT contain TICKETS_DIR:
+// a duplicate key would silently override the ticketsDir sandbox, because the
+// last duplicate wins in exec.Cmd.Env.
 func runBinEnv(t *testing.T, bin, dir, ticketsDir string, extraEnv []string, args ...string) (string, string, int) {
 	t.Helper()
 	cmd := exec.Command(bin, args...)
@@ -228,6 +227,17 @@ func runBinEnv(t *testing.T, bin, dir, ticketsDir string, extraEnv []string, arg
 	env := []string{}
 	if ticketsDir != "" {
 		env = []string{"TICKETS_DIR=" + ticketsDir}
+	}
+	// The upward scan halts at the host temp root (T-0127), so the child must
+	// agree on it: pin it absolute, since the child resolves a relative value
+	// against cmd.Dir.
+	if tmp := os.TempDir(); tmp != "" {
+		abs, err := filepath.Abs(tmp)
+		if err != nil {
+			t.Fatalf("abs temp dir %q: %v", tmp, err)
+		}
+		tmp = filepath.Clean(abs)
+		env = append(env, "TMPDIR="+tmp, "TMP="+tmp, "TEMP="+tmp)
 	}
 	env = append(env, extraEnv...)
 	cmd.Env = env
