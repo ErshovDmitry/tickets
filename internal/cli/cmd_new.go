@@ -69,6 +69,14 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		fmt.Fprintln(stderr, domain.ErrPriorityInvalid(lang))
 		return 1
 	}
+	// T-0124: a title may repeat the effective type prefix ("TD: x" with
+	// -t TD); strip it so the H1 never doubles it. Stripping can empty the
+	// title, so the empty check is repeated before Create.
+	f.title = normalizeTypePrefix(f.title, f.typ)
+	if strings.TrimSpace(f.title) == "" {
+		fmt.Fprintln(stderr, domain.ErrTitleEmpty(lang))
+		return 1
+	}
 	// T-0109: the details may reference a file (`@path`) or stdin (`-`).
 	// The resolution happens BEFORE the first-use check and Create, so a
 	// failed read creates no ticket and no journal entry.
@@ -165,6 +173,20 @@ func isNewFlag(arg string) bool {
 		return true
 	}
 	return false
+}
+
+// normalizeTypePrefix strips leading "<typ>:" prefixes from title, repeating
+// until no prefix matches. Comparison ignores case (EqualFold); only ASCII
+// space and TAB directly after the colon are removed, the rest of title is
+// kept byte-for-byte.
+func normalizeTypePrefix(title, typ string) string {
+	prefix := typ + ":"
+	for {
+		if len(title) < len(prefix) || !strings.EqualFold(title[:len(prefix)], prefix) {
+			return title
+		}
+		title = strings.TrimLeft(title[len(prefix):], " 	")
+	}
 }
 
 // typeByName maps a -t value to its enum constant.
