@@ -4,7 +4,10 @@
 {
   "globs": ["**/*.md"],
   "ignores": [
-    "tickets/archive/**",
+    // Local-only ticket files are untracked (.gitignore: /tickets/) and may
+    // carry legacy lint noise. CI lints tracked files only, so ignoring them
+    // here keeps local runs aligned with CI.
+    "tickets/**",
     "docs_api/**",
     "AGENTS.md",
     "AGENTS_ARCHITECTURE.md",
