@@ -14,6 +14,12 @@ import (
 // strings.Contains(out, "--verbose") would survive deletion of the flag line.
 const verboseFlag = "--verbose"
 
+// logEnvAssign is the assignment form the help must spell: the bare name
+// would also match a negative mention ("TICKET_LOG is not supported"), so the
+// pin requires the "<...>" value placeholder that follows it in both
+// languages (TICKET_LOG=<path> / TICKET_LOG=<путь>).
+const logEnvAssign = "TICKET_LOG=<"
+
 // helpOutput renders the real usage text through the public CLI entry point
 // (cli.Run → printUsage → usage → usageFrom) for the given TICKET_LANG, so the
 // expectations come from the shipped renderer instead of the template files.
@@ -30,8 +36,15 @@ func helpOutput(t *testing.T, lang string) string {
 	return stdout.String()
 }
 
+// lineIndent counts the leading spaces of line. A blank line or a line with
+// an equal or shallower indent ends a documentation block.
+func lineIndent(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " "))
+}
+
 // verboseBlockLines returns the rendered --verbose documentation block: the
-// flag line itself plus every directly following indented non-empty line.
+// flag line itself plus the following lines indented deeper than the flag
+// line. A blank line or an equal/shallower indent ends the block.
 func verboseBlockLines(t *testing.T, lang, usage string) []string {
 	t.Helper()
 	lines := strings.Split(usage, "\n")
@@ -39,9 +52,10 @@ func verboseBlockLines(t *testing.T, lang, usage string) []string {
 		if strings.TrimSpace(line) != verboseFlag {
 			continue
 		}
+		indent := lineIndent(line)
 		block := []string{line}
 		for _, cont := range lines[i+1:] {
-			if cont == "" || !strings.HasPrefix(cont, " ") {
+			if lineIndent(cont) <= indent {
 				break
 			}
 			block = append(block, cont)
@@ -59,11 +73,15 @@ func TestUsageVerboseAndLogEnvDocumented(t *testing.T) {
 	for _, lang := range []string{"en", "ru"} {
 		t.Run(lang, func(t *testing.T) {
 			usage := helpOutput(t, lang)
-			if block := verboseBlockLines(t, lang, usage); len(block) < 2 {
+			block := verboseBlockLines(t, lang, usage)
+			if len(block) < 2 {
 				t.Errorf("printed usage (TICKET_LANG=%s) documents %s without a description", lang, verboseFlag)
 			}
-			if !strings.Contains(usage, "TICKET_LOG=") {
-				t.Errorf("printed usage (TICKET_LANG=%s) does not document TICKET_LOG=", lang)
+			if !strings.Contains(usage, logEnvAssign) {
+				t.Errorf("printed usage (TICKET_LANG=%s) does not document the assignment form %s", lang, logEnvAssign)
+			}
+			if !strings.Contains(strings.Join(block, "\n"), logEnvAssign) {
+				t.Errorf("printed usage (TICKET_LANG=%s) does not document %s inside the %s block", lang, logEnvAssign, verboseFlag)
 			}
 		})
 	}
