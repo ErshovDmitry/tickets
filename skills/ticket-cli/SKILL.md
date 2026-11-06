@@ -1,8 +1,8 @@
 ---
 name: ticket-cli
-version: "1.5"
+version: "1.7"
 created: 2026-09-04
-modified: 2026-10-29
+modified: 2026-11-06
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets."
@@ -22,9 +22,15 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 
 ## Commands
 
-### Global flag
+### Global flags
+
+Two flags are global, and both are accepted ONLY before the command name: a flag-like token after the command name is a subcommand argument and is rejected (e.g. `ticket list --verbose` fails).
 
 `-C <path>` / `-C<path>` / `--tickets-dir <path>` / `--tickets-dir=<path>` — the value is the path to the tickets directory itself (not a parent). Overrides `TICKETS_DIR`. Works with every command except `init` (which creates, never resolves).
+
+`--verbose` enables the debug log; `TICKET_LOG=<path>` sends the records to that file instead — the file wins over the flag. Log records NEVER reach stdout: stdout stays pure command output.
+
+Record format, destinations, failure behaviour and the complete event list are owned by `docs/configuration.md` (`## Debug log (--verbose / TICKET_LOG)`) — this skill cross-references them and does not repeat them.
 
 ### `init`
 
@@ -112,6 +118,7 @@ Labels are bilingual under the RU default locale:
 5. 🔴 BEFORE working on a ticket, read its `## User comments` section — the user leaves remarks there; the agent NEVER writes there. The agent's working notes go to `## Comments`.
 6. Tickets with Russian-only headers (`## Кратко`, `- Статус:`) are NOT parsed: those fields stay empty and the next `set` rewrites the file in the current format without them — fix such files by hand. There is no migration command. Files in the pre-MD022 format (current format without the blank line after the heading) are read and normalised on the next `set`.
 7. `TICKET_LOCK_TIMEOUT` controls how long `ticket` waits for the tickets-directory lock (`.lock`) before failing; the value is a Go duration with a mandatory unit (`30s`, `2m`, `500ms`), and an empty or invalid value silently falls back to the default — a typo never errors out. Raise it for parallel agent runs or CI. The default itself is owned by the code (`defaultLockTimeout` in `internal/store`), so this skill does not repeat the number.
+8. `-C`/`--tickets-dir` and `--verbose` MUST come BEFORE the command name; after it the token is a subcommand argument and the command fails — except after `help`/`version`, where it is ignored — see `docs/configuration.md` for the exact messages.
 
 ## Workflow quick reference
 
@@ -143,3 +150,5 @@ ticket-cli/
 | 2026-09-09 | Stale vs v1.2.3: `list --json` (T-0081) and `-P` on new/list missing; pitfall 1 described fixed bug T-0041 | Added `-P`/`--json` to new+list, rewrote pitfall 1 (verified empirically in /tmp sandbox) | 1.3 |
 | 2026-10-27 | T-0094: `TICKET_LOCK_TIMEOUT` not documented; T-0095: migration sed snippet removed | Added the lock-timeout pitfall; rewrote pitfall 6 and See also to match the parser behaviour | 1.4 |
 | 2026-10-29 | T-0109: the Details format rule and the `-d @file` / `-d -` input were undocumented | Documented the numbered-list Details format and the file/stdin details input (literal, `@file`, `@@name`, bare `@`, `-`, byte-exact content, no size limit, no ticket on failure) | 1.5 |
+| 2026-11-06 | Debug log is not documented in the skill | Added `--verbose`/`TICKET_LOG` to Global flags and a cross-reference to `docs/configuration.md`; version bumped to 1.6 | 1.6 |
+| 2026-11-06 | T-0110 Wave 7: pitfall 8 claimed that a misplaced `--verbose` always fails | Added the exception: after `help`/`version` the token is ignored; version bumped to 1.7 | 1.7 |

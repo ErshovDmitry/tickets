@@ -50,7 +50,7 @@ Command shapes at a glance:
 - `ticket archive [<number>]`
 - `ticket version`
 
-Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`) and the global `-C` / `--tickets-dir` flag: [configuration.md](configuration.md).
+Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`, `TICKET_LOG`) and the global `-C` / `--tickets-dir` flag: [configuration.md](configuration.md).
 
 ### Details input (`-d`)
 
@@ -124,6 +124,19 @@ Statuses: open — new; wip — in progress; done — fixed; closed — rejected
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
 Secrets (passwords, tokens, keys) must NOT be written into tickets.
 ```
+
+## Global flags
+
+Two global flags are recognised, and both are accepted only BEFORE the command name: `-C <dir>` / `--tickets-dir <dir>` (also `--tickets-dir=<dir>` and the glued `-C<dir>`) picks the tickets directory for one invocation, and `--verbose` turns on the debug log.
+
+`--verbose` writes the log to stderr; if `TICKET_LOG` is set to a path, records go to that file instead (the file wins over the flag). stdout is never used for log records. A token that looks like a global flag but appears AFTER the command name is a subcommand argument, not a global flag — `ticket list --verbose` and `ticket new "T" -d x --verbose` are errors, not silent no-ops. `--verbose` after `help`/`version` is ignored, and the glued form `--verbose=x` is not recognised.
+
+```bash
+ticket --verbose list                 # debug log to stderr
+ticket --verbose show 7 2>/dev/null   # log still goes to stderr, ticket text stays on stdout
+```
+
+The record format, the destination rules, the failure behaviour and the complete event list live in [configuration.md](configuration.md) — they are not duplicated here.
 
 ## Ticket file format
 
