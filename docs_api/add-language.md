@@ -99,7 +99,7 @@ go build -o /tmp/ticket-lang ./cmd/ticket   # бинарь для smoke
 
 ## Что менять НЕ нужно
 
-- `internal/domain/i18n.go` — реестр автоматически подхватывает
+- `internal/domain/i18n_registry.go` — реестр автоматически подхватывает
   `langs/*.json` в `init()`.
 - `internal/cli/cli.go` — `langPrefix()` проверяет код языка через
   `IsKnownLang()` (запрос к реестру).
