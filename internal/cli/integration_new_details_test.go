@@ -1,9 +1,9 @@
 package cli_test
 
 // T-0109 integration: the real binary resolves the `-d` details argument
-// from a file, from stdin or literally, and copies the bytes unchanged.
-// The Details region is compared as RAW bytes (no domain.Parse): the
-// section must hold exactly what the user supplied.
+// from a file, from stdin or literally; the resolver preserves the input
+// bytes unchanged, while rendering normalizes only trailing LF (T-0131).
+// The Details region is compared as RAW bytes (no domain.Parse).
 
 import (
 	"bytes"

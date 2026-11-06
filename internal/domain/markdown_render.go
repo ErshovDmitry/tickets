@@ -3,7 +3,16 @@ package domain
 import (
 	"bytes"
 	"fmt"
+	"strings"
 )
+
+// normalizeDetails returns s without its trailing LF bytes. Renderers add
+// their own "\n\n" separator after the details payload, so trailing LF would
+// otherwise produce a triple newline (markdownlint MD012). Only LF is
+// trimmed: CR of a CRLF payload, spaces and all other bytes are preserved.
+func normalizeDetails(s string) string {
+	return strings.TrimRight(s, "\n")
+}
 
 // Render re-emits the canonical markdown for the ticket and appends unknown
 // (manual) bytes after the journal section. Rendering into a bytes.Buffer
@@ -74,10 +83,14 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 		b.WriteString(d.headers[1])
 		b.WriteString("\n\n")
 	}
-	if t.Details == "" {
-		b.WriteString(d.detailsStub)
+	// Only trailing LF bytes are normalized away: the separator below is
+	// added unconditionally, so a payload keeping its trailing LF would
+	// emit three consecutive newlines (markdownlint MD012). CR, spaces and
+	// every other byte stay verbatim, and t.Details itself is not mutated.
+	if details := normalizeDetails(t.Details); details != "" {
+		b.WriteString(details)
 	} else {
-		b.WriteString(t.Details)
+		b.WriteString(d.detailsStub)
 	}
 	b.WriteString("\n\n")
 

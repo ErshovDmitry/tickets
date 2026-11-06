@@ -47,10 +47,15 @@ type newTicketData struct {
 }
 
 // newData assembles newTicketData for t from its language dictionary.
+// Details is normalized on a copy (T-0131): the caller's Ticket stays
+// untouched, and the template's empty-Details branch then covers both an
+// empty and an LF-only payload.
 func newData(t *Ticket) newTicketData {
 	d := getDict(t.Lang)
+	normalized := *t
+	normalized.Details = normalizeDetails(t.Details)
 	return newTicketData{
-		Ticket:             *t,
+		Ticket:             normalized,
 		Number:             fmt.Sprintf("%04d", t.Number),
 		Timestamp:          t.Created.Format(tsLayout),
 		Author:             t.Who,
