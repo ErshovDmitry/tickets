@@ -1,6 +1,6 @@
 ---
 name: ticket-cli
-version: "1.7"
+version: "1.8"
 created: 2026-09-04
 modified: 2026-11-06
 type: guide
@@ -19,6 +19,7 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 - Numbers are issued atomically via OS locks and are never reused. Status lives in the file name — NEVER rename ticket files manually.
 - Ticket directory discovery, first match wins: `-C`/`--tickets-dir` → `$TICKETS_DIR` → upward scan from cwd for `tickets/` (see README Installation).
 - i18n: language chain `TICKET_LANG → LC_ALL → LANG`, default **RU**; `TICKET_LANG=en` opts into English help and English-label ticket files.
+- 🔴 Ticket CONTENT language: write titles, Details, comments and journal entries in **Russian** (project rule since 2026-11-06). The `-t`/`-p` flag values and file names stay English (`T-NNNN-<status>.md`); the i18n setting above only governs help text and section labels, not what you write.
 
 ## Commands
 
