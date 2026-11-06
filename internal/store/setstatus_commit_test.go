@@ -119,7 +119,7 @@ func TestSetStatus_RollbackAlsoFails_BreachText(t *testing.T) {
 // SetStatus behind a single store lock, and every write is fsynced (Create
 // commits in place, SetStatus via link or rename), so the load variant
 // serialises 2N such operations behind that lock. The shipped default
-// (defaultLockTimeout in internal/store/store.go) is one interactive
+// (defaultLockTimeout in internal/store/store_lock.go) is one interactive
 // operation's budget, not a load test's, and the load variant has been
 // observed to exhaust it on CI; both tests therefore pin the budget
 // explicitly instead of depending on the ambient TICKET_LOCK_TIMEOUT.
