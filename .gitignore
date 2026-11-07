@@ -11,3 +11,6 @@
 /AGENTS_ARCHITECTURE.md
 /docs_api/
 /DEPLOY.md
+
+# Кэш mutation-раннера (scripts/mutation.sh: лок-файл + GOBIN)
+/.cache/
