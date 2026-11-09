@@ -25,7 +25,7 @@ readonly GREMLINS_VERSION="v0.6.0"
 readonly GREMLINS_MODULE="github.com/go-gremlins/gremlins"
 readonly GREMLINS_PKG="${GREMLINS_MODULE}/cmd/gremlins"
 readonly INSTALL_CMD="go install ${GREMLINS_PKG}@${GREMLINS_VERSION}"
-readonly INSTALL_HINT="gremlins ${GREMLINS_VERSION} not found. Install: ${INSTALL_CMD} (or: GOBIN=./.cache/gobin ${INSTALL_CMD})"
+readonly INSTALL_HINT="gremlins ${GREMLINS_VERSION} not found. Install it from the repository root: GOBIN=\"\$PWD/.cache/gobin\" ${INSTALL_CMD} (if GOBIN is already exported, install into it instead: GOBIN=\"\$GOBIN\" ${INSTALL_CMD}; an exported GOBIN must be an absolute path)"
 readonly DEFAULT_SCOPE="internal/lock"
 readonly WORKERS=2
 readonly TIMEOUT_COEFFICIENT=20
@@ -38,10 +38,12 @@ die() {
 }
 
 usage() {
-  cat <<'EOF'
+  # One unquoted heredoc: GREMLINS_VERSION and INSTALL_CMD expand at call time.
+  # Backslash-escaped dollars stay literal (shell variables the reader must set).
+  cat <<EOF
 Usage: mutation.sh [-h] [SCOPE...]
 
-Reproducible mutation testing runner for gremlins v0.6.0.
+Reproducible mutation testing runner for gremlins ${GREMLINS_VERSION}.
 
   SCOPE       package or directory to mutate (default: internal/lock).
               The first scope is passed to gremlins as the analysis path,
@@ -49,10 +51,13 @@ Reproducible mutation testing runner for gremlins v0.6.0.
               separated list).
   -h          this help
 
-Binary lookup: $GOBIN/gremlins when GOBIN is set and not empty, otherwise
-./.cache/gobin/gremlins. Install it with:
-  go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
-  GOBIN=./.cache/gobin go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+Binary lookup: \$GOBIN/gremlins when GOBIN is set and not empty, otherwise
+./.cache/gobin/gremlins (relative to the repository root). PATH and
+\$(go env GOPATH)/bin are NOT searched.
+Install gremlins into that same directory, run from the repository root:
+
+  GOBIN="\$PWD/.cache/gobin" ${INSTALL_CMD}   (GOBIN unset or empty)
+  GOBIN="\$GOBIN" ${INSTALL_CMD}   (GOBIN set; it must be absolute)
 
 Guards, in order: exclusive lock on ./.cache/mutation.lock, clean working
 tree, green baseline "go test -count=1", then the mutations themselves.
@@ -246,7 +251,7 @@ printf '\n== Mutation summary (gremlins %s) ==\n' "${GREMLINS_VERSION}"
 printf 'Scope:       %s\n' "${scope[*]}"
 printf 'Report:      %s\n' "${REPORT}"
 printf 'Note:        the report is deleted on exit (temporary directory)\n'
-printf 'Total:       %s\n' "${total}"
+printf 'Total:       %s   (killed + lived; not covered, timed out and not viable are NOT included)\n' "${total}"
 printf 'Killed:      %s\n' "${killed}"
 printf 'Lived:       %s\n' "${lived}"
 printf 'Timed out:   %s\n' "${timed_out}"
