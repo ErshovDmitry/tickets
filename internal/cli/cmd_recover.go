@@ -53,6 +53,9 @@ type recoverStrings struct {
 	sameStateFmt string // printf: number
 	divergentFmt string // printf: number, name, other
 	selectionFmt string // printf: number, name
+	// singleMismatchFmt: printf number, other, keep — the only remaining
+	// file (other) is not the selected one (keep).
+	singleMismatchFmt string
 }
 
 // recoverStringsFor returns the message set for lang; every language other
@@ -60,33 +63,35 @@ type recoverStrings struct {
 func recoverStringsFor(lang domain.Lang) recoverStrings {
 	if lang == domain.LangRU {
 		return recoverStrings{
-			header:       "ticket %d: прерванная смена статуса",
-			keepFmt:      "  сохранить: %s",
-			discardFmt:   "  удалить:   %s",
-			discardNone:  "  удалить:   (не определено)",
-			ask:          "Удалить устаревший файл? yes/no: ",
-			refused:      "ticket: нет терминала для подтверждения; повторите с --yes (ничего не изменено)",
-			cancelled:    "ticket: восстановление отменено, ничего не изменено",
-			badNameFmt:   "ticket: имя файла должно быть базовым именем тикета %d (например T-%04d-done.md), получено %q",
-			keepOldFmt:   "ticket: %d: выбран устаревший файл %s; сначала восстановите %s, затем откатите статус командой set",
-			sameStateFmt: "ticket: %d: у файлов одинаковый статус в имени; восстановление невозможно, ничего не изменено",
-			divergentFmt: "ticket: %d: файл %s не является продолжением %s (содержимое расходится); восстановление невозможно, ничего не изменено",
-			selectionFmt: "ticket: %d: файл %s не входит в пару конфликтующих файлов; ничего не изменено",
+			header:            "ticket %d: прерванная смена статуса",
+			keepFmt:           "  сохранить: %s",
+			discardFmt:        "  удалить:   %s",
+			discardNone:       "  удалить:   (не определено)",
+			ask:               "Удалить устаревший файл? yes/no: ",
+			refused:           "ticket: нет терминала для подтверждения; повторите с --yes (ничего не изменено)",
+			cancelled:         "ticket: восстановление отменено, ничего не изменено",
+			badNameFmt:        "ticket: имя файла должно быть базовым именем тикета %d (например T-%04d-done.md), получено %q",
+			keepOldFmt:        "ticket: %d: выбран устаревший файл %s; сначала восстановите %s, затем откатите статус командой set",
+			sameStateFmt:      "ticket: %d: у файлов одинаковый статус в имени; восстановление невозможно, ничего не изменено",
+			divergentFmt:      "ticket: %d: файл %s не является продолжением %s (содержимое расходится); восстановление невозможно, ничего не изменено",
+			selectionFmt:      "ticket: %d: файл %s не входит в пару конфликтующих файлов; ничего не изменено",
+			singleMismatchFmt: "ticket: %d: единственный оставшийся файл %s не является выбранным %s; восстановление невозможно, ничего не изменено",
 		}
 	}
 	return recoverStrings{
-		header:       "ticket %d: interrupted status change",
-		keepFmt:      "  keep:    %s",
-		discardFmt:   "  discard: %s",
-		discardNone:  "  discard: (not identified)",
-		ask:          "Delete the stale file? yes/no: ",
-		refused:      "ticket: no terminal to confirm on; re-run with --yes (nothing was changed)",
-		cancelled:    "ticket: recovery cancelled, nothing was changed",
-		badNameFmt:   "ticket: the file name must be a ticket %d basename (for example T-%04d-done.md), got %q",
-		keepOldFmt:   "ticket: %d: selected %s is the stale file; recover %s first, then roll back with set",
-		sameStateFmt: "ticket: %d: both files carry the same status in their names; recovery is impossible, nothing was changed",
-		divergentFmt: "ticket: %d: %s is not the continuation of %s (contents diverge); recovery is impossible, nothing was changed",
-		selectionFmt: "ticket: %d: %s is not part of the conflicting pair; nothing was changed",
+		header:            "ticket %d: interrupted status change",
+		keepFmt:           "  keep:    %s",
+		discardFmt:        "  discard: %s",
+		discardNone:       "  discard: (not identified)",
+		ask:               "Delete the stale file? yes/no: ",
+		refused:           "ticket: no terminal to confirm on; re-run with --yes (nothing was changed)",
+		cancelled:         "ticket: recovery cancelled, nothing was changed",
+		badNameFmt:        "ticket: the file name must be a ticket %d basename (for example T-%04d-done.md), got %q",
+		keepOldFmt:        "ticket: %d: selected %s is the stale file; recover %s first, then roll back with set",
+		sameStateFmt:      "ticket: %d: both files carry the same status in their names; recovery is impossible, nothing was changed",
+		divergentFmt:      "ticket: %d: %s is not the continuation of %s (contents diverge); recovery is impossible, nothing was changed",
+		selectionFmt:      "ticket: %d: %s is not part of the conflicting pair; nothing was changed",
+		singleMismatchFmt: "ticket: %d: the only remaining file %s is not the selected %s; recovery is impossible, nothing was changed",
 	}
 }
 
@@ -244,7 +249,19 @@ func reportRecoveryState(stderr io.Writer, lang domain.Lang, rse *store.Recovery
 	case store.RecoverReasonKeepOld:
 		fmt.Fprintf(stderr, msg.keepOldFmt+"\n", rse.Number, rse.Keep, rse.Other)
 		return exitError
-	default: // selection-not-in-pair, single-mismatch
+	case store.RecoverReasonSingleMismatch:
+		// Name the actually remaining file (Other) before the selected one
+		// (Keep). The non-regular lone keep (store recoverSingle) reports
+		// Other == Keep, and an empty Other is defensive; selectionFmt is
+		// intentionally reused there because "only remaining X is not the
+		// selected X" would be wrong when Other == Keep.
+		if rse.Other != "" && rse.Other != rse.Keep {
+			fmt.Fprintf(stderr, msg.singleMismatchFmt+"\n", rse.Number, rse.Other, rse.Keep)
+			return exitError
+		}
+		fmt.Fprintf(stderr, msg.selectionFmt+"\n", rse.Number, rse.Keep)
+		return exitError
+	default: // selection-not-in-pair
 		fmt.Fprintf(stderr, msg.selectionFmt+"\n", rse.Number, rse.Keep)
 		return exitError
 	}

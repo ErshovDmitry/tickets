@@ -32,9 +32,11 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       without --yes it prints the kept and the deleted file and asks yes/no;
       without --yes and without a terminal it refuses and changes nothing;
       only the stale old file is removed, the kept file is never rewritten;
-      a repeat after a successful recovery is a no-op success
+      a repeat after a successful recovery, and a single file already named <new-file>, are a conservative no-op success;
+      recover only checks that the wanted file is present: it cannot prove that it is the previously saved file and not a lone stale one,
+      so exit 0 means "the wanted name is already on disk", not "a recovery happened"
       exit 2 when the number is not cleanly recoverable (three or more files, diverging contents, equal statuses in the file names);
-      keeping the stale file, naming a file outside the pair or a single mismatch is exit 1 and changes nothing
+      keeping the stale file, naming a file outside the pair or a single file with another name is exit 1 and changes nothing
 
 Global flag (before the command, every command except init):
   -C <path>, --tickets-dir <path>

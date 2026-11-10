@@ -228,3 +228,54 @@ func TestRecover_KeepsNewInodeAndModTime(t *testing.T) {
 		t.Errorf("recovery rewrote the new file: mtime %v, want %v", after.ModTime(), stamp)
 	}
 }
+
+// TestRecover_LoneCleanTicket_NoOp pins the T-0162 postcondition: a single
+// file that already carries the selected name — here an ordinary ticket with
+// no crash pair at all — is a no-op success. Neither the filename nor the
+// journal proves that this is the previously kept new file, so the test
+// asserts only what the store guarantees: the same path comes back, the tree
+// is byte-identical (snapshotTree hashes every file), the inode is the same,
+// the file mode is unchanged and the mtime is a fixed stamp that the no-op
+// never touched.
+func TestRecover_LoneCleanTicket_NoOp(t *testing.T) {
+	s, dir := newStore(t)
+	seedTicketOne(t, s, dir)
+	path := filepath.Join(dir, "T-0001-open.md")
+	stamp := time.Unix(1_000_000_000, 0)
+	if err := os.Chtimes(path, stamp, stamp); err != nil {
+		t.Fatalf("stamp lone file: %v", err)
+	}
+	beforeInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat before: %v", err)
+	}
+	before := snapshotTree(t, dir)
+	kept, err := s.Recover(1, "T-0001-open.md")
+	if err != nil {
+		t.Fatalf("Recover on a lone clean ticket: %v", err)
+	}
+	if kept != path {
+		t.Errorf("kept %q, want %q", kept, path)
+	}
+	if after := snapshotTree(t, dir); !reflect.DeepEqual(before, after) {
+		t.Errorf("lone no-op changed the tree\nbefore: %v\nafter:  %v", before, after)
+	}
+	afterInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat after: %v", err)
+	}
+	if !os.SameFile(beforeInfo, afterInfo) {
+		t.Errorf("no-op replaced the file (inode changed): %q", path)
+	}
+	if beforeInfo.Mode() != afterInfo.Mode() {
+		t.Errorf("no-op changed the file mode: %v, want %v", afterInfo.Mode(), beforeInfo.Mode())
+	}
+	if beforeInfo.Mode().Perm() != afterInfo.Mode().Perm() {
+		t.Errorf("no-op changed the file permissions: %v, want %v", afterInfo.Mode().Perm(), beforeInfo.Mode().Perm())
+	}
+	if !afterInfo.ModTime().Equal(stamp) {
+		t.Errorf("no-op rewrote the file: mtime %v, want %v", afterInfo.ModTime(), stamp)
+	}
+	assertTicketFileNames(t, dir, "T-0001-open.md")
+	assertNoTmpFiles(t, dir)
+}

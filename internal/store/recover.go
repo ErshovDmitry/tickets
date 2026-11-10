@@ -8,6 +8,12 @@ package store
 // does not already end in that same transition — and then removes
 // ONLY the stale old file. It never writes the new file, never creates
 // tmp/journal files, and never renames anything (no new rename-over risk).
+//
+// T-0162: because a recovery leaves no trace, the on-disk state cannot tell
+// a lone file that already was the wanted one from a lone stale file that
+// happens to carry the same name. Recovering such a single file is a
+// documented postcondition-only no-op (see recoverSingle), never a proof
+// that a recovery happened.
 
 import (
 	"bytes"
@@ -38,8 +44,8 @@ const (
 	// caller must select the new file instead (rollback happens via a
 	// normal set after recovery).
 	RecoverReasonKeepOld = "keep-old"
-	// RecoverReasonSingleMismatch: exactly one file remains and it is not
-	// the selected new file.
+	// RecoverReasonSingleMismatch: exactly one file remains and it does not
+	// carry the selected name, or it is not a regular file.
 	RecoverReasonSingleMismatch = "single-mismatch"
 )
 
@@ -72,8 +78,12 @@ func (e *RecoveryStateError) Error() string {
 }
 
 // Recover resolves an interrupted status commit for ticket n. keepBase is
-// the basename of the file the caller identified as the canonical new file
-// (from the ambiguity diagnostics), e.g. "T-0001-done.md". On success it
+// the caller-supplied basename of the file claimed as the canonical new
+// file (typically taken from the ambiguity diagnostics), e.g.
+// "T-0001-done.md". The store verifies that name against the on-disk
+// state, not the caller's claim of identity: for a crash pair it also
+// requires the content crash signature, while for a single remaining file
+// only the name (and regular-file check) is enforced. On success it
 // returns the absolute path of the kept file and removes only the stale
 // old file; a repeated call with exactly the kept file left is a no-op
 // returning the same path. Any refusal or I/O error leaves the tree
@@ -159,9 +169,21 @@ func validSelection(n int, keepBase string) error {
 	return nil
 }
 
-// recoverSingle handles the idempotent repeat: exactly one file remains
-// and it is the previously kept new file — a no-op success. Any other
-// single file is a typed refusal.
+// recoverSingle handles the single-file postcondition: exactly one file
+// remains, it carries the selected name and is a regular file, so the
+// wanted name is already on disk — a no-op success. Nothing is deleted,
+// overwritten, renamed or marked: the file is only Lstat'd and never
+// reopened for writing, so its bytes, journal and mtime stay intact.
+//
+// The name alone does NOT prove that this is the previously kept new file.
+// After a successful recovery the stale old file is gone and the new file is
+// left byte-identical (recovery never rewrites it), so a lone stale old file
+// carrying the selected name looks exactly the same; and a plain set leaves
+// the same trailing journal record a recovery would. Neither the filename
+// nor the journal encodes that a recovery happened, so this branch is
+// deliberately conservative: exit 0 means "the wanted name is on disk", not
+// "a recovery happened". Any other single file is a typed refusal
+// (RecoverReasonSingleMismatch).
 func (s *Store) recoverSingle(log *slog.Logger, n int, f locatedFile, keepBase string) (string, error) {
 	fail := func(err error) (string, error) {
 		log.Error("store.recover.failure", "number", n, "keep", keepBase,

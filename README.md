@@ -37,7 +37,7 @@ ticket recover 7 T-0007-done.md                        # resolve a crash pair (a
 - `1` — error: bad arguments, ticket not found, collision, input or store error.
 - `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
 
-`ticket recover` uses the same codes: `0` also covers an idempotent repeat; `1` covers a usage error, a refused confirmation, a missing ticket, an I/O error (archive scan included), the keep-old choice and a name that is not the crash pair; `2` means the number cannot be recovered automatically — more than two files, diverging content or equal statuses. The ambiguity report prints both conflicting absolute paths, while `<new-file>` for `recover` is always a bare basename.
+`ticket recover` uses the same codes: `0` also covers a conservative no-op — a repeat after a successful recovery, or a single file already named `<new-file>` — so `0` means the wanted file name is on disk and never proves that a recovery happened; `1` covers a usage error, a refused confirmation, a missing ticket, an I/O error (archive scan included), the keep-old choice and a name that is not the crash pair; `2` means the number cannot be recovered automatically — more than two files, diverging content or equal statuses. The ambiguity report prints both conflicting absolute paths, while `<new-file>` for `recover` is always a bare basename.
 
 ## Documentation
 

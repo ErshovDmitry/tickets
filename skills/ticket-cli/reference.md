@@ -1,6 +1,6 @@
 ---
 name: ticket-cli-reference
-version: "1.6"
+version: "1.7"
 created: 2026-09-04
 modified: 2026-11-11
 type: reference
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-11 (T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -50,9 +50,11 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       без --yes печатает сохраняемый и удаляемый файлы и спрашивает yes/no;
       без --yes и без терминала отказывает и ничего не меняет;
       удаляется только устаревший старый файл, сохраняемый файл не перезаписывается;
-      повторный запуск после успешного восстановления — успех без изменений
+      повторный запуск после успешного восстановления и единственный файл с выбранным именем — консервативный успех без изменений;
+      recover лишь проверяет наличие нужного файла: он не может доказать, что это ранее сохранённый файл, а не одинокий устаревший,
+      поэтому код 0 значит «нужное имя уже на диске», а не «восстановление произошло»
       код 2 — номер не восстановить однозначно (три файла и более, расходящееся содержимое, одинаковый статус в именах);
-      выбор старого файла, файла вне пары или единственного оставшегося — код 1, дерево не меняется
+      выбор старого файла, файла вне пары или единственного файла с другим именем — код 1, дерево не меняется
 
 Глобальный флаг (перед командой, все команды кроме init):
   -C <путь>, --tickets-dir <путь>
@@ -83,3 +85,4 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-10-27 | T-0094: `TICKET_LOCK_TIMEOUT` missing; T-0095: migration/sed section removed | Re-synced with `internal/cli/templates/usage.ru.txt` | 1.4 |
 | 2026-10-29 | T-0109: `-d` input rules and the Details format rule missing in the help text | Re-synced with `internal/cli/templates/usage.ru.txt` | 1.5 |
 | 2026-11-11 | T-0159: `ticket recover` missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (recover block, `recover` in the exit-code line) | 1.6 |
+| 2026-11-11 | T-0162: the single-file no-op and the single-file-with-another-name exit 1 were undocumented | Re-synced with `internal/cli/templates/usage.ru.txt` (conservative no-op lines, `единственного файла с другим именем`) | 1.7 |

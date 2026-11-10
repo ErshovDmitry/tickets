@@ -122,9 +122,11 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       without --yes it prints the kept and the deleted file and asks yes/no;
       without --yes and without a terminal it refuses and changes nothing;
       only the stale old file is removed, the kept file is never rewritten;
-      a repeat after a successful recovery is a no-op success
+      a repeat after a successful recovery, and a single file already named <new-file>, are a conservative no-op success;
+      recover only checks that the wanted file is present: it cannot prove that it is the previously saved file and not a lone stale one,
+      so exit 0 means "the wanted name is already on disk", not "a recovery happened"
       exit 2 when the number is not cleanly recoverable (three or more files, diverging contents, equal statuses in the file names);
-      keeping the stale file, naming a file outside the pair or a single mismatch is exit 1 and changes nothing
+      keeping the stale file, naming a file outside the pair or a single file with another name is exit 1 and changes nothing
 
 Global flag (before the command, every command except init):
   -C <path>, --tickets-dir <path>
@@ -171,11 +173,11 @@ ticket recover <number> <new-file> [--yes]
 - The signature is matched strictly: the new file must equal the old file plus EXACTLY one trailing journal entry `From=old status → To=new status`, and the old file must LACK that trailing entry. The comparison runs after parse/render (every field, unknown/RawTemplates included): any other difference, an extra or a foreign journal entry is a refusal.
 - The selected name must be the new file. Naming the old one (keep old) is a refusal with a hint: `recover` the new file first, then `ticket set` back to the previous status if needed.
 - ONLY the old file is deleted; the new file is never opened for writing, its content and journal stay byte-identical, no `tmp/` and no recovery journal entry are created.
-- A repeat is idempotent: when only the new file remains, the command exits 0 and changes nothing.
+- A repeat is a conservative no-op: when only the new file remains, the command exits 0 and changes nothing (the file is not reopened for writing). The same exit 0 covers a single file that is already named `<new-file>` — the postcondition is "the wanted name is on disk", never proof that this was the previously saved file.
 - Rolling the status back is an ordinary follow-up `ticket set <number> <old-status> "reason"`: it appends the journal and renames the file. `recover` has no rollback flag.
 - Any error leaves the pair in place. Path reporting depends on the diagnostic: the ambiguity report (more than two files, and the same report from `show`/`set`/`archive`) lists every conflicting ABSOLUTE path, while a `RecoveryState` refusal names only the conflicting BASENAMES — the same-status refusal names none. Do not count on paths appearing in every error: retry with the basename after fixing the cause.
 
-Exit codes: `0` — success or an idempotent repeat; `1` — a usage error, a refused confirmation, a missing file, an I/O error (archive scan included), the keep-old choice and a selection that is not the crash pair; `2` — the number cannot be recovered automatically: more than two files, diverging content or equal statuses. For automation, exit code `2` means "do not touch it": the pair needs a manual review.
+Exit codes: `0` — success, including a conservative no-op (a repeat after a successful recovery, or a single file already named `<new-file>`) — `0` means the wanted file name is on disk and does NOT prove that a recovery happened; `1` — a usage error, a refused confirmation, a missing file, an I/O error (archive scan included), the keep-old choice and a selection that is not the crash pair; `2` — the number cannot be recovered automatically: more than two files, diverging content or equal statuses. For automation, exit code `2` means "do not touch it": the pair needs a manual review.
 
 ```bash
 ticket set 7 done "fixed"                 # interrupted midway: exit 2, both files on stderr

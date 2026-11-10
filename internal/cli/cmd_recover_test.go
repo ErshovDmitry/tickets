@@ -90,6 +90,23 @@ func treeState(t *testing.T, dir string) map[string]string {
 	return out
 }
 
+// assertFileMetaUnchanged fails when the kept file's mode or mtime changed.
+// treeState snapshots contents only, so a rewrite (or a chmod) of the kept
+// file would be invisible to it.
+func assertFileMetaUnchanged(t *testing.T, path string, before fs.FileInfo) {
+	t.Helper()
+	after, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat kept file %s after: %v", path, err)
+	}
+	if after.Mode() != before.Mode() {
+		t.Errorf("kept file mode changed: %v -> %v", before.Mode(), after.Mode())
+	}
+	if !after.ModTime().Equal(before.ModTime()) {
+		t.Errorf("kept file mtime changed: %v -> %v", before.ModTime(), after.ModTime())
+	}
+}
+
 // assertSameTree fails when the on-disk tree differs from before.
 func assertSameTree(t *testing.T, dir string, before map[string]string) {
 	t.Helper()
@@ -129,6 +146,43 @@ func TestRecoverYesKeepsNewAndIsIdempotent(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout, newPath) {
 		t.Fatalf("idempotent repeat: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
+}
+
+// TestRecoverLoneCleanTicketNoOp pins the documented CLI postcondition
+// (T-0162): a lone file that already carries the selected name — an ordinary
+// ticket without any crash pair — is exit 0 with the file named on stdout,
+// the tree is byte-identical afterwards, and a repeat stays a success.
+func TestRecoverLoneCleanTicketNoOp(t *testing.T) {
+	dir := t.TempDir()
+	stdout, stderr, code := runRecoverCLI(t, dir, "new", "lone ticket")
+	if code != 0 {
+		t.Fatalf("seed new: code=%d stderr=%q", code, stderr)
+	}
+	path := filepath.Join(dir, "T-0001-open.md")
+	before := treeState(t, dir)
+	metaBefore, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat kept file before: %v", err)
+	}
+	wantStdout := path + "\n"
+	stdout, stderr, code = runRecoverCLI(t, dir, "recover", "1", "T-0001-open.md", "--yes")
+	if code != 0 {
+		t.Fatalf("lone no-op: code=%d want 0 (stderr=%q)", code, stderr)
+	}
+	if stdout != wantStdout {
+		t.Errorf("stdout must be exactly the kept path line %q, got %q", wantStdout, stdout)
+	}
+	assertSameTree(t, dir, before)
+	assertFileMetaUnchanged(t, path, metaBefore)
+	stdout, stderr, code = runRecoverCLI(t, dir, "recover", "1", "T-0001-open.md", "--yes")
+	if code != 0 {
+		t.Fatalf("repeat lone no-op: code=%d want 0 (stderr=%q)", code, stderr)
+	}
+	if stdout != wantStdout {
+		t.Errorf("repeat stdout must be exactly the kept path line %q, got %q", wantStdout, stdout)
+	}
+	assertSameTree(t, dir, before)
+	assertFileMetaUnchanged(t, path, metaBefore)
 }
 
 func TestRecoverPromptYesAndNo(t *testing.T) {
