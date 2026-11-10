@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/mutation.sh - reproducible mutation testing runner (gremlins v0.6.0).
+# scripts/mutation.sh - reproducible mutation testing runner (gremlins; version pinned by GREMLINS_VERSION below).
 #
 # The script pins the gremlins version, resolves the binary from a controlled
 # path, refuses to run on a dirty working tree or in parallel, runs a green
@@ -169,11 +169,10 @@ if [ ! -x "${BIN}" ]; then
 fi
 
 mod_info="$(go version -m "${BIN}" 2>/dev/null || true)"
-if ! grep -Eq 'mod[[:space:]]+github\.com/go-gremlins/gremlins[[:space:]]+v0\.6\.0' <<<"${mod_info}"; then
+bin_version="$(awk -v mod="${GREMLINS_MODULE}" '$1 == "mod" && $2 == mod { print $3; exit }' <<<"${mod_info}")"
+if [ "${bin_version}" != "${GREMLINS_VERSION}" ]; then
   die "gremlins binary at ${BIN} is not ${GREMLINS_MODULE} ${GREMLINS_VERSION}. Rebuild it: ${INSTALL_CMD}"
 fi
-
-bin_version="$(awk -v mod="${GREMLINS_MODULE}" '$1 == "mod" && $2 == mod { print $3; exit }' <<<"${mod_info}")"
 
 printf 'go: %s\n' "$(go version)"
 printf 'gremlins: %s (from go version -m)\n' "${bin_version:-${GREMLINS_VERSION}}"
