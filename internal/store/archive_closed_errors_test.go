@@ -108,11 +108,12 @@ func TestArchiveClosed_WarningsOnlyNoClosed(t *testing.T) {
 	assertNoTmpFiles(t, dir)
 }
 
-// TestArchiveClosed_MidRunCollisionReturnsMoved pins the partial-failure
-// contract: the first ticket's path is still returned when the second
-// move collides, and the error carries *CollisionError for the blocked
-// ticket.
-func TestArchiveClosed_MidRunCollisionReturnsMoved(t *testing.T) {
+// TestArchiveClosed_MidRunAmbiguityReturnsMoved pins the partial-failure
+// contract under T-0157: the first ticket's path is still returned when
+// the second ticket's number turns out to be ambiguous (main file plus a
+// foreign archive file), and the error carries *AmbiguousNumberError for
+// the blocked number.
+func TestArchiveClosed_MidRunAmbiguityReturnsMoved(t *testing.T) {
 	s, dir := newStore(t)
 	for i := 0; i < 2; i++ {
 		if _, err := s.Create(fakeTicket(0)); err != nil {
@@ -137,13 +138,7 @@ func TestArchiveClosed_MidRunCollisionReturnsMoved(t *testing.T) {
 	if len(moved) != 1 || moved[0] != want {
 		t.Fatalf("moved = %v, want [%s]", moved, want)
 	}
-	var coll *CollisionError
-	if !errors.As(err, &coll) {
-		t.Fatalf("expected *CollisionError, got %v", err)
-	}
-	if coll.Target != blocked {
-		t.Errorf("CollisionError.Target = %q, want %q", coll.Target, blocked)
-	}
+	assertAmbiguous(t, err, 2, []string{filepath.Join(dir, "T-0002-done.md"), blocked})
 	if _, serr := os.Stat(filepath.Join(dir, "T-0002-done.md")); serr != nil {
 		t.Errorf("blocked ticket must remain in main: %v", serr)
 	}
@@ -151,13 +146,13 @@ func TestArchiveClosed_MidRunCollisionReturnsMoved(t *testing.T) {
 	assertNoTmpFiles(t, archiveDir)
 }
 
-// TestArchiveClosed_MidRunCollisionKeepsWarnings pins the errors.Join
-// contract for the mid-run collision path: when a move collides after
-// some tickets have landed and the scan also produced warnings, the
-// returned error carries BOTH payloads — the *CollisionError for the
-// blocked ticket and the *ScanWarningsError whose warnings survive the
-// join (nothing is silently dropped).
-func TestArchiveClosed_MidRunCollisionKeepsWarnings(t *testing.T) {
+// TestArchiveClosed_MidRunAmbiguityKeepsWarnings pins the errors.Join
+// contract for the mid-run ambiguity path: when a number turns out to be
+// ambiguous after some tickets have landed and the scan also produced
+// warnings, the returned error carries BOTH payloads — the
+// *AmbiguousNumberError for the blocked number and the *ScanWarningsError
+// whose warnings survive the join (nothing is silently dropped).
+func TestArchiveClosed_MidRunAmbiguityKeepsWarnings(t *testing.T) {
 	s, dir := newStore(t)
 	for i := 0; i < 2; i++ {
 		if _, err := s.Create(fakeTicket(0)); err != nil {
@@ -186,13 +181,7 @@ func TestArchiveClosed_MidRunCollisionKeepsWarnings(t *testing.T) {
 	if len(moved) != 1 || moved[0] != want {
 		t.Fatalf("moved = %v, want [%s]", moved, want)
 	}
-	var coll *CollisionError
-	if !errors.As(err, &coll) {
-		t.Fatalf("expected *CollisionError in joined error, got %v", err)
-	}
-	if coll.Target != blocked {
-		t.Errorf("CollisionError.Target = %q, want %q", coll.Target, blocked)
-	}
+	assertAmbiguous(t, err, 2, []string{filepath.Join(dir, "T-0002-done.md"), blocked})
 	var swe *ScanWarningsError
 	if !errors.As(err, &swe) {
 		t.Fatalf("expected *ScanWarningsError in joined error, got %v", err)

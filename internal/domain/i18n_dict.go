@@ -55,6 +55,9 @@ type dictJSON struct {
 	HintNumbersStartAtOne       string          `json:"hintNumbersStartAtOne"`
 	HintStoreEmpty              string          `json:"hintStoreEmpty"`
 	HintNumbersUpTo             string          `json:"hintNumbersUpTo"`
+	ErrAmbiguousNumber          string          `json:"errAmbiguousNumber"`
+	WarnAmbiguousNumber         string          `json:"warnAmbiguousNumber"`
+	WarnAmbiguousNumberSkipped  string          `json:"warnAmbiguousNumberSkipped"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -118,5 +121,8 @@ func loadDict(data []byte) (*dict, error) {
 		hintNumbersStartAtOne:       dj.HintNumbersStartAtOne,
 		hintStoreEmpty:              dj.HintStoreEmpty,
 		hintNumbersUpTo:             dj.HintNumbersUpTo,
+		errAmbiguousNumber:          dj.ErrAmbiguousNumber,
+		warnAmbiguousNumber:         dj.WarnAmbiguousNumber,
+		warnAmbiguousNumberSkipped:  dj.WarnAmbiguousNumberSkipped,
 	}, nil
 }

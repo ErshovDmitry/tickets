@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"ticket/internal/domain"
 	"ticket/internal/store"
@@ -35,7 +36,18 @@ func cmdArchive(st *store.Store, args []string, who, project string, lang domain
 // Paths archived before a mid-run failure are still printed, because each
 // target is echoed as it goes.
 func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io.Writer) int {
-	moved, err := st.ArchiveClosed(who)
+	// T-0157: numbers owned by more than one file are skipped, one
+	// warning per number; the rest of done/closed archives as usual.
+	dups, derr := st.Duplicates()
+	if derr != nil {
+		return archiveError(stderr, lang, "", derr)
+	}
+	skip := make(map[int]struct{}, len(dups))
+	for _, c := range dups {
+		fmt.Fprintln(stderr, domain.WarnAmbiguousNumberSkipped(lang, c.Number, strings.Join(c.Paths, ", ")))
+		skip[c.Number] = struct{}{}
+	}
+	moved, err := st.ArchiveClosedSkipping(who, skip)
 	// Store scan warnings ride on the archive error, alone or joined with a
 	// mid-run failure; log them before the moved paths and the human report.
 	if scanWarnings, ok := errors.AsType[*store.ScanWarningsError](err); ok {
@@ -45,10 +57,23 @@ func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io
 		fmt.Fprintln(stdout, path)
 	}
 	if err != nil {
-		return archiveError(stderr, lang, "", err)
+		rc := archiveError(stderr, lang, "", err)
+		// T-0157: the ambiguity code wins over any other failure code —
+		// a skipped (duplicated) number is the fact automation must see,
+		// even when a scan warning or a mid-run error rode along.
+		if len(skip) != 0 {
+			return exitAmbiguous
+		}
+		return rc
 	}
-	if len(moved) == 0 {
+	if len(moved) == 0 && len(skip) == 0 {
+		// Skips are reported on stderr above; the «nothing to archive»
+		// notice is pinned to the no-duplicates case (T-0157).
 		fmt.Fprintln(stdout, domain.ErrNoClosedTicketsToArchive(lang))
+		return 0
+	}
+	if len(skip) > 0 {
+		return exitAmbiguous
 	}
 	return 0
 }
@@ -60,7 +85,12 @@ func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io
 func archiveError(stderr io.Writer, lang domain.Lang, numArg string, err error) int {
 	var notClosed *store.NotClosedError
 	var collision *store.CollisionError
+	var amb *store.AmbiguousNumberError
 	switch {
+	case errors.As(err, &amb):
+		// T-0157: more than one file carries the number; the store
+		// refused before touching anything.
+		return reportAmbiguous(stderr, lang, amb)
 	case errors.Is(err, store.ErrNotFound):
 		return notFound(stderr, lang, numArg)
 	case errors.Is(err, store.ErrAlreadyArchived):

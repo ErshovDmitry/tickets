@@ -131,17 +131,24 @@ func New(dir string, opts ...Option) (*Store, error) {
 	if err := probeWritable(dir); err != nil {
 		return nil, err
 	}
-	return newStoreWithOptions(dir, false, opts), nil
+	return newStoreWithOptions(dir, false, opts)
 }
 
 // newStoreWithOptions builds a Store for an already-validated directory and
-// applies opts in order.
-func newStoreWithOptions(dir string, readOnly bool, opts []Option) *Store {
-	s := &Store{Dir: dir, readOnly: readOnly}
+// applies opts in order. Dir is made absolute here (T-0157): every path the
+// store derives from it, and every conflicting path it reports, is absolute,
+// so logs and error messages are unambiguous regardless of the caller's
+// working directory.
+func newStoreWithOptions(dir string, readOnly bool, opts []Option) (*Store, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("store: abs dir: %w", err)
+	}
+	s := &Store{Dir: abs, readOnly: readOnly}
 	for _, opt := range opts {
 		opt(s)
 	}
-	return s
+	return s, nil
 }
 
 // NewReadOnly validates the directory and returns a Store for read-only
@@ -153,7 +160,7 @@ func NewReadOnly(dir string, opts ...Option) (*Store, error) {
 	if err := validateDir(dir); err != nil {
 		return nil, err
 	}
-	return newStoreWithOptions(dir, true, opts), nil
+	return newStoreWithOptions(dir, true, opts)
 }
 
 // List returns every parseable ticket sorted by number. Unreadable or
@@ -209,6 +216,12 @@ func (s *Store) Find(n int) (domain.Ticket, error) {
 //   - On success t.Number holds the assigned number.
 //   - Early-out errors (a nil ticket or a non-open status) leave t
 //     untouched.
+//   - A competing file with the same number detected after the write
+//     (T-0157) is *AmbiguousNumberError, testing true against
+//     ErrAmbiguousNumber. The created file is removed and t.Number holds
+//     that number; if the removal fails the ticket stays on disk (visible
+//     in list) and the error carries its absolute path, and the next
+//     Create takes n+1.
 //   - Errors from createLocked after a numbering attempt (including
 //     ErrCollision) leave t.Number holding the last attempted number;
 //     callers must not rely on it. The number-limit error (n > 9999)

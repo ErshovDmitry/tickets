@@ -88,7 +88,12 @@ func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, std
 func setError(st *store.Store, stderr io.Writer, lang domain.Lang, numArg string, err error) int {
 	var collision *store.CollisionError
 	var already *store.AlreadyStatusError
+	var amb *store.AmbiguousNumberError
 	switch {
+	case errors.As(err, &amb):
+		// T-0157: more than one file carries the number; the store
+		// refused before any mutation, so nothing needs rolling back.
+		return reportAmbiguous(stderr, lang, amb)
 	case errors.As(err, &collision):
 		fmt.Fprintln(stderr, domain.ErrFileAlreadyExists(lang, collision.Target))
 	case errors.As(err, &already):

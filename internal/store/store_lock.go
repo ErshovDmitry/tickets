@@ -94,6 +94,13 @@ const MaxCreateAttempts = 5
 // (5 digits), producing an invisible, unscannable ticket.
 const maxTicketNumber = 9999
 
+// afterCreateHook is the test-only seam of the T-0157 Create verification
+// (same idiom as the swappable os primitives in tmpfile.go): it runs after
+// the new file has been created, written, synced and closed, and before
+// the verification scan, so a test can inject a competing file for the
+// same number. It is never nil.
+var afterCreateHook = func(n int, path string) {}
+
 // createLocked assumes the per-store advisory lock is held. Any failure
 // after the O_EXCL open removes the just-created file, joining cleanup
 // errors, so no corrupt ticket remains.
@@ -134,7 +141,42 @@ func (s *Store) createLocked(t *domain.Ticket) (int, error) {
 		if cerr := f.Close(); cerr != nil {
 			return 0, scrubFile(fmt.Errorf("store: close %s: %w", fname, cerr), nil, path)
 		}
+		afterCreateHook(n, path)
+		if verr := s.verifyCreatedNumber(n, fname, path); verr != nil {
+			return 0, verr
+		}
 		return n, nil
 	}
 	return 0, fmt.Errorf("%w: after %d attempts, last err: %v", ErrCollision, MaxCreateAttempts, lastErr)
+}
+
+// verifyCreatedNumber checks that the file this Create just committed is
+// the only file carrying number n (T-0157). A foreign file with the same
+// number — any status, in s.Dir or archive/ — means a competing writer
+// exists: the created file is removed and the bare *AmbiguousNumberError
+// is returned, so the caller must not use n. A failed removal leaves a
+// fully valid ticket on disk (visible in list); the returned error names
+// its absolute path. When the verification scan itself fails, ambiguity
+// is never invented: the created file is scrubbed and the scan error is
+// returned instead.
+func (s *Store) verifyCreatedNumber(n int, fname, path string) error {
+	files, err := s.findAllNumber(n)
+	if err != nil {
+		return fmt.Errorf("store: verify number %d: %w", n, errors.Join(err, scrubFile(nil, nil, path)))
+	}
+	conflicts := make([]locatedFile, 0, len(files))
+	for _, f := range files {
+		if f.Number == n && !(f.dir == s.Dir && f.Name == fname) {
+			conflicts = append(conflicts, f)
+		}
+	}
+	if len(conflicts) == 0 {
+		return nil
+	}
+	amb := ambiguousNumberError(n, conflicts)
+	if rerr := removeFile(path); rerr != nil {
+		return errors.Join(amb, rerr,
+			fmt.Errorf("store: created ticket file left on disk and visible in list: %s", path))
+	}
+	return amb
 }

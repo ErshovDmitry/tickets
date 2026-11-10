@@ -46,5 +46,8 @@
   "hintUseList": "ticket: подсказка: используйте ticket list (show ищет и в archive/)",
   "hintNumbersStartAtOne": "ticket: подсказка: номера тикетов начинаются с 1; используйте ticket list",
   "hintStoreEmpty": "ticket: подсказка: хранилище пусто; используйте ticket list",
-  "hintNumbersUpTo": "ticket: подсказка: в этом хранилище номера до %d; используйте ticket list"
+  "hintNumbersUpTo": "ticket: подсказка: в этом хранилище номера до %d; используйте ticket list",
+  "errAmbiguousNumber": "ticket: номер тикета %d неоднозначен: найдено несколько файлов",
+  "warnAmbiguousNumber": "ticket: предупреждение: номер тикета %d неоднозначен: %s",
+  "warnAmbiguousNumberSkipped": "ticket: предупреждение: номер тикета %d неоднозначен, архивация пропущена: %s"
 }

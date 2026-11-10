@@ -105,7 +105,10 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 	if err := validateJournalInput(comment, who); err != nil {
 		return "", nil, err
 	}
-	files, err := s.findAllNumber(n)
+	// T-0157: an ambiguous number (a crashed commit left <old> and <new> behind) is
+	// refused before any read, journal append, tmp write or rename — mutating an
+	// arbitrary first match would fix the wrong ticket.
+	files, err := s.findAllNumberStrict(n, "store.set.failure")
 	if err != nil {
 		return "", nil, err
 	}
@@ -212,10 +215,7 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 		s.Logger().Error("store.set.failure", "number", n, "to", next, "stage", "tmp")
 		tmpErr := fmt.Errorf("store: remove tmp %s: %w", tmpPath, rerr)
 		if rbErr := removeFile(target); rbErr != nil {
-			return "", nil, errors.Join(
-				tmpErr,
-				fmt.Errorf("rollback remove %s: %w", target, rbErr),
-			)
+			return "", nil, errors.Join(tmpErr, fmt.Errorf("rollback remove %s: %w", target, rbErr))
 		}
 		// Rollback succeeded: retry the tmp removal best-effort; a failed retry is joined
 		// with the original tmp-removal error.

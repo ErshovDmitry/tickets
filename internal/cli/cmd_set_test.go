@@ -125,15 +125,12 @@ func TestSetSameStatusWithComment(t *testing.T) {
 	}
 }
 
-// TestSetCollisionOnArchivedNamesArchivePath pins the collision message
-// for an archived ticket's done↔closed transition (T-0022): the reported
-// file is the REAL target under archive/, the foreign target and the
-// archived original survive untouched (no-replace).
-//
-// Direction: the real ticket is closed and the foreign target is done.
-// findLocked resolves equal numbers in scanDir order (T-0001-closed.md
-// sorts before T-0001-done.md), so the REAL file is always found first
-// and the transition proceeds to the Lstat collision fast-path.
+// TestSetCollisionOnArchivedNamesArchivePath pins the T-0157 retarget of
+// T-0022: for an archived ticket's done↔closed transition the pair «real
+// closed file + foreign done file» under archive/ is an ambiguous number,
+// so `set 1 done` refuses with rc=2, lists every conflicting path and
+// touches nothing (no-replace: the foreign target and the archived
+// original survive untouched).
 func TestSetCollisionOnArchivedNamesArchivePath(t *testing.T) {
 	env, dir := newTicketDir(t)
 	runSet(t, env, "1", "closed")
@@ -147,11 +144,15 @@ func TestSetCollisionOnArchivedNamesArchivePath(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	if code := cli.Run([]string{"set", "1", "done"}, env, &stdout, &stderr); code != 1 {
-		t.Fatalf("Run(set archived collision) = %d, want 1", code)
+	if code := cli.Run([]string{"set", "1", "done"}, env, &stdout, &stderr); code != 2 {
+		t.Fatalf("Run(set archived duplicate) = %d, want 2", code)
 	}
-	if want := "ticket: файл " + target + " уже существует\n"; stderr.String() != want {
-		t.Errorf("stderr = %q, want %q", stderr.String(), want)
+	real := filepath.Join(archiveDir, "T-0001-closed.md")
+	wantStderr := "ticket: номер тикета 1 неоднозначен: найдено несколько файлов\n" +
+		"  " + real + "\n" +
+		"  " + target + "\n"
+	if stderr.String() != wantStderr {
+		t.Errorf("stderr = %q, want %q", stderr.String(), wantStderr)
 	}
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want empty", stdout.String())
@@ -237,11 +238,11 @@ func TestSetAbsentNumberNotFound(t *testing.T) {
 	}
 }
 
-// TestSetForeignBrokenDoneCollision pins T-0074: a healthy open ticket
-// plus a foreign T-0001-done.md whose body is garbage must fail with the
-// collision message («файл … уже существует»), NOT a parse error — the
-// collision gate fires on file names before any body is read, and both
-// files stay untouched.
+// TestSetForeignBrokenDoneCollision pins the T-0157 retarget of T-0074: a
+// healthy open ticket plus a foreign T-0001-done.md whose body is garbage
+// is an ambiguous number, so `set 1 done` refuses with rc=2 naming every
+// conflicting path — NOT a parse error: the ambiguity gate fires on file
+// names before any body is read, and both files stay untouched.
 func TestSetForeignBrokenDoneCollision(t *testing.T) {
 	env, dir := newTicketDir(t) // T-0001-open.md, healthy
 	foreign := filepath.Join(dir, "T-0001-done.md")
@@ -250,11 +251,15 @@ func TestSetForeignBrokenDoneCollision(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := cli.Run([]string{"set", "1", "done", ""}, env, &stdout, &stderr); code != 1 {
-		t.Fatalf("Run(set foreign broken done) = %d, want 1; stderr: %q", code, stderr.String())
+	if code := cli.Run([]string{"set", "1", "done", ""}, env, &stdout, &stderr); code != 2 {
+		t.Fatalf("Run(set foreign broken done) = %d, want 2; stderr: %q", code, stderr.String())
 	}
-	if want := "ticket: файл " + foreign + " уже существует\n"; stderr.String() != want {
-		t.Errorf("stderr = %q, want %q", stderr.String(), want)
+	open := filepath.Join(dir, "T-0001-open.md")
+	wantStderr := "ticket: номер тикета 1 неоднозначен: найдено несколько файлов\n" +
+		"  " + foreign + "\n" +
+		"  " + open + "\n"
+	if stderr.String() != wantStderr {
+		t.Errorf("stderr = %q, want %q", stderr.String(), wantStderr)
 	}
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want empty", stdout.String())

@@ -226,22 +226,17 @@ func TestSetStatus_SameStatusRefused(t *testing.T) {
 	}
 }
 
-func TestSetStatus_CollisionOnExistingTarget(t *testing.T) {
+func TestSetStatus_AmbiguousOnExistingSibling(t *testing.T) {
 	s, dir := newStore(t)
 	if _, err := s.Create(fakeTicket(0)); err != nil { // T-0001-open.md
 		t.Fatal(err)
 	}
-	// Pre-create the target filename to force the collision pre-check.
+	// A scan-visible sibling with the same number makes it ambiguous (T-0157).
 	if err := os.WriteFile(filepath.Join(dir, "T-0001-wip.md"), []byte("# pre-existing"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, _, err := s.SetStatus(1, domain.StatusWip, "tester", "")
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if !errors.Is(err, ErrCollision) {
-		t.Fatalf("expected ErrCollision, got %v", err)
-	}
+	assertAmbiguous(t, err, 1, []string{filepath.Join(dir, "T-0001-open.md"), filepath.Join(dir, "T-0001-wip.md")})
 }
 
 func TestSetStatus_NotFound(t *testing.T) {

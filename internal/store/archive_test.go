@@ -132,11 +132,12 @@ func TestArchive_RejectsOpenAndWip(t *testing.T) {
 	}
 }
 
-// TestArchive_TargetCollisionKeepsForeignContent pins the no-replace
-// commit: an existing archive target blocks the move (ErrCollision via
-// CollisionError), its content is NOT modified and the original ticket
-// stays in the main directory.
-func TestArchive_TargetCollisionKeepsForeignContent(t *testing.T) {
+// TestArchive_TargetAmbiguityKeepsForeignContent pins the T-0157 gate: an
+// existing archive file with the same number makes that number ambiguous
+// (*AmbiguousNumberError listing both absolute paths) instead of a
+// no-replace target collision; the foreign content is NOT modified and the
+// original ticket stays in the main directory.
+func TestArchive_TargetAmbiguityKeepsForeignContent(t *testing.T) {
 	s, dir := makeDone(t)
 	archiveDir := filepath.Join(dir, "archive")
 	target := filepath.Join(archiveDir, "T-0001-done.md")
@@ -148,13 +149,7 @@ func TestArchive_TargetCollisionKeepsForeignContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := s.Archive(1, "tester")
-	var coll *CollisionError
-	if !errors.As(err, &coll) || !errors.Is(err, ErrCollision) {
-		t.Fatalf("expected CollisionError/ErrCollision, got %v", err)
-	}
-	if coll.Target != target {
-		t.Errorf("CollisionError.Target = %q, want %q", coll.Target, target)
-	}
+	assertAmbiguous(t, err, 1, []string{filepath.Join(dir, "T-0001-done.md"), target})
 	got, rerr := os.ReadFile(target)
 	if rerr != nil {
 		t.Fatal(rerr)

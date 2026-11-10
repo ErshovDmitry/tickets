@@ -99,8 +99,16 @@ func (s *Store) Archive(n int, who string) (string, error) {
 	return target, nil
 }
 
-// ArchiveClosed moves every done/closed ticket from tickets/ to
-// tickets/archive/ and returns the full paths of the moved files in the
+// ArchiveClosed archives every done/closed ticket whose number is unique:
+// it is ArchiveClosedSkipping with no skips (the pre-T-0157 behaviour).
+func (s *Store) ArchiveClosed(who string) ([]string, error) {
+	return s.ArchiveClosedSkipping(who, nil)
+}
+
+// ArchiveClosedSkipping moves every done/closed ticket from tickets/ to
+// tickets/archive/, leaving every number listed in skip untouched (T-0157:
+// an ambiguous number must not be archived on an arbitrary first match),
+// and returns the full paths of the moved files in the
 // inherited order: all done files first, then all closed files, each
 // group in ticket-number order (the two passes run back to back, as in
 // the bash era). No closed tickets is NOT an error (exit 0) — but
@@ -121,7 +129,7 @@ func (s *Store) Archive(n int, who string) (string, error) {
 // On failure the paths archived before the error are still returned, so
 // the caller can report the work that did land (each target is echoed
 // as it goes, then dies).
-func (s *Store) ArchiveClosed(who string) ([]string, error) {
+func (s *Store) ArchiveClosedSkipping(who string, skip map[int]struct{}) ([]string, error) {
 	var moved []string
 	err := s.withLock(func() error {
 		entries, warnings, dirErr := s.scan()
@@ -136,7 +144,7 @@ func (s *Store) ArchiveClosed(who string) ([]string, error) {
 		// glob sequence T-NNNN-done.md then T-NNNN-closed.md.
 		for _, want := range []domain.Status{domain.StatusDone, domain.StatusClosed} {
 			for _, e := range entries {
-				if e.Status != want {
+				if _, dup := skip[e.Number]; dup || e.Status != want {
 					continue
 				}
 				target, aerr := s.archiveOneLocked(e.Number, who)
@@ -169,11 +177,11 @@ func (s *Store) archiveOneLocked(n int, who string) (string, error) {
 	if err := validateJournalInput("", who); err != nil {
 		return "", err
 	}
-	cur, curDir, err := s.findLocked(n)
+	cur, err := s.findOneLocked(n, "store.archive.failure")
 	if err != nil {
 		return "", err
 	}
-	if filepath.Base(curDir) == "archive" {
+	if filepath.Base(cur.dir) == "archive" {
 		s.logArchiveFailure(n, "already")
 		return "", ErrAlreadyArchived
 	}
@@ -198,8 +206,8 @@ func (s *Store) archiveOneLocked(n int, who string) (string, error) {
 	} else if !errors.Is(lerr, fs.ErrNotExist) {
 		return "", fmt.Errorf("store: lstat target: %w", lerr)
 	}
-	old := filepath.Join(curDir, cur.Name)
-	body, rerr := renderArchived(old, cur, who)
+	old := filepath.Join(cur.dir, cur.Name)
+	body, rerr := renderArchived(old, cur.fileEntry, who)
 	if rerr != nil {
 		return "", rerr
 	}
@@ -266,10 +274,7 @@ func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target,
 		s.logArchiveFailure(n, "tmp")
 		tmpErr := fmt.Errorf("store: remove tmp %s: %w", tmpPath, rerr)
 		if rbErr := removeFile(target); rbErr != nil {
-			return errors.Join(
-				tmpErr,
-				fmt.Errorf("rollback remove %s: %w", target, rbErr),
-			)
+			return errors.Join(tmpErr, fmt.Errorf("rollback remove %s: %w", target, rbErr))
 		}
 		// Rollback succeeded: retry the tmp removal best-effort; a
 		// failed retry is joined with the original tmp-removal error.
@@ -292,6 +297,3 @@ func (s *Store) commitArchive(n int, st domain.Status, body []byte, old, target,
 	}
 	return nil
 }
-
-// ListArchive lives in archivedir.go (moved from here, T-0078 line
-// budget); its warning semantics are unchanged.

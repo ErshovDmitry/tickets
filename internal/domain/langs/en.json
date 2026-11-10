@@ -46,5 +46,8 @@
   "hintUseList": "ticket: hint: use ticket list (show also searches archive/)",
   "hintNumbersStartAtOne": "ticket: hint: ticket numbers start at 1; use ticket list",
   "hintStoreEmpty": "ticket: hint: store is empty; use ticket list",
-  "hintNumbersUpTo": "ticket: hint: this store has numbers up to %d; use ticket list"
+  "hintNumbersUpTo": "ticket: hint: this store has numbers up to %d; use ticket list",
+  "errAmbiguousNumber": "ticket: ticket number %d is ambiguous: multiple files carry it",
+  "warnAmbiguousNumber": "ticket: warning: ticket number %d is ambiguous: %s",
+  "warnAmbiguousNumberSkipped": "ticket: warning: ambiguous ticket number %d skipped: %s"
 }

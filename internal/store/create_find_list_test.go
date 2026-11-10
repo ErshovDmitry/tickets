@@ -143,11 +143,10 @@ func TestCreate_MutationContract(t *testing.T) {
 func TestCreate_ConcurrentAssignsDistinctNumbers(t *testing.T) {
 	s, _ := newStore(t)
 	const n = 10
-	var (
-		wg   sync.WaitGroup
-		mu   sync.Mutex
-		seen = make(map[int]bool)
-	)
+	var wg sync.WaitGroup
+	// The workers hand their numbers over a channel; the shared map is
+	// touched by the test goroutine only, after wg.Wait().
+	results := make(chan int, n)
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		go func() {
@@ -157,12 +156,18 @@ func TestCreate_ConcurrentAssignsDistinctNumbers(t *testing.T) {
 				t.Errorf("concurrent Create: %v", err)
 				return
 			}
-			mu.Lock()
-			seen[got] = true
-			mu.Unlock()
+			results <- got
 		}()
 	}
 	wg.Wait()
+	close(results)
+	seen := make(map[int]bool, n)
+	for got := range results {
+		if seen[got] {
+			t.Errorf("duplicate number %d assigned", got)
+		}
+		seen[got] = true
+	}
 	if len(seen) != n {
 		t.Fatalf("expected %d distinct numbers, got %d: %v", n, len(seen), seen)
 	}

@@ -1,12 +1,13 @@
 package store
 
-// T-0074 regression: SetStatus must route on file names alone (collision
-// gate before any body read), so a foreign same-number file at the target
-// status — even one whose body is garbage (broken H1) — surfaces as a
-// *CollisionError, never a parse error, and is never touched.
+// T-0074 regression, re-pinned for T-0157: SetStatus must still route on
+// file names alone (the gate before any body read), but a second file with
+// the same number is now an AMBIGUOUS number, not a target collision: the
+// number no longer identifies exactly one ticket. Both files stay
+// untouched, nothing is read, journaled, renamed or tmp-written, and a
+// foreign file with a garbage body proves the body is never parsed.
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,11 +15,13 @@ import (
 	"ticket/internal/domain"
 )
 
-// TestSetStatus_ForeignBrokenDoneCollision pins the main-dir case: a
+// TestSetStatus_ForeignBrokenDoneAmbiguous pins the main-dir case: a
 // healthy T-0001-open.md plus a foreign T-0001-done.md whose body is
-// "FOREIGN-ZERO-BODY" (H1 number 0) must yield *CollisionError{Target =
-// dir/T-0001-done.md}, leave both files untouched, and leak no tmp file.
-func TestSetStatus_ForeignBrokenDoneCollision(t *testing.T) {
+// "FOREIGN-ZERO-BODY" (H1 number 0) must yield *AmbiguousNumberError for
+// number 1 listing BOTH absolute paths, leave both files untouched, and
+// leak no tmp file. A parse error here would mean the gate lost the
+// T-0074 ordering.
+func TestSetStatus_ForeignBrokenDoneAmbiguous(t *testing.T) {
 	s, dir := newStore(t)
 	if _, err := s.Create(fakeTicket(0)); err != nil { // T-0001-open.md
 		t.Fatal(err)
@@ -29,23 +32,17 @@ func TestSetStatus_ForeignBrokenDoneCollision(t *testing.T) {
 	}
 
 	_, _, err := s.SetStatus(1, domain.StatusDone, "tester", "")
-	var coll *CollisionError
-	if !errors.As(err, &coll) {
-		t.Fatalf("expected *CollisionError, got %v", err)
-	}
-	if coll.Target != foreign {
-		t.Errorf("CollisionError.Target = %q, want %q", coll.Target, foreign)
-	}
+	assertAmbiguous(t, err, 1, []string{foreign, filepath.Join(dir, "T-0001-open.md")})
 	assertFileContent(t, foreign, "FOREIGN-ZERO-BODY")
 	assertOpenBody(t, filepath.Join(dir, "T-0001-open.md"))
 	assertNoTmpFiles(t, dir)
 }
 
-// TestSetStatus_ForeignBrokenDoneArchiveCollision pins the archive case:
-// a real closed ticket archived under archive/ plus a foreign done file
-// there must yield *CollisionError{Target = archive/T-0001-done.md} with
-// both files and the archive dir left clean.
-func TestSetStatus_ForeignBrokenDoneArchiveCollision(t *testing.T) {
+// TestSetStatus_ForeignBrokenDoneArchiveAmbiguous pins the archive case: a
+// real closed ticket archived under archive/ plus a foreign done file there
+// must yield *AmbiguousNumberError for number 1 listing both archive paths,
+// with both files and the archive dir left clean.
+func TestSetStatus_ForeignBrokenDoneArchiveAmbiguous(t *testing.T) {
 	s, dir := newStore(t)
 	if _, err := s.Create(fakeTicket(0)); err != nil {
 		t.Fatal(err)
@@ -63,13 +60,7 @@ func TestSetStatus_ForeignBrokenDoneArchiveCollision(t *testing.T) {
 	}
 
 	_, _, err := s.SetStatus(1, domain.StatusDone, "tester", "")
-	var coll *CollisionError
-	if !errors.As(err, &coll) {
-		t.Fatalf("expected *CollisionError, got %v", err)
-	}
-	if coll.Target != foreign {
-		t.Errorf("CollisionError.Target = %q, want %q", coll.Target, foreign)
-	}
+	assertAmbiguous(t, err, 1, []string{filepath.Join(archiveDir, "T-0001-closed.md"), foreign})
 	assertFileContent(t, foreign, "FOREIGN-ZERO-BODY")
 	if _, serr := os.Stat(filepath.Join(archiveDir, "T-0001-closed.md")); serr != nil {
 		t.Errorf("archived closed file must remain: %v", serr)

@@ -241,10 +241,10 @@ func TestWarnArchiveAll(t *testing.T) {
 	wantWarnRecords(t, logText, warnLine("stray.txt", reason))
 }
 
-// TestWarnArchiveMidRun pins the joined-error site: a mid-run collision plus a
-// stray scan warning, reproduced through the public surface by pre-seeding the
-// collision target (cf. store archive_closed_errors_test.go:145-165). Only the
-// warnings are logged; the collision is not a parse warning.
+// TestWarnArchiveMidRun pins the joined report: the T-0157 skip warning for
+// the duplicated number 2 plus a stray scan warning (cf. store archive_closed_errors_test.go:145-165).
+// The exit code is pinned: the ambiguity code (2) wins over the scan-warning
+// failure code when a number was skipped (T-0157).
 func TestWarnArchiveMidRun(t *testing.T) {
 	dir := verboseFixture(t, "done")
 	env := map[string]string{"TICKETS_DIR": dir}
@@ -266,14 +266,18 @@ func TestWarnArchiveMidRun(t *testing.T) {
 	}
 	reason := listReasons(t, dir, false)["stray.txt"]
 	code, out, errb, logText := runWithLog(t, []string{"archive"}, env)
-	if code != 1 {
-		t.Fatalf("archive = %d, want 1; stderr %q", code, errb)
+	if code != 2 {
+		t.Fatalf("archive = %d, want 2 (ambiguity wins over the scan warning); stderr %q", code, errb)
 	}
 	if want := filepath.Join(archiveDir, "T-0001-done.md") + "\n"; out != want {
 		t.Errorf("stdout = %q, want %q", out, want)
 	}
-	if !strings.Contains(errb, "уже существует") {
-		t.Errorf("human collision report missing from stderr: %q", errb)
+	// T-0157: the pre-check skips number 2 up front — one warning, both paths; the stray scan warning rides.
+	skipWarn := "ticket: предупреждение: номер тикета 2 неоднозначен, архивация пропущена: " + filepath.Join(dir, "T-0002-done.md") + ", " + filepath.Join(archiveDir, "T-0002-done.md")
+	for _, want := range []string{skipWarn, "ticket: store: scan warnings:"} {
+		if !strings.Contains(errb, want) {
+			t.Errorf("stderr %q missing %q", errb, want)
+		}
 	}
 	wantWarnRecords(t, logText, warnLine("stray.txt", reason))
 }

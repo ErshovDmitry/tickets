@@ -102,10 +102,11 @@ func TestCmdArchiveErrorsBashContract(t *testing.T) {
 	})
 }
 
-// TestCmdArchiveCollisionKeepsTarget pins A26: archiving over an existing
-// archive file fails with rc=1, the inherited wording naming the real target;
-// the foreign file's content survives untouched (FOREIGN-CONTENT-KEEP)
-// and the original stays in the main directory (no-replace).
+// TestCmdArchiveCollisionKeepsTarget pins the T-0157 retarget of A26: the
+// pair «main file + foreign archive file» is an ambiguous number, so
+// `archive 1` refuses with rc=2 and lists every conflicting path; the
+// foreign file's content survives untouched (FOREIGN-CONTENT-KEEP) and
+// the original stays in the main directory (no-replace).
 func TestCmdArchiveCollisionKeepsTarget(t *testing.T) {
 	env, dir := newTicketDir(t)
 	runSet(t, env, "1", "done")
@@ -119,11 +120,15 @@ func TestCmdArchiveCollisionKeepsTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	code, stdout, stderr := runArchive(env, "1")
-	if code != 1 {
-		t.Fatalf("archive over collision = %d, want 1", code)
+	if code != 2 {
+		t.Fatalf("archive over duplicate = %d, want 2", code)
 	}
-	if want := "ticket: файл " + target + " уже существует\n"; stderr != want {
-		t.Errorf("stderr = %q, want %q", stderr, want)
+	mainFile := filepath.Join(dir, "T-0001-done.md")
+	wantStderr := "ticket: номер тикета 1 неоднозначен: найдено несколько файлов\n" +
+		"  " + mainFile + "\n" +
+		"  " + target + "\n"
+	if stderr != wantStderr {
+		t.Errorf("stderr = %q, want %q", stderr, wantStderr)
 	}
 	if stdout != "" {
 		t.Errorf("stdout = %q, want empty", stdout)

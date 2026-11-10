@@ -244,6 +244,13 @@ func newTicket(f newFlags, typ domain.Type, prio domain.Priority, project string
 
 // createError reports a failed Create on stderr and yields exit code 1.
 func createError(stderr io.Writer, lang domain.Lang, st *store.Store, err error) int {
+	// T-0157 first: the post-write verification found a foreign file with
+	// the just-issued number; the store already removed our own file, so
+	// the conflict set is exactly amb.Paths.
+	var amb *store.AmbiguousNumberError
+	if errors.As(err, &amb) {
+		return reportAmbiguous(stderr, lang, amb)
+	}
 	if errors.Is(err, store.ErrCollision) {
 		fmt.Fprintln(stderr, domain.ErrFileAlreadyExists(lang, collisionPath(st)))
 		return 1

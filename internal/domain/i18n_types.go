@@ -103,6 +103,11 @@ type dict struct {
 	hintNumbersStartAtOne string
 	hintStoreEmpty        string
 	hintNumbersUpTo       string // 1 %d: max number
+
+	// T-0157: a ticket number owned by more than one file.
+	errAmbiguousNumber         string // 1 %d: number
+	warnAmbiguousNumber        string // 1 %d: number, 1 %s: conflicting absolute paths
+	warnAmbiguousNumberSkipped string // 1 %d: number, 1 %s: conflicting absolute paths
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the

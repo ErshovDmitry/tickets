@@ -76,6 +76,10 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	for _, w := range warnings {
 		fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
 	}
+	// T-0157: list is a truthful inventory — every row is printed below,
+	// duplicates included, and each duplicated number earns exactly one
+	// warning line on stderr (stdout JSON stays valid, exit stays 0).
+	reportDuplicates(st, lang, stderr)
 	// Filter and collect output tickets
 	var output []domain.Ticket
 	uniqueProjects := make(map[string]bool)
@@ -139,6 +143,21 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 		}
 	}
 	return 0
+}
+
+// reportDuplicates warns once per ticket number owned by more than one
+// file (T-0157). The store inventory is a listing aid, never fatal: a
+// scan failure is logged and produces no warnings, keeping stdout (and
+// the JSON mode below) intact.
+func reportDuplicates(st *store.Store, lang domain.Lang, stderr io.Writer) {
+	dups, err := st.Duplicates()
+	if err != nil {
+		st.Logger().Error("list.duplicates.failed", "error", err)
+		return
+	}
+	for _, c := range dups {
+		fmt.Fprintln(stderr, domain.WarnAmbiguousNumber(lang, c.Number, strings.Join(c.Paths, ", ")))
+	}
 }
 
 // isListFilter reports whether want is a valid list filter.

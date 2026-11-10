@@ -25,6 +25,15 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 	if len(args) > 1 {
 		fmt.Fprintln(stderr, domain.WarnExtraArgsIgnored(lang, strings.Join(args[1:], " ")))
 	}
+	// T-0157 escape hatch: an argument that is an exact ticket file name
+	// (no path separators, matches T-NNNN-<status>.md) resolves that very
+	// file via FindExact, even when the number is ambiguous — the user
+	// picked the file from a listing, so the number need not be unique.
+	if !strings.ContainsAny(args[0], "/\\") {
+		if _, _, perr := domain.ParseFilename(args[0]); perr == nil {
+			return showByName(st, args[0], lang, stdout, stderr)
+		}
+	}
 	n, ok := parseTicketNumber(args[0])
 	if !ok {
 		// T-0072: the argument has no digits at all — it is not a ticket
@@ -43,6 +52,12 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 	// elements out of the directory — T-0006).
 	_, _, raw, err := st.FindRaw(n)
 	if err != nil {
+		// T-0157: more than one file carries n — refuse and list every
+		// conflicting path instead of silently reading an arbitrary one.
+		var amb *store.AmbiguousNumberError
+		if errors.As(err, &amb) {
+			return reportAmbiguous(stderr, lang, amb)
+		}
 		// An absent number is a not-found report; anything else (unreadable
 		// or corrupt file, scan failure) is a real error the user must see,
 		// never masked as «не найден».
@@ -112,6 +127,43 @@ func scanMax(st *store.Store) (maxNum int, warned bool) {
 		}
 	}
 	return maxNum, len(warns) > 0 || len(archiveWarns) > 0
+}
+
+// showByName resolves an exact ticket file name via the store's
+// FindExact escape hatch (T-0157): one match prints the file's exact
+// bytes; an ambiguous name (same base name in main and archive) lists
+// every conflicting path; an absent name is a not-found report. As with
+// the number path, the raw bytes come from the single validated handle.
+func showByName(st *store.Store, name string, lang domain.Lang, stdout, stderr io.Writer) int {
+	_, _, raw, err := st.FindExact(name)
+	if err != nil {
+		var amb *store.AmbiguousNumberError
+		if errors.As(err, &amb) {
+			return reportAmbiguous(stderr, lang, amb)
+		}
+		if errors.Is(err, store.ErrNotFound) {
+			return notFoundHinted(st, stderr, lang, name)
+		}
+		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		return 1
+	}
+	if _, err := stdout.Write(raw); err != nil {
+		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// reportAmbiguous prints the pinned T-0157 ambiguity report — one
+// localized header line naming the number, then every conflicting
+// absolute path on its own indented line — and yields exitAmbiguous.
+// Shared by show, set, archive and new; the store carries no UI text.
+func reportAmbiguous(stderr io.Writer, lang domain.Lang, amb *store.AmbiguousNumberError) int {
+	fmt.Fprintln(stderr, domain.ErrAmbiguousNumber(lang, amb.Number))
+	for _, p := range amb.Paths {
+		fmt.Fprintf(stderr, "  %s\n", p)
+	}
+	return exitAmbiguous
 }
 
 // parseTicketNumber strips every non-digit and parses the remainder

@@ -105,6 +105,9 @@ var (
 	getHintNumbersStartAtOne       = func(dj dictJSON) string { return dj.HintNumbersStartAtOne }
 	getHintStoreEmpty              = func(dj dictJSON) string { return dj.HintStoreEmpty }
 	getHintNumbersUpTo             = func(dj dictJSON) string { return dj.HintNumbersUpTo }
+	getErrAmbiguousNumber          = func(dj dictJSON) string { return dj.ErrAmbiguousNumber }
+	getWarnAmbiguousNumber         = func(dj dictJSON) string { return dj.WarnAmbiguousNumber }
+	getWarnAmbiguousNumberSkipped  = func(dj dictJSON) string { return dj.WarnAmbiguousNumberSkipped }
 )
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
@@ -202,4 +205,12 @@ var dictValidationRules = []dictRule{
 	nonEmpty("hintStoreEmpty", getHintStoreEmpty),
 	nonEmpty("hintNumbersUpTo", getHintNumbersUpTo),
 	count("hintNumbersUpTo", "d", 1, getHintNumbersUpTo),
+	nonEmpty("errAmbiguousNumber", getErrAmbiguousNumber),
+	count("errAmbiguousNumber", "d", 1, getErrAmbiguousNumber),
+	nonEmpty("warnAmbiguousNumber", getWarnAmbiguousNumber),
+	count("warnAmbiguousNumber", "d", 1, getWarnAmbiguousNumber),
+	count("warnAmbiguousNumber", "s", 1, getWarnAmbiguousNumber),
+	nonEmpty("warnAmbiguousNumberSkipped", getWarnAmbiguousNumberSkipped),
+	count("warnAmbiguousNumberSkipped", "d", 1, getWarnAmbiguousNumberSkipped),
+	count("warnAmbiguousNumberSkipped", "s", 1, getWarnAmbiguousNumberSkipped),
 }

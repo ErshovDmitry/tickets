@@ -240,3 +240,24 @@ func HintStoreEmpty(lang Lang) string {
 func HintNumbersUpTo(lang Lang, max int) string {
 	return fmt.Sprintf(getDict(lang).hintNumbersUpTo, max)
 }
+
+// ErrAmbiguousNumber formats the localized refusal for a ticket number
+// owned by more than one file (T-0157, 1 %d: number). The conflicting
+// paths are printed by the caller, one per line.
+func ErrAmbiguousNumber(lang Lang, num int) string {
+	return fmt.Sprintf(getDict(lang).errAmbiguousNumber, num)
+}
+
+// WarnAmbiguousNumber formats the localized non-fatal warning naming a
+// duplicated ticket number in the list inventory (T-0157, 1 %d: number,
+// 1 %s: conflicting absolute paths).
+func WarnAmbiguousNumber(lang Lang, num int, paths string) string {
+	return fmt.Sprintf(getDict(lang).warnAmbiguousNumber, num, paths)
+}
+
+// WarnAmbiguousNumberSkipped formats the localized warning for a
+// duplicated ticket number skipped by archive-all (T-0157, 1 %d: number,
+// 1 %s: conflicting absolute paths).
+func WarnAmbiguousNumberSkipped(lang Lang, num int, paths string) string {
+	return fmt.Sprintf(getDict(lang).warnAmbiguousNumberSkipped, num, paths)
+}

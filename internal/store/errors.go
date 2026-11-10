@@ -1,6 +1,10 @@
 package store
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
 
 // ErrInvalidJournalInput is returned by SetStatus / appendSameStatusLocked
 // / archiveOneLocked when either the journal comment or the author ("who")
@@ -25,3 +29,28 @@ type ErrInvalidJournalInput struct {
 func (e *ErrInvalidJournalInput) Error() string {
 	return fmt.Sprintf("store: journal %s must not contain a line break (got %q)", e.Field, e.Value)
 }
+
+// ErrAmbiguousNumber: more than one ticket file carries the requested
+// number. A commit interrupted between the link and the removal of the
+// old file leaves both T-NNNN-<new>.md and T-NNNN-<old>.md behind, so
+// the number no longer identifies exactly one ticket (T-0157). Use
+// errors.Is to test.
+var ErrAmbiguousNumber = errors.New("store: ambiguous ticket number")
+
+// AmbiguousNumberError reports a ticket number owned by more than one
+// file. Number is the requested number; Paths are the absolute,
+// deduplicated, sorted paths of the FOREIGN conflicting files — a
+// caller's own just-created file is never listed. The cli prints every
+// path on its own line, so the store carries no UI text.
+type AmbiguousNumberError struct {
+	Number int
+	Paths  []string
+}
+
+// Error renders the internal (non-UI) description of the conflict.
+func (e *AmbiguousNumberError) Error() string {
+	return fmt.Sprintf("store: ticket %d has %d files: %s", e.Number, len(e.Paths), strings.Join(e.Paths, ", "))
+}
+
+// Unwrap exposes the ErrAmbiguousNumber sentinel.
+func (e *AmbiguousNumberError) Unwrap() error { return ErrAmbiguousNumber }
