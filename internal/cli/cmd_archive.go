@@ -28,7 +28,7 @@ func cmdArchive(st *store.Store, args []string, who, project string, lang domain
 		return archiveError(stderr, lang, args[0], err)
 	}
 	fmt.Fprintln(stdout, target)
-	return 0
+	return exitOK
 }
 
 // archiveAll archives every done/closed ticket. No closed tickets is a
@@ -70,12 +70,12 @@ func archiveAll(st *store.Store, who string, lang domain.Lang, stdout, stderr io
 		// Skips are reported on stderr above; the «nothing to archive»
 		// notice is pinned to the no-duplicates case (T-0157).
 		fmt.Fprintln(stdout, domain.ErrNoClosedTicketsToArchive(lang))
-		return 0
+		return exitOK
 	}
 	if len(skip) > 0 {
 		return exitAmbiguous
 	}
-	return 0
+	return exitOK
 }
 
 // archiveError maps a failed archive to the pinned messages
@@ -102,5 +102,5 @@ func archiveError(stderr io.Writer, lang domain.Lang, numArg string, err error) 
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}
-	return 1
+	return exitError
 }

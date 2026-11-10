@@ -18,7 +18,7 @@ import (
 func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
 		printUsage(stdout, stderr, lang)
-		return 1
+		return exitError
 	}
 	// T-0076: extra arguments are ignored (as in the bash era), but the silent
 	// truncation is surfaced as a warning; the exit code stays 0.
@@ -39,7 +39,7 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 		// T-0072: the argument has no digits at all — it is not a ticket
 		// number, so the «не найден» report would mislead.
 		fmt.Fprintln(stderr, domain.ErrTicketArgNonNumeric(lang, args[0]))
-		return 1
+		return exitError
 	}
 	// FindRaw returns the scan-matched file's exact raw bytes, read from
 	// the single validated handle (openValidated): the file is never
@@ -65,20 +65,20 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 			return notFoundHinted(st, stderr, lang, args[0])
 		}
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
-		return 1
+		return exitError
 	}
 	if _, err := stdout.Write(raw); err != nil {
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
-		return 1
+		return exitError
 	}
-	return 0
+	return exitOK
 }
 
 // notFound prints the established «не найден» message; the quoted
 // value is the user's original argument.
 func notFound(stderr io.Writer, lang domain.Lang, arg string) int {
 	fmt.Fprintln(stderr, domain.ErrTicketNotFound(lang, arg))
-	return 1
+	return exitError
 }
 
 // notFoundHinted reports «не найден» and, for a numeric argument, adds
@@ -145,13 +145,13 @@ func showByName(st *store.Store, name string, lang domain.Lang, stdout, stderr i
 			return notFoundHinted(st, stderr, lang, name)
 		}
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
-		return 1
+		return exitError
 	}
 	if _, err := stdout.Write(raw); err != nil {
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
-		return 1
+		return exitError
 	}
-	return 0
+	return exitOK
 }
 
 // reportAmbiguous prints the pinned T-0157 ambiguity report — one

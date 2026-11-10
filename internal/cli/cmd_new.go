@@ -31,17 +31,17 @@ type newFlags struct {
 func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 1 {
 		printUsage(stdout, stderr, lang)
-		return 1
+		return exitError
 	}
 	// Deliberate deviation from the pre-Go behaviour (T-0041): reject titles
 	// starting with '-' to prevent accidental flag-as-title bugs.
 	if strings.HasPrefix(args[0], "-") {
 		fmt.Fprintln(stderr, domain.ErrTitleStartsWithDash(lang))
-		return 1
+		return exitError
 	}
 	f, ok := parseNewFlags(args[0], args[1:], who, lang, stderr)
 	if !ok {
-		return 1
+		return exitError
 	}
 	// -P override (T-0040)
 	if f.projectOverride != "" {
@@ -51,23 +51,23 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	// domain.Validate(Strict) ("краткое описание не может быть пустым").
 	if strings.TrimSpace(f.title) == "" {
 		fmt.Fprintln(stderr, domain.ErrTitleEmpty(lang))
-		return 1
+		return exitError
 	}
 	// T-0075: C0 CTL (except TAB) + DEL corrupt the H1/terminal — reject;
 	// CR/LF are covered (supersedes the T-0044 ContainsAny check).
 	if domain.ContainsCTL(f.title) {
 		fmt.Fprintln(stderr, domain.ErrTitleCTL(lang))
-		return 1
+		return exitError
 	}
 	typ, okType := typeByName(f.typ)
 	prio, okPrio := priorityByName(f.prio)
 	if !okType {
 		fmt.Fprintln(stderr, domain.ErrTypeInvalid(lang))
-		return 1
+		return exitError
 	}
 	if !okPrio {
 		fmt.Fprintln(stderr, domain.ErrPriorityInvalid(lang))
-		return 1
+		return exitError
 	}
 	// T-0124: a title may repeat the effective type prefix ("TD: x" with
 	// -t TD); strip it so the H1 never doubles it. Stripping can empty the
@@ -75,14 +75,14 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 	f.title = normalizeTypePrefix(f.title, f.typ)
 	if strings.TrimSpace(f.title) == "" {
 		fmt.Fprintln(stderr, domain.ErrTitleEmpty(lang))
-		return 1
+		return exitError
 	}
 	// T-0109: the details may reference a file (`@path`) or stdin (`-`).
 	// The resolution happens BEFORE the first-use check and Create, so a
 	// failed read creates no ticket and no journal entry.
 	details, okDetails := resolveDetails(f.details, lang, stderr)
 	if !okDetails {
-		return 1
+		return exitError
 	}
 	f.details = details
 	// firstUse check BEFORE Create (T-0040): known projects = unique
@@ -127,7 +127,7 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		}
 		fmt.Fprintln(stderr, domain.WarnTicketsSavedTo(lang, dir))
 	}
-	return 0
+	return exitOK
 }
 
 // parseNewFlags consumes `-t/-p/-d/-w/-P` value pairs left to right (as the bash era did):
@@ -253,10 +253,10 @@ func createError(stderr io.Writer, lang domain.Lang, st *store.Store, err error)
 	}
 	if errors.Is(err, store.ErrCollision) {
 		fmt.Fprintln(stderr, domain.ErrFileAlreadyExists(lang, collisionPath(st)))
-		return 1
+		return exitError
 	}
 	fmt.Fprintf(stderr, "ticket: %v\n", err)
-	return 1
+	return exitError
 }
 
 // collisionPath best-effort reconstructs the path of the file that

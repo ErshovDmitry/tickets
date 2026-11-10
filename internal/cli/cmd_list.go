@@ -27,24 +27,24 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 		if args[i] == "-P" {
 			if i+1 >= len(args) {
 				fmt.Fprintln(stderr, domain.ErrFlagPRequiresValue(lang))
-				return 1
+				return exitError
 			}
 			i++
 			projectFilter = args[i]
 			if strings.TrimSpace(projectFilter) == "" {
 				fmt.Fprintln(stderr, domain.ErrFlagPRequiresNonEmpty(lang))
-				return 1
+				return exitError
 			}
 		} else if args[i] == "--json" {
 			if jsonMode {
 				fmt.Fprintln(stderr, domain.ErrRepeatedFlagJson(lang))
-				return 1
+				return exitError
 			}
 			jsonMode = true
 		} else if strings.HasPrefix(args[i], "-") {
 			// Unknown flag (T-0040: deliberate deviation from the pre-Go behaviour)
 			fmt.Fprintln(stderr, domain.ErrUnknownFlagList(lang, args[i]))
-			return 1
+			return exitError
 		} else {
 			positional = append(positional, args[i])
 		}
@@ -55,11 +55,11 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	}
 	if len(positional) > 1 {
 		fmt.Fprintln(stderr, domain.ErrListOneArgMax(lang))
-		return 1
+		return exitError
 	}
 	if !isListFilter(want) {
 		fmt.Fprintln(stderr, domain.ErrListFilterInvalid(lang))
-		return 1
+		return exitError
 	}
 
 	var tickets []domain.Ticket
@@ -119,9 +119,9 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 		enc := json.NewEncoder(stdout)
 		if err := enc.Encode(dtos); err != nil {
 			fmt.Fprintf(stderr, "ticket: JSON encode error: %v\n", err)
-			return 1
+			return exitError
 		}
-		return 0
+		return exitOK
 	}
 
 	if len(output) == 0 {
@@ -131,7 +131,7 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 			filterDesc = want + " -P " + projectFilter
 		}
 		fmt.Fprintln(stdout, domain.NoTickets(lang, filterDesc))
-		return 0
+		return exitOK
 	}
 	// Print with project column when len(uniqueProjects) > 1
 	showProjectCol := len(uniqueProjects) > 1
@@ -142,7 +142,7 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 			fmt.Fprintf(stdout, "T-%04d  %-7s  %s\n", t.Number, t.Status, string(t.Type)+": "+t.Title)
 		}
 	}
-	return 0
+	return exitOK
 }
 
 // reportDuplicates warns once per ticket number owned by more than one

@@ -19,7 +19,7 @@ import (
 func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
 		printUsage(stdout, stderr, lang)
-		return 1
+		return exitError
 	}
 	// T-0068: reject a flag-like arg in the <number> or <status> position.
 	// Report the FIRST offending positional (number before status).
@@ -29,13 +29,13 @@ func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, std
 			badArg = args[1]
 		}
 		fmt.Fprintln(stderr, domain.ErrUnknownFlag(lang, badArg))
-		return 1
+		return exitError
 	}
 	numArg, stArg := args[0], args[1]
 	next, ok := statusByName(stArg)
 	if !ok {
 		fmt.Fprintln(stderr, domain.ErrStatusInvalid(lang))
-		return 1
+		return exitError
 	}
 	comment := strings.Join(args[2:], " ")
 	// T-0065: reject CR/LF in the comment before touching the store
@@ -44,7 +44,7 @@ func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, std
 	// here gives a clean localized error and avoids any partial I/O.
 	if strings.ContainsAny(comment, "\r\n") {
 		fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
-		return 1
+		return exitError
 	}
 	n, ok := parseTicketNumber(numArg)
 	if !ok {
@@ -63,7 +63,7 @@ func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, std
 		// "store: journal ..." line.
 		if _, ok := errors.AsType[*store.ErrInvalidJournalInput](err); ok {
 			fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
-			return 1
+			return exitError
 		}
 		return setError(st, stderr, lang, numArg, err)
 	}
@@ -76,7 +76,7 @@ func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, std
 		fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
 	}
 	fmt.Fprintln(stdout, target)
-	return 0
+	return exitOK
 }
 
 // setError maps a failed store lookup (Find) or SetStatus to the
@@ -103,7 +103,7 @@ func setError(st *store.Store, stderr io.Writer, lang domain.Lang, numArg string
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}
-	return 1
+	return exitError
 }
 
 // statusByName maps a status word to its enum constant.

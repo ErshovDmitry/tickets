@@ -158,7 +158,7 @@ func printUsage(stdout, stderr io.Writer, lang domain.Lang) int {
 		// spaces before writing.
 		msg := strings.ReplaceAll(err.Error(), "\n", " ")
 		fmt.Fprintln(stderr, msg)
-		return 1
+		return exitError
 	}
-	return 0
+	return exitOK
 }

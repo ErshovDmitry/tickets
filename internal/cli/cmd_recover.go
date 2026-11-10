@@ -99,19 +99,19 @@ func cmdRecover(st *store.Store, args []string, _, _ string, lang domain.Lang, s
 	msg := recoverStringsFor(lang)
 	if len(args) < 2 || len(args) > 3 {
 		printUsage(stdout, stderr, lang)
-		return 1
+		return exitError
 	}
 	yes := len(args) == 3 && args[2] == "--yes"
 	if len(args) == 3 && !yes {
 		printUsage(stdout, stderr, lang)
-		return 1
+		return exitError
 	}
 	// Same positional guard as set/show (T-0068): a flag in the <number> or
 	// <new-file> slot is a usage error, reported for the FIRST offender.
 	for _, a := range args[:2] {
 		if strings.HasPrefix(a, "-") {
 			fmt.Fprintln(stderr, domain.ErrUnknownFlag(lang, a))
-			return 1
+			return exitError
 		}
 	}
 	n, ok := parseTicketNumber(args[0])
@@ -121,16 +121,16 @@ func cmdRecover(st *store.Store, args []string, _, _ string, lang domain.Lang, s
 	keepBase := args[1]
 	if !validRecoverBase(n, keepBase) {
 		fmt.Fprintf(stderr, msg.badNameFmt, n, n, keepBase)
-		return 1
+		return exitError
 	}
 	if !yes {
 		if !recoverPromptTTY() {
 			fmt.Fprintln(stderr, msg.refused)
-			return 1
+			return exitError
 		}
 		if !confirmRecover(st, n, keepBase, msg, stdout) {
 			fmt.Fprintln(stderr, msg.cancelled)
-			return 1
+			return exitError
 		}
 	}
 	kept, err := st.Recover(n, keepBase)
@@ -138,7 +138,7 @@ func cmdRecover(st *store.Store, args []string, _, _ string, lang domain.Lang, s
 		return recoverError(st, stderr, lang, args[0], err)
 	}
 	fmt.Fprintln(stdout, kept)
-	return 0
+	return exitOK
 }
 
 // validRecoverBase reports whether base is a bare basename naming ticket n
@@ -225,7 +225,7 @@ func recoverError(st *store.Store, stderr io.Writer, lang domain.Lang, numArg st
 		return notFoundHinted(st, stderr, lang, numArg)
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
-		return 1
+		return exitError
 	}
 }
 
@@ -243,9 +243,9 @@ func reportRecoveryState(stderr io.Writer, lang domain.Lang, rse *store.Recovery
 		return exitAmbiguous
 	case store.RecoverReasonKeepOld:
 		fmt.Fprintf(stderr, msg.keepOldFmt+"\n", rse.Number, rse.Keep, rse.Other)
-		return 1
+		return exitError
 	default: // selection-not-in-pair, single-mismatch
 		fmt.Fprintf(stderr, msg.selectionFmt+"\n", rse.Number, rse.Keep)
-		return 1
+		return exitError
 	}
 }

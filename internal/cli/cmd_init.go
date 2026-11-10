@@ -47,13 +47,13 @@ func initProject(cwd string, lang domain.Lang, stdout, stderr io.Writer) int {
 		return initError(lang, stderr, err)
 	}
 	fmt.Fprintln(stdout, domain.MsgInitialized(lang, tickets))
-	return 0
+	return exitOK
 }
 func initError(lang domain.Lang, w io.Writer, e error) int {
 	fmt.Fprintln(w, domain.ErrInitError(lang, e))
-	return 1
+	return exitError
 }
 func conflict(lang domain.Lang, w io.Writer, p string) int {
 	fmt.Fprintln(w, domain.ErrConflict(lang, p))
-	return 1
+	return exitError
 }

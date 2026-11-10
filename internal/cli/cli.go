@@ -112,7 +112,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 		// exit 1 BEFORE any command routing (incl. help/version/unknown) —
 		// matches the dispatch/paths error style.
 		fmt.Fprintln(stderr, err)
-		return 1
+		return exitError
 	}
 	cmd := "help"
 	if len(args) > 0 {
@@ -124,7 +124,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	switch cmd {
 	case "version", "--version", "-v":
 		_, _ = io.WriteString(stdout, versionLine())
-		return 0
+		return exitOK
 	}
 
 	// i18n initialisation precedes langFrom and every usage path. A fatal
@@ -134,7 +134,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	if err := domainInitFn(); err != nil {
 		fmt.Fprintln(stderr, err)
 		if !errors.Is(err, domain.ErrInitDegraded) {
-			return 1
+			return exitError
 		}
 	}
 
@@ -146,7 +146,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 				return printUsage(stdout, stderr, lang)
 			}
 			printUsage(stdout, stderr, lang)
-			return 1
+			return exitError
 		}
 		return cmdInit(lang, stdout, stderr)
 	case "new", "list", "show", "set", "archive", "recover":
@@ -165,7 +165,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 		return printUsage(stdout, stderr, lang)
 	default:
 		printUsage(stdout, stderr, lang)
-		return 1
+		return exitError
 	}
 }
 
@@ -177,7 +177,7 @@ func runLogged(cmd string, args []string, env map[string]string, lang domain.Lan
 	lg, closeLog, err := newLoggerFn(stderr, env, verbose)
 	if err != nil {
 		_, _ = io.WriteString(stderr, err.Error()+"\n")
-		return 1
+		return exitError
 	}
 	defer func() {
 		if cerr := closeLog(); cerr != nil {
@@ -199,7 +199,7 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 	if err != nil {
 		lg.Error("dir.resolve.fail", "source", src)
 		fmt.Fprintln(stderr, err)
-		return 1
+		return exitError
 	}
 	lg.Debug("dir.resolve", "source", src, "dir", dir)
 	// Only mutating commands open the Store writable (write probe); list/show use NewReadOnly.
@@ -214,7 +214,7 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		// store errors are user-facing and self-prefixed ("store: ...");
 		// adding die()'s "ticket: " here would double-prefix (wave-1 #1).
 		fmt.Fprintln(stderr, err)
-		return 1
+		return exitError
 	}
 	who := whoFrom(env)
 	// T-0065: defense-in-depth. Reject CR/LF in TICKET_WHO/USER before
@@ -225,7 +225,7 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 	// the same contract.
 	if strings.ContainsAny(who, "\r\n") {
 		fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
-		return 1
+		return exitError
 	}
 	project := filepath.Base(filepath.Dir(dir))
 	var code int
