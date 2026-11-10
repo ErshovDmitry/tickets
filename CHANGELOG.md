@@ -5,6 +5,11 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+### Added
+
+- Exit code `2` for an ambiguous ticket number: one number owned by several ticket files; the number and the conflicting paths are printed to stderr (T-0157).
+- The exit codes are documented in `ticket help`, in the README files and in the docs (T-0158).
+
 ## [1.2.4] - 2026-11-06
 
 ### Added

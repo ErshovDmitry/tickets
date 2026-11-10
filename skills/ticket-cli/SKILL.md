@@ -1,8 +1,8 @@
 ---
 name: ticket-cli
-version: "1.8"
+version: "1.9"
 created: 2026-09-04
-modified: 2026-11-06
+modified: 2026-11-10
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets."
@@ -85,6 +85,12 @@ ticket archive [<number>]
 
 Moves done/closed tickets into `tickets/archive/`; no number = all closed, with a number = only the given one.
 
+## Exit codes
+
+- `0` — success.
+- `1` — error (bad arguments, ticket not found, collision, input or store error).
+- `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+
 ## Status lifecycle
 
 `open` → `wip` → `done` / `closed`.
@@ -153,3 +159,4 @@ ticket-cli/
 | 2026-10-29 | T-0109: the Details format rule and the `-d @file` / `-d -` input were undocumented | Documented the numbered-list Details format and the file/stdin details input (literal, `@file`, `@@name`, bare `@`, `-`, byte-exact content, no size limit, no ticket on failure) | 1.5 |
 | 2026-11-06 | Debug log is not documented in the skill | Added `--verbose`/`TICKET_LOG` to Global flags and a cross-reference to `docs/configuration.md`; version bumped to 1.6 | 1.6 |
 | 2026-11-06 | T-0110 Wave 7: pitfall 8 claimed that a misplaced `--verbose` always fails | Added the exception: after `help`/`version` the token is ignored; version bumped to 1.7 | 1.7 |
+| 2026-11-10 | T-0158: exit code 2 (ambiguous ticket number) was undocumented | Added the "Exit codes" section | 1.9 |

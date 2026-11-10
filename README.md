@@ -30,6 +30,12 @@ ticket show 7                                           # print a ticket (search
 ticket set 7 done "fixed, tests green"                  # change status, renames the file
 ```
 
+## Exit codes
+
+- `0` — success.
+- `1` — error: bad arguments, ticket not found, collision, input or store error.
+- `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+
 ## Documentation
 
 - [Installation](docs/installation.md) — putting `ticket` on your `PATH`, tickets-directory resolution (`-C`, `$TICKETS_DIR`, upward scan), one binary for many projects, migration note.

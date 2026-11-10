@@ -124,6 +124,8 @@ Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → 
 
 Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set and archive.
 
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error); 2 — ambiguous ticket number (commands show, set, archive, new): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0.
+
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
 Secrets (passwords, tokens, keys) must NOT be written into tickets.
