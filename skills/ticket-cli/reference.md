@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.5"
+version: "1.6"
 created: 2026-09-04
-modified: 2026-10-29
+modified: 2026-11-11
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-10-29 (T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-11 (T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -44,6 +44,15 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
   ticket archive [<номер>]
       перенести закрытые тикеты (done/closed) в archive/;
       без номера — все закрытые, с номером — один указанный
+  ticket recover <номер> <файл-новый> [--yes]
+      восстановить тикет после прерванной смены статуса, оставившей два файла на один номер;
+      <файл-новый> — базовое имя файла, который сохраняется (например T-0001-done.md), не путь;
+      без --yes печатает сохраняемый и удаляемый файлы и спрашивает yes/no;
+      без --yes и без терминала отказывает и ничего не меняет;
+      удаляется только устаревший старый файл, сохраняемый файл не перезаписывается;
+      повторный запуск после успешного восстановления — успех без изменений
+      код 2 — номер не восстановить однозначно (три файла и более, расходящееся содержимое, одинаковый статус в именах);
+      выбор старого файла, файла вне пары или единственного оставшегося — код 1, дерево не меняется
 
 Глобальный флаг (перед командой, все команды кроме init):
   -C <путь>, --tickets-dir <путь>
@@ -57,7 +66,7 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 
 Блокировка каталога: TICKET_LOCK_TIMEOUT задаёт, сколько ticket ждёт захват .lock, прежде чем вернуть ошибку; значение — Go-длительность с обязательной единицей (30s, 2m, 500ms); пустое или невалидное значение молча даёт дефолт; 0 или меньше — одна попытка без ожидания; действует на new, set и archive.
 
-Коды выхода: 0 — успех; 1 — ошибка (неверные аргументы, тикет не найден, конфликт, ошибка ввода или хранилища); 2 — неоднозначный номер тикета (команды show, set, archive, new): один номер принадлежит нескольким файлам — в stderr печатаются номер и конфликтующие файлы. Команда list при дубликатах печатает такое же предупреждение, но завершается с кодом 0.
+Коды выхода: 0 — успех; 1 — ошибка (неверные аргументы, тикет не найден, конфликт, ошибка ввода или хранилища); 2 — неоднозначный номер тикета (команды show, set, archive, new, recover): один номер принадлежит нескольким файлам — в stderr печатаются номер и конфликтующие файлы. Команда list при дубликатах печатает такое же предупреждение, но завершается с кодом 0.
 
 Статусы: open — новый; wip — в работе; done — исправлено; closed — отклонён/дубликат.
 Типы: BUG — поломка; OPS — инцидент/обслуживание; TD — техдолг; ENH — улучшение.
@@ -73,3 +82,4 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-09-09 | Stale vs v1.2.3: `list --json` (T-0081) missing | Regenerated from v1.2.3 help | 1.3 |
 | 2026-10-27 | T-0094: `TICKET_LOCK_TIMEOUT` missing; T-0095: migration/sed section removed | Re-synced with `internal/cli/templates/usage.ru.txt` | 1.4 |
 | 2026-10-29 | T-0109: `-d` input rules and the Details format rule missing in the help text | Re-synced with `internal/cli/templates/usage.ru.txt` | 1.5 |
+| 2026-11-11 | T-0159: `ticket recover` missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (recover block, `recover` in the exit-code line) | 1.6 |

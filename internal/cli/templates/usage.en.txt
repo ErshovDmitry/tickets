@@ -26,6 +26,15 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
   ticket archive [<number>]
       move closed tickets (done/closed) into archive/;
       without a number — all closed ones, with a number — only the given one
+  ticket recover <number> <new-file> [--yes]
+      recover a ticket after an interrupted status change that left two files for one number;
+      <new-file> is the basename to keep (for example T-0001-done.md), never a path;
+      without --yes it prints the kept and the deleted file and asks yes/no;
+      without --yes and without a terminal it refuses and changes nothing;
+      only the stale old file is removed, the kept file is never rewritten;
+      a repeat after a successful recovery is a no-op success
+      exit 2 when the number is not cleanly recoverable (three or more files, diverging contents, equal statuses in the file names);
+      keeping the stale file, naming a file outside the pair or a single mismatch is exit 1 and changes nothing
 
 Global flag (before the command, every command except init):
   -C <path>, --tickets-dir <path>
@@ -39,7 +48,7 @@ Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → 
 
 Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set and archive.
 
-Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error); 2 — ambiguous ticket number (commands show, set, archive, new): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0.
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error); 2 — ambiguous ticket number (commands show, set, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0.
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.

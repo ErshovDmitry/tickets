@@ -9,6 +9,7 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 - Exit code `2` for an ambiguous ticket number: one number owned by several ticket files; the number and the conflicting paths are printed to stderr (T-0157).
 - The exit codes are documented in `ticket help`, in the README files and in the docs (T-0158).
+- `ticket recover <number> <new-file> [--yes]`: resolves the two-file pair (`T-NNNN-old.md` + `T-NNNN-new.md`) an interrupted status change leaves behind. The command accepts only the exact crash signature — the new file equals the old one plus exactly one trailing journal entry `From=old status → To=new status` — never rewrites ticket content and never adds a recovery journal entry. It works for `tickets/` and `tickets/archive/` pairs, asks for a yes/no confirmation (`--yes` for automation; a non-TTY run without `--yes` exits 1 having done nothing), is idempotent on repeat, refuses the keep-old choice, and returns exit code 2 when the pair cannot be recovered automatically; roll the status back afterwards with a normal `ticket set` (T-0159).
 
 ## [1.2.4] - 2026-11-06
 

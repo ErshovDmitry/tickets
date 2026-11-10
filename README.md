@@ -28,6 +28,7 @@ ticket new "Broken export" -t BUG -p high -d "Fails on large files"
 ticket list                                             # active tickets (open + wip)
 ticket show 7                                           # print a ticket (searches the archive)
 ticket set 7 done "fixed, tests green"                  # change status, renames the file
+ticket recover 7 T-0007-done.md                        # resolve a crash pair (ambiguous number, exit 2)
 ```
 
 ## Exit codes
@@ -35,6 +36,8 @@ ticket set 7 done "fixed, tests green"                  # change status, renames
 - `0` — success.
 - `1` — error: bad arguments, ticket not found, collision, input or store error.
 - `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+
+`ticket recover` uses the same codes: `0` also covers an idempotent repeat; `1` covers a usage error, a refused confirmation, a missing ticket, an I/O error (archive scan included), the keep-old choice and a name that is not the crash pair; `2` means the number cannot be recovered automatically — more than two files, diverging content or equal statuses. The ambiguity report prints both conflicting absolute paths, while `<new-file>` for `recover` is always a bare basename.
 
 ## Documentation
 

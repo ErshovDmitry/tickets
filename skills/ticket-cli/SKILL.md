@@ -1,11 +1,11 @@
 ---
 name: ticket-cli
-version: "1.9"
+version: "1.10"
 created: 2026-09-04
-modified: 2026-11-10
+modified: 2026-11-11
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
-description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets."
+description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive/recover. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`."
 ---
 
 # ticket-cli
@@ -77,6 +77,22 @@ ticket set <number> <status> ["comment"]
 
 Renames the file and appends a journal line. Re-setting the SAME status WITH a comment appends a journal entry only (no rename); the same status WITHOUT a comment is an error. Moving an archived ticket to `open`/`wip` returns it from the archive into work.
 
+### `recover`
+
+```text
+ticket recover <number> <new-file> [--yes]
+```
+
+Repairs the pair an interrupted status change leaves behind (`T-NNNN-old.md` + `T-NNNN-new.md`, e.g. `T-0007-open.md` + `T-0007-done.md`): `show`, `set` and `archive` report the number as ambiguous (exit 2) and print both conflicting ABSOLUTE paths. `<new-file>` is the basename from that diagnostic (e.g. `T-0007-done.md`) — it selects the canonical file, and the path is NEVER guessed: the basename is matched against `tickets/` and `tickets/archive/` (an identical basename in both dirs is a refusal).
+
+Only the exact crash signature is accepted: the new file must equal the old one plus exactly one trailing journal entry `From=old status → To=new status`, and the old file must LACK that entry. The comparison runs after parse/render (all fields, unknown/RawTemplates included), so any other difference is rejected and the pair is left byte-identical.
+
+What it does NOT do: it deletes ONLY the old file — the new file is never opened for writing, its content and journal stay byte-identical, no `tmp/` and no recovery journal entry are created. Repeating the command when only the new file remains is a no-op with exit 0. The keep-old choice is refused; roll the status back afterwards with a normal `ticket set <number> <old-status> "reason"`.
+
+Confirmation: without `--yes` it prints keep/discard and asks yes/no; a non-TTY run without `--yes` exits 1 having done nothing, so automation MUST pass `--yes`. Any error keeps the pair for a retry, but path reporting differs: the ambiguity report (more than two files, also from `show`/`set`/`archive`) prints every conflicting ABSOLUTE path, while a `RecoveryState` refusal prints only the conflicting BASENAMES (same-status names none). Never assume paths appear in every error — pass the bare basename.
+
+🔴 Run `recover` only in a sandbox (`-C /tmp/…` or `TICKETS_DIR`): it deletes a file — NEVER in the live `tickets/`.
+
 ### `archive`
 
 ```text
@@ -90,6 +106,8 @@ Moves done/closed tickets into `tickets/archive/`; no number = all closed, with 
 - `0` — success.
 - `1` — error (bad arguments, ticket not found, collision, input or store error).
 - `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+
+`ticket recover` reuses these codes: `0` also covers an idempotent repeat; `1` covers a usage error, a refused confirmation, a missing file, an I/O error (archive scan included), the keep-old choice and a selection that is not the crash pair; `2` means the number cannot be recovered automatically — more than two files, diverging content or equal statuses. A divergent pair is `2`, never `1`.
 
 ## Status lifecycle
 
@@ -160,3 +178,4 @@ ticket-cli/
 | 2026-11-06 | Debug log is not documented in the skill | Added `--verbose`/`TICKET_LOG` to Global flags and a cross-reference to `docs/configuration.md`; version bumped to 1.6 | 1.6 |
 | 2026-11-06 | T-0110 Wave 7: pitfall 8 claimed that a misplaced `--verbose` always fails | Added the exception: after `help`/`version` the token is ignored; version bumped to 1.7 | 1.7 |
 | 2026-11-10 | T-0158: exit code 2 (ambiguous ticket number) was undocumented | Added the "Exit codes" section | 1.9 |
+| 2026-11-11 | T-0159: `ticket recover` was undocumented | Added the `recover` section (exact crash signature, keep/discard confirmation, non-TTY, archive pairs, idempotence, keep-old refusal, rollback via `set`, sandbox warning) and the recover exit-code notes | 1.10 |

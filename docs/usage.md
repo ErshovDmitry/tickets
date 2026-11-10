@@ -35,6 +35,10 @@ ticket set 7 done "fixed, tests green"
 ticket archive         # all closed
 ticket archive 7       # one specific
 
+# resolve the pair left by an interrupted status change
+# (the number reports exit 2: T-0007-open.md + T-0007-done.md)
+ticket recover 7 T-0007-done.md
+
 # binary version (dev if built without -ldflags)
 ticket version
 ```
@@ -48,6 +52,7 @@ Command shapes at a glance:
 - `ticket show <number|filename>`
 - `ticket set <number> <status> ["comment"]`
 - `ticket archive [<number>]`
+- `ticket recover <number> <new-file> [--yes]`
 - `ticket version`
 
 Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`, `TICKET_LOG`) and the global `-C` / `--tickets-dir` flag: [configuration.md](configuration.md).
@@ -111,6 +116,15 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
   ticket archive [<number>]
       move closed tickets (done/closed) into archive/;
       without a number — all closed ones, with a number — only the given one
+  ticket recover <number> <new-file> [--yes]
+      recover a ticket after an interrupted status change that left two files for one number;
+      <new-file> is the basename to keep (for example T-0001-done.md), never a path;
+      without --yes it prints the kept and the deleted file and asks yes/no;
+      without --yes and without a terminal it refuses and changes nothing;
+      only the stale old file is removed, the kept file is never rewritten;
+      a repeat after a successful recovery is a no-op success
+      exit 2 when the number is not cleanly recoverable (three or more files, diverging contents, equal statuses in the file names);
+      keeping the stale file, naming a file outside the pair or a single mismatch is exit 1 and changes nothing
 
 Global flag (before the command, every command except init):
   -C <path>, --tickets-dir <path>
@@ -124,7 +138,7 @@ Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → 
 
 Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set and archive.
 
-Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error); 2 — ambiguous ticket number (commands show, set, archive, new): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0.
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error); 2 — ambiguous ticket number (commands show, set, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0.
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
@@ -143,6 +157,33 @@ ticket --verbose show 7 2>/dev/null   # log still goes to stderr, ticket text st
 ```
 
 The record format, the destination rules, the failure behaviour and the complete event list live in [configuration.md](configuration.md) — they are not duplicated here.
+
+## Recovering after an interrupted status change (`recover`)
+
+A status change is a multi-step commit: the new file is created by link, then the tmp and the old file are removed. If the process is killed or hits a timeout between the steps, both files survive — for example `T-0007-open.md` and `T-0007-done.md`. The number becomes ambiguous: `show`, `set` and `archive` print both conflicting ABSOLUTE paths to stderr and exit with code 2. For exactly that pair there is a command:
+
+```bash
+ticket recover <number> <new-file> [--yes]
+```
+
+- `<new-file>` — the BASENAME from the ambiguity diagnostic (for example `T-0007-done.md`); a directory must not be given: the basename is matched against entries in both `tickets/` and `tickets/archive/` (a pair left by a `reopen` is recovered too). An identical basename in both directories is a refusal: the path is never guessed.
+- Without `--yes` the command prints what is kept and what will be discarded, and asks yes/no. Without a terminal (non-TTY) and without `--yes` — exit 1 and no action at all: a pipeline cannot delete a file by accident, automation MUST pass `--yes`.
+- The signature is matched strictly: the new file must equal the old file plus EXACTLY one trailing journal entry `From=old status → To=new status`, and the old file must LACK that trailing entry. The comparison runs after parse/render (every field, unknown/RawTemplates included): any other difference, an extra or a foreign journal entry is a refusal.
+- The selected name must be the new file. Naming the old one (keep old) is a refusal with a hint: `recover` the new file first, then `ticket set` back to the previous status if needed.
+- ONLY the old file is deleted; the new file is never opened for writing, its content and journal stay byte-identical, no `tmp/` and no recovery journal entry are created.
+- A repeat is idempotent: when only the new file remains, the command exits 0 and changes nothing.
+- Rolling the status back is an ordinary follow-up `ticket set <number> <old-status> "reason"`: it appends the journal and renames the file. `recover` has no rollback flag.
+- Any error leaves the pair in place. Path reporting depends on the diagnostic: the ambiguity report (more than two files, and the same report from `show`/`set`/`archive`) lists every conflicting ABSOLUTE path, while a `RecoveryState` refusal names only the conflicting BASENAMES — the same-status refusal names none. Do not count on paths appearing in every error: retry with the basename after fixing the cause.
+
+Exit codes: `0` — success or an idempotent repeat; `1` — a usage error, a refused confirmation, a missing file, an I/O error (archive scan included), the keep-old choice and a selection that is not the crash pair; `2` — the number cannot be recovered automatically: more than two files, diverging content or equal statuses. For automation, exit code `2` means "do not touch it": the pair needs a manual review.
+
+```bash
+ticket set 7 done "fixed"                 # interrupted midway: exit 2, both files on stderr
+ticket recover 7 T-0007-done.md           # interactive: keep/discard + yes/no
+ticket recover 7 T-0007-done.md --yes     # the same without the question, for automation
+```
+
+🔴 `recover` deletes a file, so test it only in a sandbox: `-C /tmp/…` or `TICKETS_DIR`, never in the live `tickets/`.
 
 ## Ticket file format
 

@@ -1,0 +1,212 @@
+package cli
+
+// T-0159 A2: refusal, exit-code and usage-rendering tests for `ticket recover`
+// (the happy paths and the sandbox helpers live in cmd_recover_test.go). Every
+// test drives the real dispatch inside a t.TempDir() sandbox.
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestRecoverRefusalsUseTypedExitCodes(t *testing.T) {
+	// The forged file stays a *parseable* ticket: only a foreign trailer is
+	// appended, so the run reaches the divergence branch instead of failing
+	// early on an unreadable H1 (T-0159 review fix).
+	t.Run("divergent is exit 2", func(t *testing.T) {
+		dir := t.TempDir()
+		_, newPath := crashPair(t, dir)
+		body, err := os.ReadFile(newPath)
+		if err != nil {
+			t.Fatalf("read new: %v", err)
+		}
+		if err := os.WriteFile(newPath, append(body, []byte("\n<!-- foreign -->\n")...), 0o644); err != nil {
+			t.Fatalf("forge divergent new: %v", err)
+		}
+		before := treeState(t, dir)
+		_, stderr, code := runRecoverCLI(t, dir, "recover", "1", "T-0001-done.md", "--yes")
+		if code != exitAmbiguous {
+			t.Fatalf("divergent: code=%d want %d (stderr=%q)", code, exitAmbiguous, stderr)
+		}
+		if !strings.Contains(stderr, "T-0001-done.md") {
+			t.Errorf("divergence refusal must name the selected file, got %q", stderr)
+		}
+		assertSameTree(t, dir, before)
+	})
+
+	// A same-status pair is only reachable across tickets/ and archive/: the
+	// file name carries the status, so two identical names are required.
+	t.Run("same status is exit 2", func(t *testing.T) {
+		dir := t.TempDir()
+		if _, se, code := runRecoverCLI(t, dir, "new", "same status"); code != 0 {
+			t.Fatalf("seed new: code=%d stderr=%q", code, se)
+		}
+		openPath := filepath.Join(dir, "T-0001-open.md")
+		body, err := os.ReadFile(openPath)
+		if err != nil {
+			t.Fatalf("read open: %v", err)
+		}
+		archiveDir := filepath.Join(dir, "archive")
+		if err := os.MkdirAll(archiveDir, 0o755); err != nil {
+			t.Fatalf("mkdir archive: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(archiveDir, "T-0001-open.md"), body, 0o644); err != nil {
+			t.Fatalf("clone into archive: %v", err)
+		}
+		before := treeState(t, dir)
+		_, stderr, code := runRecoverCLI(t, dir, "recover", "1", "T-0001-open.md", "--yes")
+		if code != exitAmbiguous {
+			t.Fatalf("same status: code=%d want %d (stderr=%q)", code, exitAmbiguous, stderr)
+		}
+		assertSameTree(t, dir, before)
+	})
+
+	// A well-formed basename that is neither half of the pair is a plain
+	// refusal, not an ambiguity.
+	t.Run("selection outside the pair is exit 1", func(t *testing.T) {
+		dir := t.TempDir()
+		crashPair(t, dir)
+		before := treeState(t, dir)
+		_, stderr, code := runRecoverCLI(t, dir, "recover", "1", "T-0001-wip.md", "--yes")
+		if code != 1 {
+			t.Fatalf("selection not in pair: code=%d want 1 (stderr=%q)", code, stderr)
+		}
+		if !strings.Contains(stderr, "T-0001-wip.md") {
+			t.Errorf("selection refusal must name the selected file, got %q", stderr)
+		}
+		assertSameTree(t, dir, before)
+	})
+
+	// One file remains and it is not the selected new file.
+	t.Run("single mismatch is exit 1", func(t *testing.T) {
+		dir := t.TempDir()
+		if _, se, code := runRecoverCLI(t, dir, "new", "lonely"); code != 0 {
+			t.Fatalf("seed new: code=%d stderr=%q", code, se)
+		}
+		before := treeState(t, dir)
+		_, stderr, code := runRecoverCLI(t, dir, "recover", "1", "T-0001-done.md", "--yes")
+		if code != 1 {
+			t.Fatalf("single mismatch: code=%d want 1 (stderr=%q)", code, stderr)
+		}
+		assertSameTree(t, dir, before)
+	})
+
+	t.Run("keep old is exit 1", func(t *testing.T) {
+		dir := t.TempDir()
+		crashPair(t, dir)
+		before := treeState(t, dir)
+		_, stderr, code := runRecoverCLI(t, dir, "recover", "1", "T-0001-open.md", "--yes")
+		if code != 1 {
+			t.Fatalf("keep old: code=%d want 1 (stderr=%q)", code, stderr)
+		}
+		if !strings.Contains(stderr, "T-0001-done.md") {
+			t.Errorf("keep-old refusal must name the file to recover first, got %q", stderr)
+		}
+		assertSameTree(t, dir, before)
+	})
+
+	t.Run("not found is exit 1", func(t *testing.T) {
+		dir := t.TempDir()
+		crashPair(t, dir)
+		_, stderr, code := runRecoverCLI(t, dir, "recover", "7", "T-0007-done.md", "--yes")
+		if code != 1 {
+			t.Fatalf("not found: code=%d want 1 (stderr=%q)", code, stderr)
+		}
+	})
+}
+
+// runRecoverLangCLI is runRecoverCLI with an explicit ticket language.
+func runRecoverLangCLI(t *testing.T, dir, lang string, args ...string) (string, string, int) {
+	t.Helper()
+	env := recoverEnv(dir)
+	env["TICKET_LANG"] = lang
+	var so, se bytes.Buffer
+	code := Run(args, env, &so, &se)
+	return so.String(), se.String(), code
+}
+
+// hasCyrillic reports whether s carries any Cyrillic rune (an EN run must
+// never leak a Russian literal).
+func hasCyrillic(s string) bool {
+	for _, r := range s {
+		if r >= 0x0400 && r <= 0x04FF {
+			return true
+		}
+	}
+	return false
+}
+
+func TestRecoverUsageAndHelpBothLanguages(t *testing.T) {
+	dir := t.TempDir()
+	cases := []struct {
+		name    string
+		lang    string
+		synopsy string
+	}{
+		{"RU", "ru", "ticket recover <номер> <файл-новый> [--yes]"},
+		{"EN", "en", "ticket recover <number> <new-file> [--yes]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			stdout, stderr, code := runRecoverLangCLI(t, dir, tc.lang, "help")
+			if code != 0 {
+				t.Fatalf("help: code=%d", code)
+			}
+			if !strings.Contains(stdout, tc.synopsy) {
+				t.Errorf("help must document the recover synopsis %q", tc.synopsy)
+			}
+			if tc.lang == "en" && (hasCyrillic(stdout) || hasCyrillic(stderr)) {
+				t.Error("EN help must not contain Cyrillic")
+			}
+		})
+	}
+}
+
+func TestRecoverUsageErrors(t *testing.T) {
+	dir := t.TempDir()
+	for _, args := range [][]string{
+		{"recover"},
+		{"recover", "1"},
+		{"recover", "1", "T-0001-done.md", "--nope"},
+		{"recover", "1", "T-0001-done.md", "--yes", "extra"},
+	} {
+		stdout, stderr, code := runRecoverCLI(t, dir, args...)
+		if code != 1 {
+			t.Errorf("%v: code=%d want 1 (stderr=%q)", args, code, stderr)
+		}
+		// A usage error prints the help to stdout, so the caller sees the
+		// accepted recover synopsis instead of a bare "bad arguments".
+		if !strings.Contains(stdout, "ticket recover") {
+			t.Errorf("%v: usage error must print the recover help to stdout, got %q", args, stdout)
+		}
+	}
+	// The subcommand help interception wins over the argument count.
+	if _, stderr, code := runRecoverCLI(t, dir, "recover", "-h"); code != 0 {
+		t.Errorf("recover -h: code=%d want 0 (stderr=%q)", code, stderr)
+	}
+}
+
+func TestRecoverMoreThanTwoFilesIsExitAmbiguous(t *testing.T) {
+	dir := t.TempDir()
+	oldPath, newPath := crashPair(t, dir)
+	thirdPath := filepath.Join(dir, "T-0001-wip.md")
+	if err := os.WriteFile(thirdPath, []byte("# third\n"), 0o644); err != nil {
+		t.Fatalf("seed third file: %v", err)
+	}
+	before := treeState(t, dir)
+	_, stderr, code := runRecoverCLI(t, dir, "recover", "1", "T-0001-done.md", "--yes")
+	if code != exitAmbiguous {
+		t.Fatalf("three files: code=%d want %d (stderr=%q)", code, exitAmbiguous, stderr)
+	}
+	// The diagnostics must list every conflicting file, so the caller can
+	// pick the right basename without guessing.
+	for _, want := range []string{oldPath, newPath, thirdPath} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("three-file refusal must name %q, got %q", want, stderr)
+		}
+	}
+	assertSameTree(t, dir, before)
+}

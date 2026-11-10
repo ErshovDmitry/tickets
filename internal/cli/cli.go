@@ -28,7 +28,7 @@ import (
 // before dispatch and thus also skips tickets-dir resolution.
 //
 // Command handlers (cmd_new.go, cmd_list.go, cmd_show.go, cmd_set.go,
-// cmd_archive.go) share the common shape
+// cmd_archive.go, cmd_recover.go) share the common shape
 //
 //	func cmdX(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int
 //
@@ -149,10 +149,10 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return cmdInit(lang, stdout, stderr)
-	case "new", "list", "show", "set", "archive":
+	case "new", "list", "show", "set", "archive", "recover":
 		// Subcommand help interception (T-0041): -h/--help as the FIRST
-		// argument is never a valid positional (new: title; show/set/archive:
-		// ticket number; list: filter), so print usage and exit 0. Only
+		// argument is never a valid positional (new: title; show/set/archive/
+		// recover: ticket number; list: filter), so print usage and exit 0. Only
 		// args[1] is checked: flag values (-d text, -P project) and the
 		// subsequent positionals (incl. the set comment) all land in args[2+],
 		// so a --help there must NOT trigger help ("new Тикет -d \"see
@@ -202,10 +202,9 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		return 1
 	}
 	lg.Debug("dir.resolve", "source", src, "dir", dir)
-	// Only mutating commands open the Store writable (write probe);
-	// list/show use NewReadOnly, which never mutates the tickets dir.
+	// Only mutating commands open the Store writable (write probe); list/show use NewReadOnly.
 	var st *store.Store
-	if cmd == "new" || cmd == "set" || cmd == "archive" {
+	if cmd == "new" || cmd == "set" || cmd == "archive" || cmd == "recover" {
 		st, err = store.New(dir, store.WithLogger(lg))
 	} else { // list, show
 		st, err = store.NewReadOnly(dir, store.WithLogger(lg))
@@ -239,6 +238,8 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		code = cmdShow(st, args, who, project, lang, stdout, stderr)
 	case "set":
 		code = cmdSet(st, args, who, project, lang, stdout, stderr)
+	case "recover":
+		code = cmdRecover(st, args, who, project, lang, stdout, stderr)
 	default: // "archive"
 		code = cmdArchive(st, args, who, project, lang, stdout, stderr)
 	}
