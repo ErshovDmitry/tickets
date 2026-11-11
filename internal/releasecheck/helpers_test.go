@@ -64,12 +64,6 @@ func (c *stubClock) now() time.Time {
 	return c.t
 }
 
-func (c *stubClock) advance(d time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.t = c.t.Add(d)
-}
-
 // newStubClock returns a clock pinned at a fixed UTC instant.
 func newStubClock() *stubClock {
 	return &stubClock{t: time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)}

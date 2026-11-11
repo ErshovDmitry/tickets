@@ -23,6 +23,20 @@ func recoverEnv(dir string) map[string]string {
 	return map[string]string{"TICKETS_DIR": dir, "TICKET_LANG": "ru", "USER": "tester"}
 }
 
+// resolvedTempDir returns a t.TempDir with symlinks resolved, mirroring
+// paths.Resolve (EvalSymlinks) used by the CLI before the store opens the
+// directory: macOS t.TempDir() is /var/..., a symlink to /private/var/...,
+// so any test comparing a printed path byte-for-byte must use the
+// canonical spelling.
+func resolvedTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("EvalSymlinks(t.TempDir()): %v", err)
+	}
+	return dir
+}
+
 // runCLI drives one command through the real dispatch and returns both
 // streams and the exit code.
 func runRecoverCLI(t *testing.T, dir string, args ...string) (string, string, int) {
@@ -153,8 +167,8 @@ func TestRecoverYesKeepsNewAndIsIdempotent(t *testing.T) {
 // ticket without any crash pair — is exit 0 with the file named on stdout,
 // the tree is byte-identical afterwards, and a repeat stays a success.
 func TestRecoverLoneCleanTicketNoOp(t *testing.T) {
-	dir := t.TempDir()
-	stdout, stderr, code := runRecoverCLI(t, dir, "new", "lone ticket")
+	dir := resolvedTempDir(t)
+	_, stderr, code := runRecoverCLI(t, dir, "new", "lone ticket")
 	if code != 0 {
 		t.Fatalf("seed new: code=%d stderr=%q", code, stderr)
 	}
@@ -165,7 +179,7 @@ func TestRecoverLoneCleanTicketNoOp(t *testing.T) {
 		t.Fatalf("stat kept file before: %v", err)
 	}
 	wantStdout := path + "\n"
-	stdout, stderr, code = runRecoverCLI(t, dir, "recover", "1", "T-0001-open.md", "--yes")
+	stdout, stderr, code := runRecoverCLI(t, dir, "recover", "1", "T-0001-open.md", "--yes")
 	if code != 0 {
 		t.Fatalf("lone no-op: code=%d want 0 (stderr=%q)", code, stderr)
 	}
