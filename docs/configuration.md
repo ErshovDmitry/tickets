@@ -61,6 +61,9 @@ The `ticket: open log file ...:` prefix is hardcoded English wrapped around the 
 | `store.set.append.failure` | error | `number`, `stage` | the in-place journal append failed (`stage` is `tmp` or `rename`) |
 | `store.archive.commit` | info | `number`, `status`, `path` | the ticket was archived |
 | `store.archive.failure` | error | `number`, `stage` | the archive failed (`stage` is `already`, `not_closed`, `collision`, `tmp`, `link` or `old`) |
+| `store.recover.commit` | info | `number`, `keep`, `discard` | a crash pair was recovered; the stale `discard` file was removed |
+| `store.recover.noop` | info | `number`, `keep` | the single file already carried the selected name; nothing was removed |
+| `store.recover.failure` | error | `number`, `keep`, `discard`, `stage`, `err` | the recovery was refused or hit an I/O error (`stage` is `selection`, `scan`, `ambiguous`, `state` or `remove`) |
 
 Byte-exact records produced by the built binary (Linux):
 

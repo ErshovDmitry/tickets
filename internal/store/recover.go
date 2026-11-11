@@ -14,6 +14,9 @@ package store
 // happens to carry the same name. Recovering such a single file is a
 // documented postcondition-only no-op (see recoverSingle), never a proof
 // that a recovery happened.
+//
+// T-0164: store.recover.commit marks a pair recovery (old file removed),
+// store.recover.noop the single-file no-op, store.recover.failure any error.
 
 import (
 	"bytes"
@@ -201,7 +204,7 @@ func (s *Store) recoverSingle(log *slog.Logger, n int, f locatedFile, keepBase s
 		return fail(&RecoveryStateError{Number: n, Keep: keepBase, Other: f.Name, Reason: RecoverReasonSingleMismatch})
 	}
 	path := filepath.Join(f.dir, f.Name)
-	log.Info("store.recover.commit", "number", n, "keep", path, "discard", "")
+	log.Info("store.recover.noop", "number", n, "keep", path)
 	return path, nil
 }
 

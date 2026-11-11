@@ -61,6 +61,9 @@ ticket: open log file /home/user/logs/ticket.log: open /home/user/logs/ticket.lo
 | `store.set.append.failure` | error | `number`, `stage` | добавление записи в журнал на месте не удалось (`stage` — `tmp` или `rename`) |
 | `store.archive.commit` | info | `number`, `status`, `path` | тикет перенесён в архив |
 | `store.archive.failure` | error | `number`, `stage` | архивирование не удалось (`stage` — `already`, `not_closed`, `collision`, `tmp`, `link` или `old`) |
+| `store.recover.commit` | info | `number`, `keep`, `discard` | пара после сбоя восстановлена; устаревший файл `discard` удалён |
+| `store.recover.noop` | info | `number`, `keep` | единственный файл уже носил выбранное имя; ничего не удалялось |
+| `store.recover.failure` | error | `number`, `keep`, `discard`, `stage`, `err` | восстановление отклонено или завершилось ошибкой ввода-вывода (`stage` — `selection`, `scan`, `ambiguous`, `state` или `remove`) |
 
 Байт-в-байт записи, выданные собранным бинарём (Linux):
 
