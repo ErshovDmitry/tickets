@@ -277,7 +277,11 @@ func TestRecoverUsageErrors(t *testing.T) {
 }
 
 func TestRecoverMoreThanTwoFilesIsExitAmbiguous(t *testing.T) {
-	dir := t.TempDir()
+	// Full paths are asserted against stderr below, so the dir must carry the
+	// same canonical spelling paths.Resolve applies (EvalSymlinks): on
+	// Windows CI t.TempDir() returns the 8.3 short name (RUNNER~1), which
+	// EvalSymlinks expands to the long user profile path.
+	dir := resolvedTempDir(t)
 	oldPath, newPath := crashPair(t, dir)
 	thirdPath := filepath.Join(dir, "T-0001-wip.md")
 	if err := os.WriteFile(thirdPath, []byte("# third\n"), 0o644); err != nil {

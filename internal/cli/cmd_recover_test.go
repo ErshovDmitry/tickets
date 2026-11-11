@@ -27,7 +27,9 @@ func recoverEnv(dir string) map[string]string {
 // paths.Resolve (EvalSymlinks) used by the CLI before the store opens the
 // directory: macOS t.TempDir() is /var/..., a symlink to /private/var/...,
 // so any test comparing a printed path byte-for-byte must use the
-// canonical spelling.
+// canonical spelling. On Windows it additionally expands the 8.3 short
+// names (e.g. C:\Users\RUNNER~1) that t.TempDir() may return on CI runners
+// into the long profile path the CLI prints after EvalSymlinks (T-0179).
 func resolvedTempDir(t *testing.T) string {
 	t.Helper()
 	dir, err := filepath.EvalSymlinks(t.TempDir())
