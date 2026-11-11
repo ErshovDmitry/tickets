@@ -11,9 +11,11 @@ import (
 	"ticket/internal/domain"
 )
 
-// Guard and file-mode tests for Normalize (T-0125): files whose bytes Render
-// cannot reproduce are skipped with a warning, and a rewrite keeps the
-// original permission bits (POSIX) or the read-only attribute (Windows).
+// Guard and file-mode tests for Normalize (T-0125): files whose bytes the
+// guard rejects (the guard is deliberately stricter than Render - see
+// normalizeRenderable, store_normalize.go) are skipped with a warning, and a rewrite
+// keeps the original permission bits (POSIX) or the read-only attribute
+// (Windows).
 
 // skipWindowsPOSIXMode skips tests whose premise is POSIX permission bits:
 // Windows does not store them. os.Chmod there only toggles the read-only
@@ -95,7 +97,8 @@ func TestNormalize_MixedLabelsSkipped(t *testing.T) {
 
 // withLabelAfterProject inserts label as a standalone line right after the
 // project metadata line of a freshly rendered ticket body, so the fixture
-// carries a valid ticket plus one line Render cannot reproduce.
+// carries a valid ticket plus one line the guard skips — the guard is
+// deliberately stricter than Render (see normalizeRenderable, store_normalize.go).
 func withLabelAfterProject(t *testing.T, body []byte, label string) []byte {
 	t.Helper()
 	lines := strings.Split(string(body), "\n")
@@ -114,8 +117,9 @@ func withLabelAfterProject(t *testing.T, body []byte, label string) []byte {
 
 // TestNormalize_LegacyLabelVariantsSkipped pins the guard's width: an
 // indented marker, a "*" bullet and a space before the colon are still
-// bash-era label lines that Render cannot reproduce, so each file must be
-// left byte-identical and reported as unrecognized-meta (a rewrite would
+// bash-era label lines the guard rejects (deliberately stricter than
+// Render - see normalizeRenderable, store_normalize.go), so each file must be left
+// byte-identical and reported as unrecognized-meta (a rewrite would
 // silently drop the line).
 func TestNormalize_LegacyLabelVariantsSkipped(t *testing.T) {
 	for _, tc := range []struct{ name, line string }{

@@ -65,6 +65,13 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	}
 	b.WriteString("\n")
 
+	// Head-strays anchor right after the metadata block, before the
+	// Summary header (T-0166).
+	if len(t.HeadStray) > 0 {
+		b.WriteString(strings.Join(t.HeadStray, "\n"))
+		b.WriteString("\n\n")
+	}
+
 	// Section headers: prefer raw templates, else dict. Every header is
 	// followed by a blank line (MD022 blanks-around-headings).
 	if raw, ok := t.RawTemplates.Headers[secNameSummary]; ok {
@@ -74,7 +81,12 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 		b.WriteString(d.headers[0])
 		b.WriteString("\n\n")
 	}
-	fmt.Fprintf(&b, "%s\n\n", t.Title)
+	if len(t.Brief) > 0 {
+		b.WriteString(strings.Join(t.Brief, "\n"))
+		b.WriteString("\n\n")
+	} else {
+		fmt.Fprintf(&b, "%s\n\n", t.Title)
+	}
 
 	if raw, ok := t.RawTemplates.Headers[secNameDetails]; ok {
 		b.WriteString(raw)

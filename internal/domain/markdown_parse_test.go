@@ -41,7 +41,8 @@ func TestAbsorbLineDetailsGatedTransitions(t *testing.T) {
 	for _, tc := range cases {
 		tk := newAbsorbTestTicket()
 		var details, userComments, comments []string
-		got := absorbLine(tk, &details, &userComments, &comments, secDetails, tc.line)
+		var flags headFlags
+		got := absorbLine(tk, &details, &userComments, &comments, secDetails, tc.line, &flags)
 		if got != tc.want {
 			t.Errorf("%s: section = %v, want %v", tc.name, got, tc.want)
 		}
@@ -57,23 +58,29 @@ func TestAbsorbLineDetailsGatedTransitions(t *testing.T) {
 	}
 }
 
-// TestAbsorbLineHeadBriefUnknownHeader pins finding 2: an unrecognized
-// "## ..." line leaves head/brief for brief with NO raw storage (old
-// headerName semantics), so a meta line after it is not captured.
-func TestAbsorbLineHeadBriefUnknownHeader(t *testing.T) {
-	// Head: stray header moves to brief; a following meta line is ignored.
+// TestAbsorbLineHeadStrayUnknownHeader pins finding 2 (T-0166, D1): an
+// unrecognized "## ..." line in head starts secHeadStray with NO raw
+// storage: the line is captured into HeadStray, so a meta line after it
+// is not captured.
+func TestAbsorbLineHeadStrayUnknownHeader(t *testing.T) {
+	// Head: stray header moves to secHeadStray and is captured; a
+	// following meta line is ignored.
 	tk := newAbsorbTestTicket()
 	var details, userComments, comments []string
-	sec := absorbLine(tk, &details, &userComments, &comments, secHead, "## Что-то своё")
-	if sec != secBrief {
-		t.Fatalf("head + unknown header: section = %v, want %v", sec, secBrief)
+	var flags headFlags
+	sec := absorbLine(tk, &details, &userComments, &comments, secHead, "## Что-то своё", &flags)
+	if sec != secHeadStray {
+		t.Fatalf("head + unknown header: section = %v, want %v", sec, secHeadStray)
+	}
+	if len(tk.HeadStray) != 1 || tk.HeadStray[0] != "## Что-то своё" {
+		t.Errorf("head + unknown header: HeadStray = %q, want the line captured", tk.HeadStray)
 	}
 	if len(tk.RawTemplates.Headers) != 0 {
 		t.Errorf("head + unknown header: raw headers stored = %d, want 0", len(tk.RawTemplates.Headers))
 	}
-	sec = absorbLine(tk, &details, &userComments, &comments, sec, "- Project: late")
-	if sec != secBrief {
-		t.Fatalf("brief + meta line: section = %v, want %v", sec, secBrief)
+	sec = absorbLine(tk, &details, &userComments, &comments, sec, "- Project: late", &flags)
+	if sec != secHeadStray {
+		t.Fatalf("headstray + meta line: section = %v, want %v", sec, secHeadStray)
 	}
 	if tk.Project == "late" {
 		t.Error("meta line after unknown header was captured, want ignored (pre-T-0036)")
@@ -81,7 +88,7 @@ func TestAbsorbLineHeadBriefUnknownHeader(t *testing.T) {
 
 	// Head: recognized header still transitions with raw storage.
 	tk = newAbsorbTestTicket()
-	sec = absorbLine(tk, &details, &userComments, &comments, secHead, "## Comments (Комментарии)")
+	sec = absorbLine(tk, &details, &userComments, &comments, secHead, "## Comments (Комментарии)", &flags)
 	if sec != secComments || tk.RawTemplates.Headers[secNameComments] != "## Comments (Комментарии)" {
 		t.Errorf("head + recognized header: sec=%v raw=%q", sec, tk.RawTemplates.Headers[secNameComments])
 	}
@@ -89,11 +96,11 @@ func TestAbsorbLineHeadBriefUnknownHeader(t *testing.T) {
 	// Brief: unknown header stays brief with no raw storage; recognized
 	// header transitions with raw storage.
 	tk = newAbsorbTestTicket()
-	sec = absorbLine(tk, &details, &userComments, &comments, secBrief, "## Что-то своё")
+	sec = absorbLine(tk, &details, &userComments, &comments, secBrief, "## Что-то своё", &flags)
 	if sec != secBrief || len(tk.RawTemplates.Headers) != 0 {
 		t.Errorf("brief + unknown header: sec=%v raw=%d", sec, len(tk.RawTemplates.Headers))
 	}
-	sec = absorbLine(tk, &details, &userComments, &comments, sec, "## Journal (Журнал)")
+	sec = absorbLine(tk, &details, &userComments, &comments, sec, "## Journal (Журнал)", &flags)
 	if sec != secJournal || tk.RawTemplates.Headers[secNameJournal] != "## Journal (Журнал)" {
 		t.Errorf("brief + recognized header: sec=%v raw=%q", sec, tk.RawTemplates.Headers[secNameJournal])
 	}

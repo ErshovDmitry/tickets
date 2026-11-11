@@ -17,13 +17,56 @@ var (
 type section uint8
 
 const (
-	secHead         section = iota // H1 + metadata block
-	secBrief                       // inside "## Summary" (duplicates Title — ignored)
-	secDetails                     // inside "## Details"
-	secUserComments                // inside "## User comments" (T-0035)
-	secComments                    // inside "## Comments" (T-0032, no bash-era counterpart)
-	secJournal                     // inside "## Journal"
+	secHead section = iota // H1 + metadata block
+	// secHeadStray: head after an unrecognized "## " header (D1). No H1 or
+	// meta capture happens here; every line lands in Ticket.HeadStray until
+	// a recognized section header.
+	secHeadStray
+	// secBrief: inside "## Summary". The body lines are captured into
+	// Ticket.Brief (T-0166); a duplicate own header stays brief verbatim.
+	secBrief
+	secDetails      // inside "## Details"
+	secUserComments // inside "## User comments" (T-0035)
+	secComments     // inside "## Comments" (T-0032, no bash-era counterpart)
+	secJournal      // inside "## Journal"
 )
+
+// headFlags tracks the only facts the head zone needs about structural
+// blanks (C2-1; final blank policy T-0166 CFF-1/CFF-2):
+//
+//	(i)   the FIRST strictly-empty blank right after the H1 and the first
+//	      right after the metadata block are structural: markup, dropped
+//	      ALWAYS, even when strays were captured before (C2-1);
+//	(ii)  a strictly-empty blank BEFORE the H1 / metadata block is
+//	      markup: dropped, it never opens a stray series — and the
+//	      WHOLE blank run right after a dropped "# " line (D2) is
+//	      markup too (afterDroppedH1 is not one-shot: dropping only
+//	      the first blank would let the second reopen the series with
+//	      a leading "" and Render would print "\n\n\n" (MD012)).
+//	      Rationale: HeadStray starting with "" would make Render
+//	      print two consecutive blanks (MD012) the source never had;
+//	(iii) a strictly-empty blank INSIDE a stray series is verbatim
+//	      content and stays (T-0035);
+//	(iv)  a strictly-empty blank TRAILING the stray series (before the
+//	      next header) is the separator Render re-emits after the
+//	      strays: finish trims that run, like every section body.
+//
+// Rules apply in order (i)→(ii)→(iii)→(iv): (iii) matches only blanks
+// INSIDE an already-open stray series, so it never overrides a still-
+// pending structural blank (i); (ii) matches only blanks that would
+// OPEN the series (before the H1 / metadata block, right after a
+// dropped "# " line), so once the series is open (iii) keeps blanks
+// verbatim even right after a dropped "# " line.
+//
+// A whitespace-only line is never structural: it is content.
+type headFlags struct {
+	h1BlankPending   bool // next strictly-empty blank closes the H1 position: drop it (i)
+	metaBlankPending bool // next strictly-empty blank closes the metadata block: drop it (i)
+	h1Seen           bool // a valid H1 was accepted; later ones are dropped (D2)
+	metaSeen         bool // at least one metadata block line was captured
+	strayOpen        bool // stray content captured: blanks are verbatim content (iii)
+	afterDroppedH1   bool // a dropped "# " line was seen (D2): the WHOLE blank run after it is markup (ii); stays set until H1/meta/openStray, not one-shot
+}
 
 // Parse reads ticket markdown tolerantly: it never fails, missing or
 // malformed parts become zero values, and any manual bytes after the last
@@ -48,6 +91,8 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 	}
 	var details, userComments, comments []string
 	sec := secHead
+	// Structural-blank tracking for the head zone (C2-1); see headFlags.
+	var flags headFlags
 	seenJournal := false
 	// journalHeaderBlank marks the one strictly empty MD022 line accepted
 	// right after the FIRST journal header (see the doc comment). It is
@@ -81,6 +126,24 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 		// header (MD022). Any further leading blank line is content and stays
 		// byte-verbatim (T-0035).
 		t.Comments = strings.Join(trimTrailingEmpty(trimLeadingOneEmpty(comments)), "\n")
+		// Head-strays: strictly-empty blanks INSIDE the stray series are
+		// verbatim content and stay (rule iii, T-0035); only a TRAILING
+		// run of strictly-empty blanks is trimmed (rule iv) — Render
+		// re-emits that separator after the strays itself, so keeping it
+		// would add a blank per round trip. Blanks could only lead the
+		// series here when the head already captured H1 + metadata with
+		// no dropped "# " line in between; every other leading blank was
+		// dropped as markup at parse time (rules i/ii, CFF-1), so no
+		// leading-blank trim is needed. An empty result stays nil so
+		// Render emits nothing.
+		t.HeadStray = trimTrailingEmpty(t.HeadStray)
+		if len(t.HeadStray) == 0 {
+			t.HeadStray = nil
+		}
+		t.Brief = trimTrailingEmpty(trimLeadingOneEmpty(t.Brief))
+		if len(t.Brief) == 0 {
+			t.Brief = nil
+		}
 	}
 	blankRunStart := -1
 	for pos := 0; pos < len(data); {
@@ -129,7 +192,7 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 			blankRunStart = -1
 			continue
 		}
-		sec = absorbLine(t, &details, &userComments, &comments, sec, line)
+		sec = absorbLine(t, &details, &userComments, &comments, sec, line, &flags)
 		if sec == secJournal {
 			// A Journal header reached from any non-journal section (head,
 			// brief, details, user comments, comments) is the first or a

@@ -136,9 +136,13 @@ func TestAbsorbLineTransitions(t *testing.T) {
 		{"comments + user header stays", secComments, "## User comments (Комментарии от пользователя)", secComments},
 		{"brief + comments header", secBrief, "## Comments (Комментарии)", secComments},
 		{"brief + user header", secBrief, "## User comments (Комментарии от пользователя)", secUserComments},
+		{"headstray + meta line stays", secHeadStray, "- Status: open", secHeadStray},
+		{"headstray + recognized header", secHeadStray, "## Comments (Комментарии)", secComments},
+		{"headstray + h1-like line stays", secHeadStray, "# Notes", secHeadStray},
 	}
+	var flags headFlags
 	for _, tc := range cases {
-		if got := absorbLine(tk, &details, &userComments, &comments, tc.sec, tc.line); got != tc.want {
+		if got := absorbLine(tk, &details, &userComments, &comments, tc.sec, tc.line, &flags); got != tc.want {
 			t.Errorf("%s: absorbLine = %v, want %v", tc.name, got, tc.want)
 		}
 	}

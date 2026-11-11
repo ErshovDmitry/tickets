@@ -91,8 +91,9 @@ func (s *Store) normalizeDirLocked(dir string, o NormalizeOptions, res *Normaliz
 
 // normalizeOneLocked normalizes one ticket file in place. The order is fixed
 // by the guard: read the raw bytes first, refuse to rewrite a file the guard
-// flags (Render cannot reproduce those bytes), and only then render and
-// compare. An unchanged file is a no-op in both modes.
+// flags (the guard is deliberately stricter than Render — see
+// normalizeRenderable), and only then render and compare. An unchanged
+// file is a no-op in both modes.
 func (s *Store) normalizeOneLocked(p string, e fileEntry, o NormalizeOptions, res *NormalizeResult) error {
 	tk, raw, unknown, err := readTicketFile(p, e.Number)
 	if err != nil {
@@ -208,8 +209,11 @@ var (
 
 // legacyMetaLabels are the bash-era metadata label names (docs_api/
 // reference-init-tickets.md:107-110). matchMetaLine knows only the dict form
-// ("- Status (Статус): open"), so these lines are neither captured as head
-// metadata nor re-emitted by Render: a rewrite would drop them silently.
+// ("- Status (Статус): open"), so these lines are never captured as head
+// metadata. Since T-0166 Render can in fact reproduce such a line via
+// Ticket.HeadStray; the guard below stays deliberately conservative:
+// bash-era files are handed to a human instead of being rewritten, and
+// loosening the guard is out of scope for T-0166.
 var legacyMetaLabels = []string{"Статус", "Приоритет", "Создан", "Проект"}
 
 // normalizeRenderable reports why raw must not be rewritten, or "" when a
@@ -218,8 +222,10 @@ var legacyMetaLabels = []string{"Статус", "Приоритет", "Созд�
 //
 //  1. a bash-era label line anywhere in the head region (the H1 line and the
 //     metadata block, up to the first "## " header — the ParseHeader/Parse
-//     secHead boundary) makes the render lossy even when all four dict meta
-//     lines were parsed, because the unmatched line itself is not re-emitted;
+//     secHead boundary). The post-T-0166 renderer reproduces the line via
+//     Ticket.HeadStray, yet the guard intentionally remains conservative:
+//     a bash-era file signals a human-edited or pre-tool origin, so it is
+//     skipped for a human to review rather than rewritten silently;
 //  2. an empty required field means the render would invent a value or lose
 //     one, so the file is left for a human.
 func normalizeRenderable(tk *domain.Ticket, raw []byte) string {
@@ -252,8 +258,9 @@ func hasLegacyMetaLabels(raw []byte) bool {
 // isLegacyMetaLine reports whether line is a bash-era label bullet. The
 // marker may be "-", "*" or "+", it may be indented, and a space may sit
 // before the colon ("  - Статус : open"): all three are label lines a
-// hand-edited or pre-tool file can carry, and Render cannot reproduce any of
-// them. The label must be followed by the colon (optionally after spaces and
+// hand-edited or pre-tool file can carry. Since T-0166, Render can
+// reproduce such lines via Ticket.HeadStray; the guard stays deliberately
+// conservative anyway (see normalizeRenderable). The label must be followed by the colon (optionally after spaces and
 // tabs) so an ordinary word that merely starts with "Статус" is not matched.
 func isLegacyMetaLine(line []byte) bool {
 	line = bytes.TrimLeft(line, " \t")

@@ -2,8 +2,10 @@ package cli_test
 
 // CLI-level coverage of the normalize guard variants (T-0125): a skipped file
 // leaves a warning on stderr, keeps its bytes and does NOT change the exit
-// code — a guard is a skip, not a failure. The three variants are the ones a
-// hand-edited or pre-tool file can carry and Render cannot reproduce.
+// code — a guard is a skip, not a failure. The three variants are ones a
+// hand-edited or pre-tool file can carry; since T-0166 Render CAN reproduce
+// such a line via Ticket.HeadStray, and the guard stays deliberately
+// stricter than Render — see normalizeRenderable (store_normalize.go).
 
 import (
 	"bytes"
@@ -14,7 +16,8 @@ import (
 
 // insertLabelAfterProject puts label on its own line right after the project
 // metadata line of a ticket body, so the fixture is a valid ticket plus one
-// line the renderer cannot reproduce.
+// line the guard skips — the guard is deliberately stricter than Render
+// (see normalizeRenderable, store_normalize.go).
 func insertLabelAfterProject(t *testing.T, body []byte, label string) []byte {
 	t.Helper()
 	lines := strings.Split(string(body), "\n")

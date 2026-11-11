@@ -8,11 +8,16 @@ import (
 // absorbLine consumes one line outside the journal section, updating the
 // ticket and returning the new section. Transition rules preserve the
 // pre-T-0036 state machine (bash era): only the NEXT section's header
-// ends the current one, an unrecognized "## ..." line in head/brief leaves
-// for brief (content ignored there, no meta capture), and every other line
-// stays verbatim in the current section. Raw templates are stored only on a
-// real transition.
-func absorbLine(t *Ticket, details, userComments, comments *[]string, sec section, line string) section {
+// ends the current one. An unrecognized "## ..." line in head starts
+// secHeadStray: the line and everything after it (until a recognized
+// header) is captured into Ticket.HeadStray with no meta capture (D1,
+// T-0166); unrecognized-header content inside the brief zone is captured
+// into Ticket.Brief instead of being silently dropped. Every other line
+// stays verbatim in the current section. Raw templates are stored only on
+// a real transition. flags track the structural-blank positions in the
+// head zone (only the FIRST blank after the H1 / after the metadata block
+// is dropped, always — C2-1); Parse owns the variable.
+func absorbLine(t *Ticket, details, userComments, comments *[]string, sec section, line string, flags *headFlags) section {
 	switch sec {
 	case secDetails:
 		// Only the next section's header ends Details: Summary/Details
@@ -52,68 +57,37 @@ func absorbLine(t *Ticket, details, userComments, comments *[]string, sec sectio
 		return sec
 	case secBrief:
 		if secName, _, _, ok := matchSectionHeader(line); ok {
+			if secName == secNameSummary {
+				// Duplicate own header (D3): the first raw template wins,
+				// the repeated header line stays brief verbatim.
+				t.Brief = append(t.Brief, line)
+				return secBrief
+			}
 			t.RawTemplates.Headers[secName] = line
 			return sectionFor(string(secName))
 		}
-		if strings.HasPrefix(line, "## ") {
-			// Unrecognized header (pre-T-0036 headerName path): stay brief
-			// with no raw storage; following meta lines stay ignored.
+		if strings.HasPrefix(line, "# ") {
+			// D2: any "# " line in the brief zone would become a new H1
+			// source on Render; it is dropped, never captured.
 			return secBrief
 		}
-		return sec
-	default: // secHead
-		if applyHeadMeta(t, line) {
-			return sec
-		}
+		t.Brief = append(t.Brief, line)
+		return secBrief
+	case secHeadStray:
 		if secName, _, _, ok := matchSectionHeader(line); ok {
 			t.RawTemplates.Headers[secName] = line
 			return sectionFor(string(secName))
 		}
-		if strings.HasPrefix(line, "## ") {
-			// Unrecognized header (pre-T-0036 headerName path): leave head
-			// with no raw storage so a meta line after it is NOT captured.
-			return secBrief
+		if strings.HasPrefix(line, "# ") {
+			// D2: dropped like in the brief zone, never captured.
+			return secHeadStray
 		}
-		return sec
+		openStray(flags)
+		t.HeadStray = append(t.HeadStray, line)
+		return secHeadStray
+	default: // secHead
+		return absorbHeadLine(t, flags, line)
 	}
-}
-
-// applyHeadMeta captures the H1 line and the metadata block lines.
-func applyHeadMeta(t *Ticket, line string) bool {
-	if m := h1Re.FindStringSubmatch(line); m != nil {
-		t.Number, _ = strconv.Atoi(m[1]) // tolerant: overflow -> 0
-		t.Type = Type(m[2])
-		t.Title = m[3]
-		return true
-	}
-
-	// Try to match meta line.
-	if key, _, _, values, ok := matchMetaLine(line); ok {
-		switch key {
-		case "Status":
-			t.Status = Status(values[0])
-			storeMeta(t, "Status", line, values[0])
-		case "Priority":
-			t.Priority = Priority(values[0])
-			storeMeta(t, "Priority", line, values[0])
-		case "Project":
-			t.Project = values[0]
-			storeMeta(t, "Project", line, values[0])
-		case "Created":
-			if len(values) == 2 {
-				t.Created, t.Who = parseTS(values[0]), values[1]
-				// Degenerate lines (empty/garbled timestamp, values not at
-				// grammar positions) store nothing: Render falls back to
-				// dict emission.
-				if seg, ok := createdRawSegments(line, values[0], values[1]); ok {
-					t.RawTemplates.Meta["Created"] = seg
-				}
-			}
-		}
-		return true
-	}
-
-	return false
 }
 
 // ParseHeader parses only the ticket head — the H1 line and the metadata
@@ -134,10 +108,22 @@ func ParseHeader(data []byte) (*Ticket, error) {
 			Meta:    make(map[string]metaSegments),
 		},
 	}
+	h1Seen := false
 	for pos := 0; pos < len(data); {
 		start, end := lineBounds(data, pos)
 		pos = end
 		line := string(trimEOL(data[start:end]))
+		if m := h1Re.FindStringSubmatch(line); m != nil {
+			// Same first-only H1 rule as secHead (D2, T-0166): a repeated
+			// H1 is dropped, never overwriting Number/Type/Title.
+			if !h1Seen {
+				h1Seen = true
+				t.Number, _ = strconv.Atoi(m[1]) // tolerant: overflow -> 0
+				t.Type = Type(m[2])
+				t.Title = m[3]
+			}
+			continue
+		}
 		if applyHeadMeta(t, line) {
 			continue
 		}
@@ -203,6 +189,9 @@ func sectionFor(name string) section {
 	case secNameJournal:
 		return secJournal
 	default:
-		return secBrief // unknown header: ignore its content
+		// Defensive default: absorbLine calls sectionFor only after
+		// matchSectionHeader ok, so this branch is unreachable; kept for
+		// exhaustiveness — content is never silently dropped (D1/D2).
+		return secBrief
 	}
 }

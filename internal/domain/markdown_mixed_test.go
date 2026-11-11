@@ -160,7 +160,7 @@ func TestParseJournalEntriesAfterBlank(t *testing.T) {
 
 // TestParseJournalFreeSuffixHeaderResumes documents that a recognized
 // section header after the journal resumes parsing and stores its raw line
-// (T-0070); following brief text is ignored, not captured.
+// (T-0070); following brief text is captured into Brief (D4, T-0166).
 func TestParseJournalFreeSuffixHeaderResumes(t *testing.T) {
 	src := ticketT0001 + "\n## Summary (any lang)\n\nMixed section order\n"
 	tk, unknown, err := Parse([]byte(src))
@@ -173,6 +173,9 @@ func TestParseJournalFreeSuffixHeaderResumes(t *testing.T) {
 	wantTitle := "Реализовать Go-версию ticket по AGENTS_ARCHITECTURE.md"
 	if tk.Title != wantTitle {
 		t.Errorf("Title = %q, want unchanged %q", tk.Title, wantTitle)
+	}
+	if got := tk.Brief; len(got) == 0 || got[len(got)-1] != "Mixed section order" {
+		t.Errorf("Brief = %q, want the resume text %q captured (D4)", got, "Mixed section order")
 	}
 	if len(unknown) != 0 {
 		t.Errorf("unknown = %q, want empty", unknown)

@@ -50,7 +50,16 @@ type Ticket struct {
 	Created  time.Time
 	Journal  []JournalEntry
 	// Unknown holds manual bytes after the journal section, preserved verbatim.
-	Unknown    []byte
+	Unknown []byte
+	// HeadStray holds unrecognized head lines (any line in the head zone
+	// that is neither H1/meta nor a recognized section header) in their
+	// original order; Render anchors them after the metadata block, right
+	// before the Summary header (T-0166).
+	HeadStray []string
+	// Brief holds the "## Summary" body lines verbatim (T-0166): before
+	// T-0166 the body duplicated Title and was discarded. Empty means the
+	// Summary body was empty and Render falls back to Title.
+	Brief      []string
 	JournalDup bool // set by Parse when a second "## Journal" section merges into the canonical journal
 
 	// Lang is the detected language of the ticket file (LOCK D4). It affects
