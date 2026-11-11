@@ -12,7 +12,11 @@ import (
 // TestCheckDevGate proves non-comparable current versions answer Dev with
 // ZERO requests and ZERO cache access (T-0173 comparability gate).
 func TestCheckDevGate(t *testing.T) {
-	versions := []string{"dev", "", "garbage", "1.2.4-36-gbeb07c8", "1.2.3-rc1", "1.2", "v1", "1.2.3+build"}
+	versions := []string{
+		"dev", "", "garbage", "29111c6",
+		"1.2.3-rc1", "1.2", "v1", "1.2.3+build",
+		"1.2.4-37", "1.2.4-37-", "1.2.4-37-g", "1.2.4-37-gZZ", "1.2.4-abc-g123",
+	}
 	for _, v := range versions {
 		t.Run("version="+v, func(t *testing.T) {
 			srv, h := newStubServer(t, okResponder(t, "1.2.3", "u"))
@@ -192,5 +196,40 @@ func TestCheckOfflineNoPanic(t *testing.T) {
 	res := Check(opts)
 	if res.State != Failed || res.Err == nil {
 		t.Errorf("State=%v err=%v, want Failed with non-nil Err", res.State, res.Err)
+	}
+}
+
+// TestCheckGitDescribeMakesRequest is the T-0173 root-verification
+// regression: a current version shaped like real git-describe output
+// (1.2.4-37-g29111c6, the AGENTS.md build) is comparable, so Check DOES
+// contact the API exactly once and compares latest against the tagged
+// base 1.2.4 — newer means UpdateAvailable, equal or older UpToDate.
+func TestCheckGitDescribeMakesRequest(t *testing.T) {
+	cases := []struct {
+		name    string
+		current string
+		latest  string
+		want    State
+	}{
+		{"newer release", "1.2.4-37-g29111c6", "1.2.5", UpdateAvailable},
+		{"v-prefix newer release", "v1.2.4-37-g29111c6", "1.2.5", UpdateAvailable},
+		{"equal to base", "1.2.4-37-g29111c6", "1.2.4", UpToDate},
+		{"older than base", "1.2.4-37-g29111c6", "1.2.3", UpToDate},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, h := newStubServer(t, okResponder(t, tc.latest, "https://example.invalid/"+tc.latest))
+			clock := newStubClock()
+			res := Check(hermeticOptions(t, srv, clock, tc.current))
+			if res.State != tc.want {
+				t.Errorf("State=%v, want %v", res.State, tc.want)
+			}
+			if h.count() != 1 {
+				t.Errorf("requests = %d, want 1 (comparable git-describe must check the network)", h.count())
+			}
+			if tc.want == UpdateAvailable && (res.Latest != tc.latest || res.URL == "") {
+				t.Errorf("Latest=%q URL=%q, want tag %q and non-empty URL", res.Latest, res.URL, tc.latest)
+			}
+		})
 	}
 }

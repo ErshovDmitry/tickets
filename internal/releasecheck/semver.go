@@ -56,18 +56,46 @@ func parseVersion(s string) (semver, bool) {
 }
 
 // comparable applies the T-0173 comparability gate to the current
-// version: exactly one optional leading "v" followed by plain X.Y.Z.
-// Prerelease ("1.2.3-rc1"), build metadata ("1.2.3+build"), git-describe
-// output ("1.2.4-36-gbeb07c8") and anything else are NOT comparable.
+// version: exactly one optional leading "v" followed by plain X.Y.Z, or
+// the same base with a git-describe suffix ("1.2.4-37-g29111c6"), whose
+// comparable base is the tagged X.Y.Z. Prerelease ("1.2.3-rc1"), build
+// metadata ("1.2.3+build"), malformed describes and anything else are
+// NOT comparable.
 func comparable(version string) (semver, bool) {
 	if strings.Contains(version, "+") {
 		return semver{}, false
+	}
+	if base, ok := describeBase(version); ok {
+		version = base
 	}
 	sv, ok := parseVersion(version)
 	if !ok || sv.hasPre {
 		return semver{}, false
 	}
 	return sv, true
+}
+
+// describeBase recognizes git-describe output "[v]X.Y.Z-<distance>-g<hash>"
+// and returns the tagged base "[v]X.Y.Z". The distance must be all digits
+// and the commit abbreviation a "g" prefix followed by hex digits;
+// anything else (prereleases, malformed describes) is not a describe
+// output and leaves the version untouched for the normal gate.
+func describeBase(version string) (string, bool) {
+	head, tail, found := strings.Cut(version, "-")
+	if !found {
+		return "", false
+	}
+	if _, ok := parseVersion(head); !ok {
+		return "", false
+	}
+	dist, hash, found := strings.Cut(tail, "-")
+	if !found || dist == "" || !isDigits(dist) {
+		return "", false
+	}
+	if len(hash) < 2 || hash[0] != 'g' || !isHex(hash[1:]) {
+		return "", false
+	}
+	return head, true
 }
 
 // compareSemver orders by numeric triple, then puts a prerelease BEFORE
@@ -116,6 +144,20 @@ func comparePreID(a, b string) int {
 		return cmpInt(na, nb)
 	}
 	return strings.Compare(a, b)
+}
+
+// isHex reports whether s is a non-empty run of ASCII hex digits.
+func isHex(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !('0' <= c && c <= '9' || 'a' <= c && c <= 'f' || 'A' <= c && c <= 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // isDigits reports whether s is a non-empty run of ASCII digits.

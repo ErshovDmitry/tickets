@@ -82,19 +82,58 @@ func TestCompareResultUnparsable(t *testing.T) {
 }
 
 // TestComparableGate pins the T-0173 comparability gate for the current
-// version: plain X.Y.Z only; prerelease, build metadata and
-// git-describe output are NOT comparable.
+// version: plain X.Y.Z and git-describe output ("[v]X.Y.Z-<distance>-
+// g<hash>") are comparable; unknown dev, bare hash, malformed describes,
+// prerelease and build metadata are NOT.
 func TestComparableGate(t *testing.T) {
-	ok := []string{"1.2.3", "v1.2.3", "0.0.0"}
+	ok := []string{
+		"1.2.3", "v1.2.3", "0.0.0",
+		"1.2.4-36-gbeb07c8", "v1.2.4-37-g29111c6", "1.2.4-0-gabc123",
+	}
 	for _, s := range ok {
 		if _, ok := comparable(s); !ok {
 			t.Errorf("comparable(%q): want ok", s)
 		}
 	}
-	bad := []string{"", "dev", "1.2", "v1", "1.2.3-rc1", "1.2.3+build", "v1.2.3+build", "1.2.4-36-gbeb07c8", "garbage"}
+	bad := []string{
+		"", "dev", "garbage", "29111c6",
+		"1.2", "v1",
+		"1.2.3-rc1", "1.2.3+build", "v1.2.3+build",
+		"1.2.4-37", "1.2.4-37-", "1.2.4-37-g", "1.2.4-37-gZZ",
+		"1.2.4-abc-g123", "1.2.4-rc1-gabc", "1.2.4-37-g29111c6-extra",
+	}
 	for _, s := range bad {
 		if _, ok := comparable(s); ok {
 			t.Errorf("comparable(%q): want !ok", s)
 		}
+	}
+}
+
+// TestComparableGitDescribeBase pins the T-0173 root-verification fix: a
+// git-describe current version compares as its tagged base X.Y.Z, so a
+// standard build like 1.2.4-37-g29111c6 is no longer reported as Dev.
+func TestComparableGitDescribeBase(t *testing.T) {
+	cases := []struct {
+		version string
+		base    string
+	}{
+		{"1.2.4-37-g29111c6", "1.2.4"},
+		{"v1.2.4-37-g29111c6", "v1.2.4"},
+		{"1.2.4-0-gabc123", "1.2.4"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.version, func(t *testing.T) {
+			got, ok := comparable(tc.version)
+			if !ok {
+				t.Fatalf("comparable(%q): want ok", tc.version)
+			}
+			want, ok := parseVersion(tc.base)
+			if !ok {
+				t.Fatalf("parseVersion(%q): !ok", tc.base)
+			}
+			if got != want {
+				t.Errorf("comparable(%q) = %+v, want base %+v", tc.version, got, want)
+			}
+		})
 	}
 }

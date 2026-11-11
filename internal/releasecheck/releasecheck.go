@@ -21,9 +21,9 @@ const (
 	// NoReleases means the repository has no releases at all (HTTP 404).
 	NoReleases
 
-	// Dev means the current version is not comparable (dev build,
-	// git-describe output, prerelease, build metadata); no network or
-	// cache access happened.
+	// Dev means the current version is not comparable (unknown dev
+	// build, bare hash, malformed version, prerelease, build metadata);
+	// no network or cache access happened.
 	Dev
 
 	// Failed means the check could not complete; Result.Err names the
@@ -58,9 +58,10 @@ const backoffTTL = time.Hour
 var errCachedFailure = errors.New("cached failed check")
 
 // Check runs the T-0173 release check. The current version passes the
-// comparability gate first (plain X.Y.Z, one optional leading "v");
-// anything else returns State Dev with zero network and zero cache
-// access. A fresh cached success answers without network; a cached
+// comparability gate first (plain X.Y.Z, one optional leading "v", or a
+// git-describe suffix "[v]X.Y.Z-<distance>-g<hash>" compared as its base
+// X.Y.Z); anything else returns State Dev with zero network and zero
+// cache access. A fresh cached success answers without network; a cached
 // failure younger than backoffTTL returns Failed wrapping
 // errCachedFailure. Otherwise the GitHub API is contacted: a parsed tag
 // is compared and cached as OK (parse-before-save), 404 answers

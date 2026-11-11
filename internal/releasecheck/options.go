@@ -55,7 +55,9 @@ type Options struct {
 	Now func() time.Time
 
 	// CurrentVersion is the running ticket version injected by the CLI;
-	// only a plain X.Y.Z (one optional leading "v") is comparable (T-0173).
+	// a plain X.Y.Z (one optional leading "v") or a git-describe suffix
+	// "[v]X.Y.Z-<distance>-g<hash>" (compared as its base X.Y.Z) is
+	// comparable (T-0173).
 	CurrentVersion string
 }
 
