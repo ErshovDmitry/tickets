@@ -37,6 +37,13 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       so exit 0 means "the wanted name is already on disk", not "a recovery happened"
       exit 2 when the number is not cleanly recoverable (three or more files, diverging contents, equal statuses in the file names);
       keeping the stale file, naming a file outside the pair or a single file with another name is exit 1 and changes nothing
+  ticket normalize [-P <project>] [--dry-run]
+      one-shot: bring legacy ticket files to the canonical markdown layout;
+      only files whose bytes differ from the canonical form are rewritten: the name and status stay the same,
+      the journal gains no line (there is no migration journal entry);
+      -P limits the run to one project (exact match, case-sensitive);
+      --dry-run prints the paths that would be rewritten and writes nothing;
+      files the command will not fix are skipped with a warning (old "- Status:" labels, incomplete metadata)
 
 Global flag (before the command, every command except init):
   -C <path>, --tickets-dir <path>

@@ -39,11 +39,16 @@ ticket archive 7       # one specific
 # (the number reports exit 2: T-0007-open.md + T-0007-done.md)
 ticket recover 7 T-0007-done.md
 
+# rewrite legacy ticket files into the canonical markdown layout (one shot,
+# no journal entry, name and status unchanged)
+ticket normalize --dry-run      # print the paths that would be rewritten
+ticket normalize                # rewrite them in place
+
 # binary version (dev if built without -ldflags)
 ticket version
 ```
 
-Parse warnings from `list` are printed to stderr; the command returns exit code 0 and shows the tickets it parsed successfully.
+Parse warnings from `list` and `normalize` are printed to stderr; both commands return exit code 0 and report the tickets they worked on successfully.
 
 Command shapes at a glance:
 
@@ -53,6 +58,7 @@ Command shapes at a glance:
 - `ticket set <number> <status> ["comment"]`
 - `ticket archive [<number>]`
 - `ticket recover <number> <new-file> [--yes]`
+- `ticket normalize [-P <project>] [--dry-run]`
 - `ticket version`
 
 Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_TIMEOUT`, `TICKET_LOG`) and the global `-C` / `--tickets-dir` flag: [configuration.md](configuration.md).
@@ -127,6 +133,13 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       so exit 0 means "the wanted name is already on disk", not "a recovery happened"
       exit 2 when the number is not cleanly recoverable (three or more files, diverging contents, equal statuses in the file names);
       keeping the stale file, naming a file outside the pair or a single file with another name is exit 1 and changes nothing
+  ticket normalize [-P <project>] [--dry-run]
+      one-shot: bring legacy ticket files to the canonical markdown layout;
+      only files whose bytes differ from the canonical form are rewritten: the name and status stay the same,
+      the journal gains no line (there is no migration journal entry);
+      -P limits the run to one project (exact match, case-sensitive);
+      --dry-run prints the paths that would be rewritten and writes nothing;
+      files the command will not fix are skipped with a warning (old "- Status:" labels, incomplete metadata)
 
 Global flag (before the command, every command except init):
   -C <path>, --tickets-dir <path>
@@ -186,6 +199,23 @@ ticket recover 7 T-0007-done.md --yes     # the same without the question, for a
 ```
 
 🔴 `recover` deletes a file, so test it only in a sandbox: `-C /tmp/…` or `TICKETS_DIR`, never in the live `tickets/`.
+
+## One-shot layout migration (`normalize`)
+
+Files in the pre-MD022 layout (the current format without the blank line before and after every header) are readable, but a plain `ticket set` used to rewrite them lazily and append a "status: X → X" journal line. `normalize` performs that rewrite once, without touching the journal:
+
+```bash
+ticket normalize --dry-run      # print the paths that would be rewritten, write nothing
+ticket normalize                # rewrite them in place
+```
+
+- Only files whose bytes differ from the canonical render are rewritten; the file name never changes and no journal line is appended.
+- The file name is authoritative (V19): a status line in the body that disagrees with the name is rendered to the name's status, silently and without a journal entry.
+- Two guards skip a file with a warning on stderr and leave it byte-identical: bash-era label lines the parser cannot reproduce (`- Статус:`, also indented or with a `*`/`+` bullet, and with a space before the colon), and incomplete metadata (empty type/priority/project, blank title, zero created date).
+- `-P <project>` limits the run to one project (exact, case-sensitive). Duplicate numbers are reported like `list` does, both files are migrated and the exit code stays 0 — `normalize` never returns 2.
+- `--dry-run` takes no lock and no write probe, so it also works on a read-only `tickets/` directory.
+
+🔴 `normalize` rewrites files in place: run it on a copy first — `rm -rf /tmp/corpus && cp -r tickets /tmp/corpus && ticket -C /tmp/corpus normalize --dry-run`.
 
 ## Ticket file format
 

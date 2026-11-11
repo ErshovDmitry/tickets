@@ -29,6 +29,8 @@ ticket list                                             # active tickets (open +
 ticket show 7                                           # print a ticket (searches the archive)
 ticket set 7 done "fixed, tests green"                  # change status, renames the file
 ticket recover 7 T-0007-done.md                        # resolve a crash pair (ambiguous number, exit 2)
+ticket normalize --dry-run                              # list legacy ticket files that would be re-rendered
+ticket normalize                                        # re-render them in place (name untouched; body status reconciled to it, no journal line)
 ```
 
 ## Exit codes
@@ -36,6 +38,8 @@ ticket recover 7 T-0007-done.md                        # resolve a crash pair (a
 - `0` — success.
 - `1` — error: bad arguments, ticket not found, collision, input or store error.
 - `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+
+`ticket list` and `ticket normalize` report parse warnings and duplicate numbers on stderr but still exit 0: they are inventory and migration commands, never a gate.
 
 `ticket recover` uses the same codes: `0` also covers a conservative no-op — a repeat after a successful recovery, or a single file already named `<new-file>` — so `0` means the wanted file name is on disk and never proves that a recovery happened; `1` covers a usage error, a refused confirmation, a missing ticket, an I/O error (archive scan included), the keep-old choice and a name that is not the crash pair; `2` means the number cannot be recovered automatically — more than two files, diverging content or equal statuses. The ambiguity report prints both conflicting absolute paths, while `<new-file>` for `recover` is always a bare basename.
 

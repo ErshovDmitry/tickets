@@ -149,7 +149,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 			return exitError
 		}
 		return cmdInit(lang, stdout, stderr)
-	case "new", "list", "show", "set", "archive", "recover":
+	case "new", "list", "show", "set", "archive", "recover", "normalize":
 		// Subcommand help interception (T-0041): -h/--help as the FIRST
 		// argument is never a valid positional (new: title; show/set/archive/
 		// recover: ticket number; list: filter), so print usage and exit 0. Only
@@ -202,11 +202,24 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		return exitError
 	}
 	lg.Debug("dir.resolve", "source", src, "dir", dir)
-	// Only mutating commands open the Store writable (write probe); list/show use NewReadOnly.
+	// The normalize command parses its own arguments here, before the store is opened:
+	// --dry-run must not take the write probe (it also works on a read-only
+	// tickets dir), so the parse result decides which Store to open. This is
+	// the only parse site — cmdNormalize receives the flags, never the args.
+	var nf normalizeFlags
+	if cmd == "normalize" {
+		var msg string
+		if nf, msg = parseNormalizeFlags(args, lang); msg != "" {
+			fmt.Fprintln(stderr, msg)
+			return exitError
+		}
+	}
+	// Only mutating commands open the Store writable (write probe); list/show
+	// and normalize --dry-run use NewReadOnly.
 	var st *store.Store
-	if cmd == "new" || cmd == "set" || cmd == "archive" || cmd == "recover" {
+	if cmd == "new" || cmd == "set" || cmd == "archive" || cmd == "recover" || cmd == "normalize" && !nf.dryRun {
 		st, err = store.New(dir, store.WithLogger(lg))
-	} else { // list, show
+	} else { // list, show, normalize --dry-run
 		st, err = store.NewReadOnly(dir, store.WithLogger(lg))
 	}
 	if err != nil {
@@ -240,61 +253,11 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		code = cmdSet(st, args, who, project, lang, stdout, stderr)
 	case "recover":
 		code = cmdRecover(st, args, who, project, lang, stdout, stderr)
+	case "normalize":
+		code = cmdNormalize(st, nf, lang, stdout, stderr)
 	default: // "archive"
 		code = cmdArchive(st, args, who, project, lang, stdout, stderr)
 	}
 	lg.Info("command.done", "command", cmd, "code", code)
 	return code
-}
-
-// whoFrom resolves the current user: TICKET_WHO, then USER, then USERNAME,
-// then "agent"; USERNAME covers Windows hosts where USER is normally unset.
-func whoFrom(env map[string]string) string {
-	if who := env["TICKET_WHO"]; who != "" {
-		return who
-	}
-	if who := env["USER"]; who != "" {
-		return who
-	}
-	if who := env["USERNAME"]; who != "" {
-		return who
-	}
-	return "agent"
-}
-
-// langFrom resolves the ticket language (T-0036: one language for both
-// the new-ticket file format and the usage text): TICKET_LANG, then
-// LC_ALL, then LANG. An empty value counts as unset and falls through to
-// the next variable; the first non-empty one decides via langPrefix. All
-// unset defaults to LangRU (language selection itself is new in T-0026
-// and has no pre-Go predecessor) — but only while RU is actually
-// registered. A degraded initialisation (ru.json broken) must not hand
-// out LangRU: domain.getDict would silently substitute EN while callers
-// believe RU was selected. EN is mandatory, so it is the safe default.
-func langFrom(env map[string]string) domain.Lang {
-	for _, key := range []string{"TICKET_LANG", "LC_ALL", "LANG"} {
-		if v := env[key]; v != "" {
-			return langPrefix(v)
-		}
-	}
-	if isKnownLangFn(domain.LangRU) {
-		return domain.LangRU
-	}
-	return domain.LangEN
-}
-
-// langPrefix maps a locale value to a domain.Lang: the prefix up to the
-// first '_' or '.' decides, case-insensitive ("en_US.UTF-8" → en,
-// "ru_RU" → ru). If the prefix matches a known language in the registry,
-// that language is selected; otherwise falls back to LangEN (T-0036
-// deliberate change: unknown locales used to get the Russian text).
-func langPrefix(v string) domain.Lang {
-	if i := strings.IndexAny(v, "_."); i >= 0 {
-		v = v[:i]
-	}
-	lang := domain.Lang(strings.ToLower(v))
-	if domain.IsKnownLang(lang) {
-		return lang
-	}
-	return domain.LangEN // fallback for unknown locales
 }

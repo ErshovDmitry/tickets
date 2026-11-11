@@ -22,11 +22,11 @@
 
 `ticket` может вести структурированный отладочный лог собственной работы. По умолчанию лог выключен; им управляют один глобальный флаг и одна переменная окружения.
 
-**Включение.** Лог включается, если глобальный флаг `--verbose` стоит ДО имени команды (`ticket --verbose list`), либо если `TICKET_LOG` непуста. Если ни того, ни другого нет — логирования нет вообще, и каждый байт вывода идентичен вызову без этой функции. Это относится к пяти логируемым командам (`new`, `list`, `show`, `set`, `archive`) — кроме их подкоманд `-h`/`--help`, которые печатают справку и не создают логгер; `init`, `help`, `version` и голый `ticket` вообще не создают логгер и полностью игнорируют `TICKET_LOG` — см. «Ошибка открытия» ниже.
+**Включение.** Лог включается, если глобальный флаг `--verbose` стоит ДО имени команды (`ticket --verbose list`), либо если `TICKET_LOG` непуста. Если ни того, ни другого нет — логирования нет вообще, и каждый байт вывода идентичен вызову без этой функции. Это относится к семи логируемым командам (`new`, `list`, `show`, `set`, `archive`, `recover`, `normalize`) — кроме их подкоманд `-h`/`--help`, которые печатают справку и не создают логгер; `init`, `help`, `version` и голый `ticket` вообще не создают логгер и полностью игнорируют `TICKET_LOG` — см. «Ошибка открытия» ниже.
 
 **Назначение.** `TICKET_LOG` побеждает `--verbose`. С одним `--verbose` записи идут в stderr; с заданным `TICKET_LOG` они дописываются в этот файл: файл открывается на append, при отсутствии создаётся с правами «только владелец», существующий файл сохраняет свои текущие права, а родительские каталоги никогда не создаются. Ни одна запись не попадает в stdout — stdout остаётся чистым выводом команды. Оба назначения получают байт-в-байт одинаковые записи — обработчик один и тот же, различается только writer.
 
-**Ошибка открытия.** Если лог-файл открыть нельзя, `ticket` печатает ОДНУ строку в stderr, называя путь дважды и оборачивая текст ошибки ОС, и выходит с кодом 1 ДО запуска команды. Для пяти логируемых команд (`new`, `list`, `show`, `set`, `archive`) отсутствие родительского каталога поэтому падает до dispatch: stdout пуст, код выхода 1, запасного варианта нет, ни один тикет не изменён. `init`, `help`, `version` и голый `ticket` вообще не создают логгер и полностью игнорируют `TICKET_LOG`. Пример (Linux; текст ошибки ОС на других платформах приведён только для иллюстрации):
+**Ошибка открытия.** Если лог-файл открыть нельзя, `ticket` печатает ОДНУ строку в stderr, называя путь дважды и оборачивая текст ошибки ОС, и выходит с кодом 1 ДО запуска команды. Для семи логируемых команд (`new`, `list`, `show`, `set`, `archive`, `recover`, `normalize`) отсутствие родительского каталога поэтому падает до dispatch: stdout пуст, код выхода 1, запасного варианта нет, ни один тикет не изменён. `init`, `help`, `version` и голый `ticket` вообще не создают логгер и полностью игнорируют `TICKET_LOG`. Пример (Linux; текст ошибки ОС на других платформах приведён только для иллюстрации):
 
 ```text
 ticket: open log file /home/user/logs/ticket.log: open /home/user/logs/ticket.log: no such file or directory
@@ -49,7 +49,7 @@ ticket: open log file /home/user/logs/ticket.log: open /home/user/logs/ticket.lo
 | `dir.resolve` | debug | `source`, `dir` | каталог тикетов найден (`source` — `--tickets-dir`, `TICKETS_DIR` или `scan`) |
 | `dir.resolve.fail` | error | `source` | резолюция каталога тикетов не удалась |
 | `store.open` | error | `dir` | не удалось открыть store |
-| `store.read.warning` | warn | `path`, `reason` | по одной записи на каждое предупреждение парсинга, показанное `new`/`list`/`set`/`archive` |
+| `store.read.warning` | warn | `path`, `reason` | по одной записи на каждое предупреждение парсинга, показанное `new`/`list`/`set`/`archive`/`normalize` |
 | `store.lock.acquired` | debug | `path` | блокировка каталога тикетов получена |
 | `store.lock.released` | debug | `path` | блокировка освобождена |
 | `store.lock.error` | error | `path`, `reason` | блокировку не удалось получить или освободить либо её файл подменили (`reason` — `timeout`, `error` или `swapped`) |
@@ -61,6 +61,7 @@ ticket: open log file /home/user/logs/ticket.log: open /home/user/logs/ticket.lo
 | `store.set.append.failure` | error | `number`, `stage` | добавление записи в журнал на месте не удалось (`stage` — `tmp` или `rename`) |
 | `store.archive.commit` | info | `number`, `status`, `path` | тикет перенесён в архив |
 | `store.archive.failure` | error | `number`, `stage` | архивирование не удалось (`stage` — `already`, `not_closed`, `collision`, `tmp`, `link` или `old`) |
+| `store.normalize.rewritten` | info | `number`, `status`, `path` | `normalize` переписал файл тикета в каноническую разметку |
 | `store.recover.commit` | info | `number`, `keep`, `discard` | пара после сбоя восстановлена; устаревший файл `discard` удалён |
 | `store.recover.noop` | info | `number`, `keep` | единственный файл уже носил выбранное имя; ничего не удалялось |
 | `store.recover.failure` | error | `number`, `keep`, `discard`, `stage`, `err` | восстановление отклонено или завершилось ошибкой ввода-вывода (`stage` — `selection`, `scan`, `ambiguous`, `state` или `remove`) |

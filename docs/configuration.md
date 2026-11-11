@@ -22,11 +22,11 @@ Raise it when the tickets directory lives on a slow disk or on a network filesys
 
 `ticket` can keep a structured debug log of its own operation. Logging is off by default and is controlled by one global flag and one environment variable.
 
-**Enabling.** Logging starts when the global flag `--verbose` is placed BEFORE the command name (`ticket --verbose list`) or when `TICKET_LOG` is non-empty. When neither is set, there is no logging at all and every output byte is identical to an invocation without the feature. This applies to the five logged commands (`new`, `list`, `show`, `set`, `archive`) — except their `-h`/`--help` subcommand form, which prints usage and builds no logger; `init`, `help`, `version` and a bare `ticket` build no logger at all and ignore `TICKET_LOG` entirely — see "Open failure" below.
+**Enabling.** Logging starts when the global flag `--verbose` is placed BEFORE the command name (`ticket --verbose list`) or when `TICKET_LOG` is non-empty. When neither is set, there is no logging at all and every output byte is identical to an invocation without the feature. This applies to the seven logged commands (`new`, `list`, `show`, `set`, `archive`, `recover`, `normalize`) — except their `-h`/`--help` subcommand form, which prints usage and builds no logger; `init`, `help`, `version` and a bare `ticket` build no logger at all and ignore `TICKET_LOG` entirely — see "Open failure" below.
 
 **Destination.** `TICKET_LOG` wins over `--verbose`. With `--verbose` alone records go to stderr; with `TICKET_LOG` set they are appended to that file: the file is opened for append, created owner-only when absent, an existing file keeps its current mode, and parent directories are never created. No record ever reaches stdout — stdout stays pure command output. Both destinations receive byte-identical records — the same handler, only the writer differs.
 
-**Open failure.** If the log file cannot be opened, `ticket` prints ONE stderr line naming the path twice and wrapping the OS error text, and exits 1 BEFORE the command runs. For the five logged commands (`new`, `list`, `show`, `set`, `archive`) a missing parent directory therefore fails pre-dispatch: stdout stays empty, the exit code is 1, there is no fallback and no ticket is mutated. `init`, `help`, `version` and a bare `ticket` build no logger at all and ignore `TICKET_LOG` entirely. Example (Linux; the OS error text on other platforms is illustrative only):
+**Open failure.** If the log file cannot be opened, `ticket` prints ONE stderr line naming the path twice and wrapping the OS error text, and exits 1 BEFORE the command runs. For the seven logged commands (`new`, `list`, `show`, `set`, `archive`, `recover`, `normalize`) a missing parent directory therefore fails pre-dispatch: stdout stays empty, the exit code is 1, there is no fallback and no ticket is mutated. `init`, `help`, `version` and a bare `ticket` build no logger at all and ignore `TICKET_LOG` entirely. Example (Linux; the OS error text on other platforms is illustrative only):
 
 ```text
 ticket: open log file /home/user/logs/ticket.log: open /home/user/logs/ticket.log: no such file or directory
@@ -49,7 +49,7 @@ The `ticket: open log file ...:` prefix is hardcoded English wrapped around the 
 | `dir.resolve` | debug | `source`, `dir` | tickets dir resolved (`source` is `--tickets-dir`, `TICKETS_DIR` or `scan`) |
 | `dir.resolve.fail` | error | `source` | tickets-dir resolution failed |
 | `store.open` | error | `dir` | the store failed to open |
-| `store.read.warning` | warn | `path`, `reason` | one record per parse warning surfaced by `new`/`list`/`set`/`archive` |
+| `store.read.warning` | warn | `path`, `reason` | one record per parse warning surfaced by `new`/`list`/`set`/`archive`/`normalize` |
 | `store.lock.acquired` | debug | `path` | the tickets-directory lock was acquired |
 | `store.lock.released` | debug | `path` | the lock was released |
 | `store.lock.error` | error | `path`, `reason` | the lock could not be acquired or released, or its file was replaced (`reason` is `timeout`, `error` or `swapped`) |
@@ -61,6 +61,7 @@ The `ticket: open log file ...:` prefix is hardcoded English wrapped around the 
 | `store.set.append.failure` | error | `number`, `stage` | the in-place journal append failed (`stage` is `tmp` or `rename`) |
 | `store.archive.commit` | info | `number`, `status`, `path` | the ticket was archived |
 | `store.archive.failure` | error | `number`, `stage` | the archive failed (`stage` is `already`, `not_closed`, `collision`, `tmp`, `link` or `old`) |
+| `store.normalize.rewritten` | info | `number`, `status`, `path` | `normalize` rewrote one ticket file to the canonical layout |
 | `store.recover.commit` | info | `number`, `keep`, `discard` | a crash pair was recovered; the stale `discard` file was removed |
 | `store.recover.noop` | info | `number`, `keep` | the single file already carried the selected name; nothing was removed |
 | `store.recover.failure` | error | `number`, `keep`, `discard`, `stage`, `err` | the recovery was refused or hit an I/O error (`stage` is `selection`, `scan`, `ambiguous`, `state` or `remove`) |

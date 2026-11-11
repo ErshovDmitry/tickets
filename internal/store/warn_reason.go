@@ -21,6 +21,18 @@ const (
 	reasonDirRead        = "dir-read"
 	reasonArchiveDir     = "archive-dir"
 	reasonParse          = "parse"
+	// normalize guard and skip codes (T-0125). Their files are parsed but
+	// deliberately left byte-identical, so they never reach reasonOf.
+	reasonUnrecognizedMeta = "unrecognized-meta"
+	reasonIncompleteMeta   = "incomplete-meta"
+	reasonReadOnlyTarget   = "read-only-target"
+	// reasonStatusFromName reports a body status that disagrees with the
+	// file name: the name wins and the file is still rewritten (not a skip).
+	reasonStatusFromName = "status-from-name"
+	// reasonRestoreAttrs reports a rename that succeeded while the platform
+	// attributes could not be restored — the file IS new on disk, so it must
+	// not share the read-only skip code.
+	reasonRestoreAttrs = "restore-attrs"
 )
 
 // reasonOf maps an error raised while reading a ticket file to its

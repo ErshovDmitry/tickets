@@ -1,11 +1,11 @@
 ---
 name: ticket-cli
-version: "1.11"
+version: "1.12"
 created: 2026-09-04
 modified: 2026-11-11
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
-description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive/recover. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`."
+description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive/recover/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`."
 ---
 
 # ticket-cli
@@ -101,11 +101,30 @@ ticket archive [<number>]
 
 Moves done/closed tickets into `tickets/archive/`; no number = all closed, with a number = only the given one.
 
+### `normalize`
+
+```text
+ticket normalize [-P <project>] [--dry-run]
+```
+
+One-shot migration of legacy ticket files to the canonical markdown layout (the blank line before and after every header, one trailing newline, no CRLF). Only files whose bytes differ from the canonical render are rewritten: the file name never changes and the journal stays as it is, and NO migration journal line is appended — that is the whole point, because a plain `ticket set` used to write "статус: X → X" into every legacy file it touched. The file name is authoritative (V19): a status line in the body that disagrees with the name is rendered to the name's status, silently and without a journal entry.
+
+`--dry-run` prints the paths that would be rewritten and writes nothing (it takes no lock and no write probe, so it also works on a read-only `tickets/` directory). `-P` limits the run to one project (exact match against the ticket's own Project field, case-sensitive). Changed paths are printed one per line on stdout; warnings such as `ticket: T-0007-open.md: bash-era metadata labels, file left unchanged` go to stderr.
+
+Guarded — these files are skipped with a warning, never silently rewritten:
+
+- bash-era label lines (`- Статус:`, `- Приоритет:`, `- Создан:`, `- Проект:`; also with a leading indent, a `*`/`+` bullet and a space before the colon): the parser does not know them, so a rewrite would drop the line;
+- incomplete metadata (empty type/priority/project, blank title, zero created date): a rewrite would invent a value.
+
+🔴 Run it in a sandbox first (`--dry-run` on a copy: `rm -rf /tmp/corpus && cp -r tickets /tmp/corpus && ticket -C /tmp/corpus normalize --dry-run`) — the command rewrites files in place, and `-C` is a global flag: it MUST precede the command name. Exit code 2 is never returned: duplicate numbers are reported like `list` does and both files are migrated.
+
 ## Exit codes
 
 - `0` — success.
 - `1` — error (bad arguments, ticket not found, collision, input or store error).
 - `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+
+`ticket normalize` uses only `0` and `1`: it never reports an ambiguous number (both files are migrated and the duplicate is warned about) and never returns 2.
 
 `ticket recover` reuses these codes: `0` also covers a conservative no-op (a repeat after a successful recovery, or a single file already named `<new-file>`) and never proves that a recovery happened; `1` covers a usage error, a refused confirmation, a missing file, an I/O error (archive scan included), the keep-old choice and a selection that is not the crash pair; `2` means the number cannot be recovered automatically — more than two files, diverging content or equal statuses. A divergent pair is `2`, never `1`.
 
@@ -180,3 +199,4 @@ ticket-cli/
 | 2026-11-10 | T-0158: exit code 2 (ambiguous ticket number) was undocumented | Added the "Exit codes" section | 1.9 |
 | 2026-11-11 | T-0159: `ticket recover` was undocumented | Added the `recover` section (exact crash signature, keep/discard confirmation, non-TTY, archive pairs, idempotence, keep-old refusal, rollback via `set`, sandbox warning) and the recover exit-code notes | 1.10 |
 | 2026-11-11 | T-0162: a lone stale file whose name equals the wanted `keepBase` yields a conservative no-op (exit 0) without proof that it is the previously saved file | Documented the ambiguity — exit 0 covers a conservative no-op (repeat after a successful recovery, or a single file already named `<new-file>`) and never proves that a recovery happened | 1.11 |
+| 2026-11-11 | T-0125: `ticket normalize` was undocumented; the new section had overwritten `ticket archive`, and the sandbox command put `-C` after the command | Restored the `archive` section, added `normalize` after it, fixed the sandbox command to `ticket -C /tmp/corpus normalize --dry-run`, and stated that the file name is authoritative for a disagreeing body status line | 1.12 |
