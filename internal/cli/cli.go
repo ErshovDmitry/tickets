@@ -149,6 +149,20 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 			return exitError
 		}
 		return cmdInit(lang, stdout, stderr)
+	case "update-check":
+		// T-0173: explicit release check. Routed here, NOT via runLogged/
+		// dispatch: those resolve a tickets dir and open a store, while
+		// update-check must work in any directory, offline, with no tickets
+		// structure at all. Output is localized, so the case sits after i18n
+		// init and lang resolution, beside init (same help/extra-args shape).
+		if len(args) > 1 {
+			if args[1] == "-h" || args[1] == "--help" {
+				return printUsage(stdout, stderr, lang)
+			}
+			printUsage(stdout, stderr, lang)
+			return exitError
+		}
+		return cmdUpdateCheck(lang, version, stdout, stderr)
 	case "new", "list", "show", "set", "archive", "recover", "normalize":
 		// Subcommand help interception (T-0041): -h/--help as the FIRST
 		// argument is never a valid positional (new: title; show/set/archive/

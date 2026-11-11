@@ -49,5 +49,10 @@
   "hintNumbersUpTo": "ticket: подсказка: в этом хранилище номера до %d; используйте ticket list",
   "errAmbiguousNumber": "ticket: номер тикета %d неоднозначен: найдено несколько файлов",
   "warnAmbiguousNumber": "ticket: предупреждение: номер тикета %d неоднозначен: %s",
-  "warnAmbiguousNumberSkipped": "ticket: предупреждение: номер тикета %d неоднозначен, архивация пропущена: %s"
+  "warnAmbiguousNumberSkipped": "ticket: предупреждение: номер тикета %d неоднозначен, архивация пропущена: %s",
+  "updateCheckUpToDate": "ticket %s — актуальная версия",
+  "updateCheckAvailable": "доступен новый релиз %s: %s",
+  "updateCheckNoReleases": "релизы ещё не публиковались",
+  "updateCheckDev": "сборка разработки (%s): сравнение версий пропущено",
+  "errUpdateCheck": "ticket: не удалось проверить обновления: %v"
 }

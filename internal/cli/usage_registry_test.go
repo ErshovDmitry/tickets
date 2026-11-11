@@ -72,14 +72,10 @@ func exitCodeSegments(para string) []string {
 	return out
 }
 
-// exitCodeSet is the exact set of exit codes the CLI documents: success, the
-// generic error, and the single ambiguous-ticket-number code.
+// exitCodeSet is the exact set of exit codes the CLI documents, read from the
+// named constants in exitcodes.go (T-0161/T-0157/T-0173) so it cannot drift.
 func exitCodeSet() []string {
-	// 0 = success, 1 = error, 2 = ambiguous ticket number — all three are
-	// named constants in exitcodes.go (exitOK, exitError, exitAmbiguous, see
-	// T-0161/T-0157), so the set is read from there instead of being
-	// hardcoded and cannot drift from the production code.
-	want := []string{strconv.Itoa(exitOK), strconv.Itoa(exitError), strconv.Itoa(exitAmbiguous)}
+	want := []string{strconv.Itoa(exitOK), strconv.Itoa(exitError), strconv.Itoa(exitAmbiguous), strconv.Itoa(exitUpdateAvailable)}
 	slices.Sort(want)
 	return want
 }

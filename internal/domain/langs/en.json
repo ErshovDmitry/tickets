@@ -49,5 +49,10 @@
   "hintNumbersUpTo": "ticket: hint: this store has numbers up to %d; use ticket list",
   "errAmbiguousNumber": "ticket: ticket number %d is ambiguous: multiple files carry it",
   "warnAmbiguousNumber": "ticket: warning: ticket number %d is ambiguous: %s",
-  "warnAmbiguousNumberSkipped": "ticket: warning: ambiguous ticket number %d skipped: %s"
+  "warnAmbiguousNumberSkipped": "ticket: warning: ambiguous ticket number %d skipped: %s",
+  "updateCheckUpToDate": "ticket %s is up to date",
+  "updateCheckAvailable": "new release %s available: %s",
+  "updateCheckNoReleases": "no releases published yet",
+  "updateCheckDev": "development build (%s): release comparison skipped",
+  "errUpdateCheck": "ticket: update check failed: %v"
 }

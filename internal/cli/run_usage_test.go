@@ -95,16 +95,21 @@ func TestUsageProductionWrapper(t *testing.T) {
 }
 
 // TestRunUsageWriteFailureIsOneDiagnostic drives a failing stdout writer
-// through EVERY usage call route. There are eight printUsage call sites:
+// through EVERY usage call route. There are twelve printUsage call sites:
 //
 //  1. cli.go  init -h
 //  2. cli.go  init with extra args
-//  3. cli.go  subcommand -h (new/show/set/archive branch)
-//  4. cli.go  help/-h/--help
-//  5. cli.go  unknown command (default branch)
-//  6. cmd_new.go  bare `new`
-//  7. cmd_show.go bare `show`
-//  8. cmd_set.go  bare `set`
+//  3. cli.go  update-check -h (T-0173)
+//  4. cli.go  update-check with extra args (T-0173)
+//  5. cli.go  subcommand -h (new/show/set/archive branch)
+//  6. cli.go  help/-h/--help
+//  7. cli.go  unknown command (default branch)
+//  8. cmd_new.go  bare `new`
+//  9. cmd_show.go bare `show`
+//
+// 10. cmd_set.go  bare `set`
+// 11. cmd_recover.go  wrong argument count
+// 12. cmd_recover.go  third argument that is not --yes
 //
 // Each route must report the writer failure as exactly ONE stderr line and
 // exit code 1, including the paths that normally exit 0 (help, -h). The
@@ -120,15 +125,19 @@ func TestRunUsageWriteFailureIsOneDiagnostic(t *testing.T) {
 	}{
 		{"init -h (site 1)", []string{"init", "-h"}},
 		{"init extra args (site 2)", []string{"init", "x"}},
-		{"new -h (site 3)", []string{"new", "-h"}},
-		{"show -h (site 3)", []string{"show", "-h"}},
-		{"set -h (site 3)", []string{"set", "-h"}},
-		{"help (site 4)", []string{"help"}},
-		{"no args (site 4)", nil},
-		{"unknown command (site 5)", []string{"nope"}},
-		{"new without a title (site 6)", []string{"new"}},
-		{"show without a number (site 7)", []string{"show"}},
-		{"set without a number and status (site 8)", []string{"set"}},
+		{"update-check -h (site 3)", []string{"update-check", "-h"}},
+		{"update-check extra args (site 4)", []string{"update-check", "x"}},
+		{"new -h (site 5)", []string{"new", "-h"}},
+		{"show -h (site 5)", []string{"show", "-h"}},
+		{"set -h (site 5)", []string{"set", "-h"}},
+		{"help (site 6)", []string{"help"}},
+		{"no args (site 6)", nil},
+		{"unknown command (site 7)", []string{"nope"}},
+		{"new without a title (site 8)", []string{"new"}},
+		{"show without a number (site 9)", []string{"show"}},
+		{"set without a number and status (site 10)", []string{"set"}},
+		{"recover too few args (site 11)", []string{"recover", "1"}},
+		{"recover third arg not --yes (site 12)", []string{"recover", "1", "a", "b"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -108,6 +108,13 @@ type dict struct {
 	errAmbiguousNumber         string // 1 %d: number
 	warnAmbiguousNumber        string // 1 %d: number, 1 %s: conflicting absolute paths
 	warnAmbiguousNumberSkipped string // 1 %d: number, 1 %s: conflicting absolute paths
+
+	// T-0173: explicit `ticket update-check` messages.
+	updateCheckUpToDate   string // 1 %s: current version
+	updateCheckAvailable  string // 2 %s: new version, release page URL
+	updateCheckNoReleases string // no placeholders
+	updateCheckDev        string // 1 %s: current version
+	errUpdateCheck        string // 1 %v: error
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the

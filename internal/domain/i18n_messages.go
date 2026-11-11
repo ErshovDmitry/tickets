@@ -261,3 +261,36 @@ func WarnAmbiguousNumber(lang Lang, num int, paths string) string {
 func WarnAmbiguousNumberSkipped(lang Lang, num int, paths string) string {
 	return fmt.Sprintf(getDict(lang).warnAmbiguousNumberSkipped, num, paths)
 }
+
+// UpdateCheckUpToDate formats the localized report that the current version
+// is the latest release (T-0173, explicit `ticket update-check`, 1 %s:
+// current version).
+func UpdateCheckUpToDate(lang Lang, version string) string {
+	return fmt.Sprintf(getDict(lang).updateCheckUpToDate, version)
+}
+
+// UpdateCheckAvailable formats the localized report naming a newer release
+// (T-0173, 2 %s: new version, release page URL).
+func UpdateCheckAvailable(lang Lang, version, url string) string {
+	return fmt.Sprintf(getDict(lang).updateCheckAvailable, version, url)
+}
+
+// UpdateCheckNoReleases returns the localized report that the repository has
+// no releases yet (T-0173): not an error, exit 0.
+func UpdateCheckNoReleases(lang Lang) string {
+	return getDict(lang).updateCheckNoReleases
+}
+
+// UpdateCheckDev formats the localized report that the running build is a
+// development build, so release comparison is skipped (T-0173, 1 %s:
+// current version): not an error, exit 0.
+func UpdateCheckDev(lang Lang, version string) string {
+	return fmt.Sprintf(getDict(lang).updateCheckDev, version)
+}
+
+// ErrUpdateCheck formats the localized failure report of `ticket
+// update-check` (T-0173, 1 %v: error): the check never blocks other
+// commands.
+func ErrUpdateCheck(lang Lang, err error) string {
+	return fmt.Sprintf(getDict(lang).errUpdateCheck, err)
+}

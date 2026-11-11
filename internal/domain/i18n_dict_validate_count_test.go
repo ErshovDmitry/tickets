@@ -44,9 +44,14 @@ func TestValidateDictPlaceholderCounts(t *testing.T) {
 		{"warnAmbiguousNumber", "n=%d p=%s%s", "warnAmbiguousNumber: expected 1 %s, got 2"},
 		{"warnAmbiguousNumberSkipped", "%d%d", "warnAmbiguousNumberSkipped: expected 1 %d, got 2"},
 		{"warnAmbiguousNumberSkipped", "n=%d p=%s%s", "warnAmbiguousNumberSkipped: expected 1 %s, got 2"},
+		{"updateCheckUpToDate", "%s%s", "updateCheckUpToDate: expected 1 %s, got 2"},
+		{"updateCheckAvailable", "%s%s%s", "updateCheckAvailable: expected 2 %s, got 3"},
+		{"updateCheckNoReleases", "%s", "updateCheckNoReleases: expected 0 %s, got 1"},
+		{"updateCheckDev", "%s%s", "updateCheckDev: expected 1 %s, got 2"},
+		{"errUpdateCheck", "%v%v", "errUpdateCheck: expected 1 %v, got 2"},
 	}
-	if len(tests) != 33 {
-		t.Fatalf("test table: expected 28 cases, got %d", len(tests))
+	if len(tests) != 38 {
+		t.Fatalf("test table: expected 38 cases, got %d", len(tests))
 	}
 	for _, tc := range tests {
 		t.Run(tc.key+"/"+tc.wantErr, func(t *testing.T) {

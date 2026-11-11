@@ -108,6 +108,11 @@ var (
 	getErrAmbiguousNumber          = func(dj dictJSON) string { return dj.ErrAmbiguousNumber }
 	getWarnAmbiguousNumber         = func(dj dictJSON) string { return dj.WarnAmbiguousNumber }
 	getWarnAmbiguousNumberSkipped  = func(dj dictJSON) string { return dj.WarnAmbiguousNumberSkipped }
+	getUpdateCheckUpToDate         = func(dj dictJSON) string { return dj.UpdateCheckUpToDate }
+	getUpdateCheckAvailable        = func(dj dictJSON) string { return dj.UpdateCheckAvailable }
+	getUpdateCheckNoReleases       = func(dj dictJSON) string { return dj.UpdateCheckNoReleases }
+	getUpdateCheckDev              = func(dj dictJSON) string { return dj.UpdateCheckDev }
+	getErrUpdateCheck              = func(dj dictJSON) string { return dj.ErrUpdateCheck }
 )
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
@@ -213,4 +218,16 @@ var dictValidationRules = []dictRule{
 	nonEmpty("warnAmbiguousNumberSkipped", getWarnAmbiguousNumberSkipped),
 	count("warnAmbiguousNumberSkipped", "d", 1, getWarnAmbiguousNumberSkipped),
 	count("warnAmbiguousNumberSkipped", "s", 1, getWarnAmbiguousNumberSkipped),
+
+	// T-0173: update-check keys — non-empty for all 5, placeholder counts per key.
+	nonEmpty("updateCheckUpToDate", getUpdateCheckUpToDate),
+	count("updateCheckUpToDate", "s", 1, getUpdateCheckUpToDate),
+	nonEmpty("updateCheckAvailable", getUpdateCheckAvailable),
+	count("updateCheckAvailable", "s", 2, getUpdateCheckAvailable),
+	nonEmpty("updateCheckNoReleases", getUpdateCheckNoReleases),
+	count("updateCheckNoReleases", "s", 0, getUpdateCheckNoReleases),
+	nonEmpty("updateCheckDev", getUpdateCheckDev),
+	count("updateCheckDev", "s", 1, getUpdateCheckDev),
+	nonEmpty("errUpdateCheck", getErrUpdateCheck),
+	count("errUpdateCheck", "v", 1, getErrUpdateCheck),
 }

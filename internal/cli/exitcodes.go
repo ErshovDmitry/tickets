@@ -22,4 +22,12 @@ const (
 	// requested number (T-0157). Every conflicting absolute path is printed
 	// to stderr; no mutation is performed.
 	exitAmbiguous = 2
+
+	// exitUpdateAvailable is returned by `ticket update-check` when a newer
+	// release exists (T-0173). It is a SUCCESS code, distinct from exitError
+	// (check failed) and from exitAmbiguous (T-0157 FAILURE): one code for an
+	// error and a success would break the T-0157 automation contract. Exit
+	// contract of update-check (T-0173): 0 = up to date / no releases / dev
+	// build, 3 = update available, 1 = check failed.
+	exitUpdateAvailable = 3
 )

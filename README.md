@@ -38,6 +38,7 @@ ticket normalize                                        # re-render them in plac
 - `0` — success.
 - `1` — error: bad arguments, ticket not found, collision, input or store error.
 - `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+- `3` — update available: the explicit `ticket update-check` found a newer release on GitHub (the command never runs automatically; `0` covers up to date / no releases / dev build, a failed check is `1` and never blocks other commands).
 
 `ticket list` and `ticket normalize` report parse warnings and duplicate numbers on stderr but still exit 0: they are inventory and migration commands, never a gate.
 

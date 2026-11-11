@@ -7,6 +7,7 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ### Added
 
+- `ticket update-check`: explicit check for a newer release on GitHub — never automatic, never blocks other commands. Per-user cache (24 h), 1 h backoff after a failed check; exit `0` = up to date / no releases / dev build, `3` = update available, `1` = check failed (T-0173).
 - Exit code `2` for an ambiguous ticket number: one number owned by several ticket files; the number and the conflicting paths are printed to stderr (T-0157).
 - The exit codes are documented in `ticket help`, in the README files and in the docs (T-0158).
 - `ticket normalize [-P <project>] [--dry-run]`: one-shot migration of legacy ticket files to the canonical markdown layout. Only files whose bytes differ from the canonical render are rewritten; the file name, its status and the journal stay as they are — no migration journal line is appended, which is what a plain `ticket set` used to do on every legacy file. `--dry-run` prints the paths that would be rewritten and touches nothing (it also works on a read-only tickets directory); `-P` limits the run to one project. Files the command cannot reproduce byte for byte are skipped with a warning instead of being silently rewritten: bash-era label lines (`- Статус: …`) and tickets with incomplete metadata. MD022/MD032 findings in the generated markup drop to 0 after the run; the remaining findings sit in preserved prose (T-0125).

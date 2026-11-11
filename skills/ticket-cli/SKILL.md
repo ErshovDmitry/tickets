@@ -1,6 +1,6 @@
 ---
 name: ticket-cli
-version: "1.12"
+version: "1.13"
 created: 2026-09-04
 modified: 2026-11-11
 type: guide
@@ -118,11 +118,20 @@ Guarded — these files are skipped with a warning, never silently rewritten:
 
 🔴 Run it in a sandbox first (`--dry-run` on a copy: `rm -rf /tmp/corpus && cp -r tickets /tmp/corpus && ticket -C /tmp/corpus normalize --dry-run`) — the command rewrites files in place, and `-C` is a global flag: it MUST precede the command name. Exit code 2 is never returned: duplicate numbers are reported like `list` does and both files are migrated.
 
+### `update-check`
+
+```text
+ticket update-check
+```
+
+Explicit check for a newer release on GitHub — never automatic, never blocks other commands. Per-user cache (24 h), 1 h backoff after a failed check. Exit `0` = up to date / no releases / dev build, `3` = update available, `1` = check failed.
+
 ## Exit codes
 
 - `0` — success.
-- `1` — error (bad arguments, ticket not found, collision, input or store error).
+- `1` — error (bad arguments, ticket not found, collision, input or store error, failed update check).
 - `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+- `3` — update available: the explicit `ticket update-check` found a newer release on GitHub.
 
 `ticket normalize` uses only `0` and `1`: it never reports an ambiguous number (both files are migrated and the duplicate is warned about) and never returns 2.
 
@@ -200,3 +209,4 @@ ticket-cli/
 | 2026-11-11 | T-0159: `ticket recover` was undocumented | Added the `recover` section (exact crash signature, keep/discard confirmation, non-TTY, archive pairs, idempotence, keep-old refusal, rollback via `set`, sandbox warning) and the recover exit-code notes | 1.10 |
 | 2026-11-11 | T-0162: a lone stale file whose name equals the wanted `keepBase` yields a conservative no-op (exit 0) without proof that it is the previously saved file | Documented the ambiguity — exit 0 covers a conservative no-op (repeat after a successful recovery, or a single file already named `<new-file>`) and never proves that a recovery happened | 1.11 |
 | 2026-11-11 | T-0125: `ticket normalize` was undocumented; the new section had overwritten `ticket archive`, and the sandbox command put `-C` after the command | Restored the `archive` section, added `normalize` after it, fixed the sandbox command to `ticket -C /tmp/corpus normalize --dry-run`, and stated that the file name is authoritative for a disagreeing body status line | 1.12 |
+| 2026-11-11 | T-0173: `ticket update-check` was undocumented | Added the `update-check` section and exit code `3` | 1.13 |

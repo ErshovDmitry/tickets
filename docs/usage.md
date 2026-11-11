@@ -140,6 +140,8 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       -P limits the run to one project (exact match, case-sensitive);
       --dry-run prints the paths that would be rewritten and writes nothing;
       files the command will not fix are skipped with a warning (old "- Status:" labels, incomplete metadata)
+  ticket update-check
+      newer release on GitHub? (explicit; never automatic); per-user cache (24 h), 1 h backoff; offline-safe: failure never blocks other commands
 
 Global flag (before the command, every command except init):
   -C <path>, --tickets-dir <path>
@@ -153,7 +155,7 @@ Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → 
 
 Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set and archive.
 
-Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error); 2 — ambiguous ticket number (commands show, set, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0.
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check).
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.

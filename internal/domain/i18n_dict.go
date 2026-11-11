@@ -58,6 +58,11 @@ type dictJSON struct {
 	ErrAmbiguousNumber          string          `json:"errAmbiguousNumber"`
 	WarnAmbiguousNumber         string          `json:"warnAmbiguousNumber"`
 	WarnAmbiguousNumberSkipped  string          `json:"warnAmbiguousNumberSkipped"`
+	UpdateCheckUpToDate         string          `json:"updateCheckUpToDate"`
+	UpdateCheckAvailable        string          `json:"updateCheckAvailable"`
+	UpdateCheckNoReleases       string          `json:"updateCheckNoReleases"`
+	UpdateCheckDev              string          `json:"updateCheckDev"`
+	ErrUpdateCheck              string          `json:"errUpdateCheck"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -124,5 +129,10 @@ func loadDict(data []byte) (*dict, error) {
 		errAmbiguousNumber:          dj.ErrAmbiguousNumber,
 		warnAmbiguousNumber:         dj.WarnAmbiguousNumber,
 		warnAmbiguousNumberSkipped:  dj.WarnAmbiguousNumberSkipped,
+		updateCheckUpToDate:         dj.UpdateCheckUpToDate,
+		updateCheckAvailable:        dj.UpdateCheckAvailable,
+		updateCheckNoReleases:       dj.UpdateCheckNoReleases,
+		updateCheckDev:              dj.UpdateCheckDev,
+		errUpdateCheck:              dj.ErrUpdateCheck,
 	}, nil
 }

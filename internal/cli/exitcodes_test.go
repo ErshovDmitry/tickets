@@ -40,7 +40,7 @@ func mustExitCodes(t *testing.T) exitConstants {
 	if len(productionExitCodes) == 0 {
 		t.Fatal("extracted exit-code set is empty: guard would be vacuous")
 	}
-	for _, code := range []int64{int64(exitOK), int64(exitError), int64(exitAmbiguous)} {
+	for _, code := range []int64{int64(exitOK), int64(exitError), int64(exitAmbiguous), int64(exitUpdateAvailable)} {
 		if _, ok := productionExitCodes[code]; !ok {
 			t.Fatalf("extracted exit-code set lacks %d: guard would be vacuous", code)
 		}

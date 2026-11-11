@@ -81,6 +81,8 @@ jobs:
       #   (TICKET_LOG); the file is opened append/create with mode 0600 and
       #   holds only operational paths/metadata, no ticket content or
       #   secrets (T-0110).
+      # G304 — internal/releasecheck/cache.go: the cache path is derived from
+      #   os.UserCacheDir (per-user), no secrets (T-0173).
       # G302/G301 — 0644 files and 0755 directories are the modes the tool
       #   itself uses for ticket files and the archive/ dir (store_lock.go:114,
       #   tmpfile.go:60, archive.go:182, cmd_init.go:46); ticket content is
@@ -90,7 +92,7 @@ jobs:
       #   returned and a close error cannot change the outcome.
       - name: Gosec
         run: |
-          gosec -exclude-rules='internal/store/tmpfile\.go$:G304,G302;internal/store/store_lock\.go$:G304,G302;internal/store/safeopen_open_unix\.go$:G304;internal/store/probe\.go$:G304;internal/lock/lock\.go$:G304;internal/store/archive\.go$:G301;internal/cli/cmd_init\.go$:G301;internal/store/safeopen\.go$:G104;internal/cli/log\.go$:G304' ./...
+          gosec -exclude-rules='internal/store/tmpfile\.go$:G304,G302;internal/store/store_lock\.go$:G304,G302;internal/store/safeopen_open_unix\.go$:G304;internal/store/probe\.go$:G304;internal/lock/lock\.go$:G304;internal/store/archive\.go$:G301;internal/cli/cmd_init\.go$:G301;internal/store/safeopen\.go$:G104;internal/cli/log\.go$:G304;internal/releasecheck/cache\.go$:G304' ./...
 
       # staticcheck runs without exclusions: the baseline is clean on the
       # pinned staticcheck version, so any finding reported here is a new

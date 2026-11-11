@@ -1,6 +1,6 @@
 ---
 name: ticket-cli-reference
-version: "1.7"
+version: "1.8"
 created: 2026-09-04
 modified: 2026-11-11
 type: reference
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -62,6 +62,8 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       -P ограничивает прогон одним проектом (точное совпадение, регистр важен);
       --dry-run печатает пути, которые были бы переписаны, и ничего не пишет;
       файлы, которые команда не берётся чинить, пропускаются с предупреждением (старые метки «- Статус:», неполные метаданные)
+  ticket update-check
+      есть ли новый релиз на GitHub? (явная проверка; никогда автоматически); кэш на пользователя (24 ч), повтор не чаще чем раз в 1 ч; безопасна офлайн: сбой не блокирует другие команды
 
 Глобальный флаг (перед командой, все команды кроме init):
   -C <путь>, --tickets-dir <путь>
@@ -75,7 +77,7 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 
 Блокировка каталога: TICKET_LOCK_TIMEOUT задаёт, сколько ticket ждёт захват .lock, прежде чем вернуть ошибку; значение — Go-длительность с обязательной единицей (30s, 2m, 500ms); пустое или невалидное значение молча даёт дефолт; 0 или меньше — одна попытка без ожидания; действует на new, set и archive.
 
-Коды выхода: 0 — успех; 1 — ошибка (неверные аргументы, тикет не найден, конфликт, ошибка ввода или хранилища); 2 — неоднозначный номер тикета (команды show, set, archive, new, recover): один номер принадлежит нескольким файлам — в stderr печатаются номер и конфликтующие файлы. Команда list при дубликатах печатает такое же предупреждение, но завершается с кодом 0.
+Коды выхода: 0 — успех; 1 — ошибка (неверные аргументы, тикет не найден, конфликт, ошибка ввода или хранилища, сбой проверки обновлений); 2 — неоднозначный номер тикета (команды show, set, archive, new, recover): один номер принадлежит нескольким файлам — в stderr печатаются номер и конфликтующие файлы. Команда list при дубликатах печатает такое же предупреждение, но завершается с кодом 0; 3 — доступно обновление (команда update-check).
 
 Статусы: open — новый; wip — в работе; done — исправлено; closed — отклонён/дубликат.
 Типы: BUG — поломка; OPS — инцидент/обслуживание; TD — техдолг; ENH — улучшение.
