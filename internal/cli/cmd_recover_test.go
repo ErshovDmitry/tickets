@@ -138,7 +138,7 @@ func assertSameTree(t *testing.T, dir string, before map[string]string) {
 }
 
 func TestRecoverYesKeepsNewAndIsIdempotent(t *testing.T) {
-	dir := t.TempDir()
+	dir := resolvedTempDir(t)
 	oldPath, newPath := crashPair(t, dir)
 	keepBytes, err := os.ReadFile(newPath)
 	if err != nil {
@@ -202,7 +202,7 @@ func TestRecoverLoneCleanTicketNoOp(t *testing.T) {
 }
 
 func TestRecoverPromptYesAndNo(t *testing.T) {
-	dir := t.TempDir()
+	dir := resolvedTempDir(t)
 	oldPath, newPath := crashPair(t, dir)
 	before := treeState(t, dir)
 
