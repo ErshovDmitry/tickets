@@ -248,3 +248,51 @@ func TestAcquireLockedHappy(t *testing.T) {
 		t.Error("nil StillValid: nil, want error")
 	}
 }
+
+// TestAcquireLockedFreeZeroTimeout (plan test 6): a free lock with
+// timeout 0 must succeed on the first attempt. Skipping attempt 0
+// (attempt > 0 -> attempt >= 0) returns stillHeld here deterministically.
+func TestAcquireLockedFreeZeroTimeout(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".lock")
+
+	lk, err := AcquireLocked(path, 0)
+	if err != nil {
+		t.Fatalf("AcquireLocked(free, 0): err = %v, want nil", err)
+	}
+	if lk == nil {
+		t.Fatal("AcquireLocked(free, 0) returned nil Locker without error")
+	}
+	if err := lk.Release(); err != nil {
+		t.Errorf("Release: %v", err)
+	}
+}
+
+// TestAcquireLockedTimeoutBelowPollInterval (plan test 7): with a held
+// lock and timeout below pollInterval the call must give up near the deadline;
+// sleeping a full pollInterval exceeds the 5x-headroom cap below.
+func TestAcquireLockedTimeoutBelowPollInterval(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".lock")
+	held, err := Acquire(path)
+	if err != nil {
+		t.Fatalf("holder Acquire: %v", err)
+	}
+	defer held()
+
+	timeout := pollInterval / 10
+	start := time.Now()
+	lk, err := AcquireLocked(path, timeout)
+	elapsed := time.Since(start)
+
+	if lk != nil {
+		t.Error("AcquireLocked returned non-nil Locker under contention")
+	}
+	if !errors.Is(err, ErrLocked) {
+		t.Errorf("err = %v, want ErrLocked", err)
+	}
+	if elapsed < timeout {
+		t.Errorf("elapsed = %s, want >= %s", elapsed, timeout)
+	}
+	if elapsed >= pollInterval/2 {
+		t.Errorf("elapsed = %s, want < %s (overslept the deadline)", elapsed, pollInterval/2)
+	}
+}
