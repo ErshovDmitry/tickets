@@ -41,9 +41,9 @@ import (
 // expires. Callers detect it with errors.Is.
 var ErrLocked = errors.New("lock: already held by another process")
 
-// maxSwapRetries bounds the unlock-close-reopen loop in Acquire for the
-// case where the lock file keeps being replaced between open and flock:
-// up to maxSwapRetries attempts total, then Acquire gives up.
+// maxSwapRetries bounds the unlock-close-reopen loop in acquireVia for
+// the case where the lock file keeps being replaced between open and
+// flock: up to maxSwapRetries attempts total, then acquireVia gives up.
 const maxSwapRetries = 8
 
 // pollInterval is the pause between TryAcquire attempts in the
@@ -79,16 +79,28 @@ func openLockFile(path string) (*os.File, error) {
 // On success the returned release closure unlocks and closes the file
 // when invoked. The closure is nil iff err is non-nil. Open and lock
 // failures are wrapped with path context; match them with errors.Is.
+func Acquire(path string) (release func() error, err error) {
+	lk, err := acquireVia(path, openLockFile)
+	if err != nil {
+		return nil, err
+	}
+	return lk.OnceRelease, nil
+}
+
+// acquireVia takes the exclusive lock at path on a file obtained from open
+// and blocks until it is granted. On success the returned Locker owns the
+// open file. Lock and check failures are wrapped with path context; an open
+// error is returned as produced by open (openLockFile wraps it with the path).
 //
-// Right after the lock is granted, Acquire verifies that the locked file
+// Right after the lock is granted, acquireVia verifies that the locked file
 // is still the one at path (T-0073 guard): if another process replaced
 // the file in the open→flock window, the flock would guard a stale inode
 // nobody else can observe. On such a swap it unlocks, closes, reopens
 // whatever is at path now and retries, up to maxSwapRetries times;
 // a stat failure of path other than "does not exist" is returned as a
 // hard error instead.
-func Acquire(path string) (release func() error, err error) {
-	f, err := openLockFile(path)
+func acquireVia(path string, open func(string) (*os.File, error)) (*Locker, error) {
+	f, err := open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +116,7 @@ func Acquire(path string) (release func() error, err error) {
 			return nil, fmt.Errorf("lock: check %s: %w", path, checkErr)
 		}
 		if !swapped {
-			return (&Locker{f: f, path: path}).OnceRelease, nil
+			return &Locker{f: f, path: path}, nil
 		}
 		// Stale inode: drop the useless flock and retry on the file
 		// that is at path now (fail-closed).
@@ -113,7 +125,7 @@ func Acquire(path string) (release func() error, err error) {
 		if retries+1 >= maxSwapRetries {
 			return nil, fmt.Errorf("lock: %s: lock file keeps being replaced; gave up after %d attempts", path, retries+1)
 		}
-		if f, err = openLockFile(path); err != nil {
+		if f, err = open(path); err != nil {
 			return nil, err
 		}
 	}
