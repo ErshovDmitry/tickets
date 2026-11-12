@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -276,4 +277,18 @@ func TestReadTicketHeader_SymlinkRejected(t *testing.T) {
 		t.Fatalf("symlink: tk=%+v err=%v, want nil + errNotRegularFile", tk, err)
 	}
 	assertOutsideUntouched(t, target, body)
+}
+
+// TestFindRaw_EmptyFileReportsNotFound pins the lockless empty-file
+// window: the name exists but its body has not landed yet.
+func TestFindRaw_EmptyFileReportsNotFound(t *testing.T) {
+	s, dir := newStore(t)
+	makeFile(t, dir, "T-0001-open.md", "")
+	tk, name, raw, err := s.FindRaw(1)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("FindRaw(1) err = %v, want ErrNotFound", err)
+	}
+	if !reflect.DeepEqual(tk, domain.Ticket{}) || name != "" || raw != nil {
+		t.Errorf("got (%+v, %q, %v); want zero ticket, empty name, nil raw", tk, name, raw)
+	}
 }
