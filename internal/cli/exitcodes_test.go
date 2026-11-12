@@ -1,16 +1,13 @@
 package cli
 
-// Guard against re-hardcoded exit codes (T-0163).
-//
-// Violation: a bare integer literal returned from a package-level FuncDecl (function
-// or method) with exactly one plain int result, duplicating a value declared by a
-// package-level exit[A-Z]... untyped int constant. No numeric table is kept: the set
-// is extracted once from production sources and drives the synthetic fixtures too.
-// Never claimed as covered: "+1", int(0), a named result returned bare after an
-// assignment, function literals, multi-result helpers, //go:build-tagged files
-// (build constraints are not evaluated; none exist here today).
+// Guard against re-hardcoded exit codes (T-0163); the set is extracted once from production sources and drives the synthetic fixtures too. Violation: a bare integer literal
+// returned from a package-level FuncDecl (function or method) with exactly one plain
+// int result, duplicating a package-level exit[A-Z]... untyped int constant. Never
+// claimed as covered: "+1", int(0), named results returned bare after assignment,
+// function literals, multi-result helpers, //go:build-tagged files (not evaluated).
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -282,11 +279,16 @@ func TestScanDirExitCodesFlagsReintroduction(t *testing.T) {
 	}
 }
 
-// TestScanDirExitCodesProductionTree guards the package itself. baselineParsedFiles
-// is the non-test file count when the guard landed: a floor, so new production files
-// are allowed while a scan that stops seeing the package fails.
+// TestScanDirExitCodesProductionTree guards the package itself. baselineParsedFiles is the non-test
+// file count at guard landing: a floor admitting new production files while a narrow scan fails.
 func TestScanDirExitCodesProductionTree(t *testing.T) {
 	const baselineParsedFiles = 13
+	// Outside the package source tree a cross-compiled binary has no sources to scan.
+	if _, err := os.Stat("exitcodes.go"); errors.Is(err, os.ErrNotExist) {
+		t.Skip("production sources unavailable outside package source directory")
+	} else if err != nil {
+		t.Fatalf("stat exitcodes.go: %v", err)
+	}
 	codes := mustExitCodes(t)
 	violations, parsedFiles, eligible := scanDir(t, ".", codes)
 	if parsedFiles < baselineParsedFiles || eligible == 0 {

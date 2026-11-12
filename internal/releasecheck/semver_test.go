@@ -36,6 +36,7 @@ func TestCompareVersions(t *testing.T) {
 		{"numeric major", "1.0.0", "2.0.0", -1},
 		{"greater", "1.2.10", "1.2.4", 1},
 		{"prerelease before release", "1.3.0-rc1", "1.3.0", -1},
+		{"release after prerelease", "1.3.0", "1.3.0-rc1", 1},
 		{"numeric prerelease ids", "1.2.3-2", "1.2.3-10", -1},
 		{"ascii prerelease ids", "1.0.0-alpha", "1.0.0-beta", -1},
 		{"shorter prerelease prefix", "1.0.0-alpha", "1.0.0-alpha.1", -1},

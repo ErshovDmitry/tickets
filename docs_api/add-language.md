@@ -89,7 +89,7 @@ go build -o /tmp/ticket-lang ./cmd/ticket   # бинарь для smoke
   данными тикетов (`list`, `new`, `show`, `set`) при этом работают штатно —
   они локализуются по данным языка, а не по usage-файлу. Функциональный
   EN-fallback и текст ошибки зафиксированы тестом `TestUsageFromFallbackMatrix`
-  (`internal/cli/run_order_test.go`): он вызывает `usageFrom` напрямую
+  (`internal/cli/run_usage_matrix_test.go`): он вызывает `usageFrom` напрямую
   (внутренняя функция) и проверяет только её результат. Контракт уровня CLI
   (код возврата 1 и ровно одна строка в stderr) **для этого fallback-пути**
   этим прямым вызовом `usageFrom` не покрыт — приведённое выше поведение

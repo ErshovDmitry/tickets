@@ -2,16 +2,17 @@
 
 ## Установка
 
-Пин версии — `scripts/mutation.sh`. Ставить gremlins нужно в тот каталог, откуда скрипт его запускает; запускаются команды из корня репозитория (скрипт сам переходит туда и ищет бинарь относительно корня). `GOBIN` обязан быть абсолютным путём, иначе `go install` отказывается: `cannot install, GOBIN must be an absolute path`.
+Пин версии — `scripts/mutation.sh`: константы `GREMLINS_VERSION` и `INSTALL_CMD` там — единственный источник правды, поэтому номер версии в гайде намеренно не дублируется. Актуальные команды установки печатает сам скрипт:
 
 ```bash
-GOBIN="$PWD/.cache/gobin" go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
-GOBIN="$GOBIN" go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
+./scripts/mutation.sh --help
 ```
 
-Первая — если `GOBIN` не задан **или пуст**: скрипт читает `./.cache/gobin/gremlins`. Вторая — если `GOBIN` задан **и непуст**: скрипт читает `$GOBIN/gremlins`, поэтому ставить надо именно туда (в этом случае `GOBIN` тоже должен быть абсолютным). `PATH` и `$(go env GOPATH)/bin` не ищутся.
+Help печатает обе install-команды, собранные из `GREMLINS_VERSION` и `INSTALL_CMD`: для случая, когда `GOBIN` не задан **или пуст**, — установка в `./.cache/gobin`, а для случая, когда `GOBIN` задан **и непуст**, — установка в `$GOBIN`.
 
-Проверено: Go go1.26.10, раннер v0.6.0.
+Ставить gremlins нужно в тот каталог, откуда скрипт его запускает; запускаются команды из корня репозитория (скрипт сам переходит туда и ищет бинарь относительно корня). `GOBIN` обязан быть абсолютным путём, иначе `go install` отказывается: `cannot install, GOBIN must be an absolute path`.
+
+Если `GOBIN` не задан **или пуст** — скрипт читает `./.cache/gobin/gremlins`. Если `GOBIN` задан **и непуст** — скрипт читает `$GOBIN/gremlins`, поэтому ставить надо именно туда (в этом случае `GOBIN` тоже должен быть абсолютным). `PATH` и `$(go env GOPATH)/bin` не ищутся.
 
 Почему gremlins: `go-mutesting` паникует в `go/types` на go1.26.10, `ooze` v0.2.0 — ложные killed (`go:embed`+symlink, T-0136).
 
