@@ -5,6 +5,8 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-11-12
+
 ### Added
 
 - `ticket update-check`: explicit check for a newer release on GitHub — never automatic, never blocks other commands. Per-user cache (24 h), 1 h backoff after a failed check; exit `0` = up to date / no releases / dev build, `3` = update available, `1` = check failed (T-0173).
