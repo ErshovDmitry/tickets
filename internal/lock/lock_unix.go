@@ -21,8 +21,15 @@ const MaxEINTRRetries = 8
 // MaxEINTRRetries times (1 + MaxEINTRRetries attempts in total); any
 // other errno is wrapped and returned immediately.
 func lockExclusive(f *os.File) error {
+	return lockExclusiveWithFlock(f, syscall.Flock)
+}
+
+// lockExclusiveWithFlock is lockExclusive with the flock(2) call injected as
+// a parameter: tests fault-inject EINTR through it without a global hook.
+// Production always passes syscall.Flock.
+func lockExclusiveWithFlock(f *os.File, flock func(fd, how int) error) error {
 	for i := 0; i <= MaxEINTRRetries; i++ {
-		err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+		err := flock(int(f.Fd()), syscall.LOCK_EX)
 		if err == nil {
 			return nil
 		}

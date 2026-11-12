@@ -4,9 +4,11 @@ package lock
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -161,5 +163,107 @@ func TestEINTRRetry(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("holder goroutine did not finish")
+	}
+}
+
+// openFaultLockFile creates a throwaway lock file in t.TempDir() and closes it
+// via t.Cleanup, so every fault-injection test owns its fd. The name avoids the
+// openLockFile(path) helper in lock.go.
+func openFaultLockFile(t *testing.T) *os.File {
+	t.Helper()
+	f, err := os.OpenFile(filepath.Join(t.TempDir(), ".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatalf("open lock file: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Errorf("close lock file: %v", err)
+		}
+	})
+	return f
+}
+
+// boundedFlock returns a flock(2) replacement for lockExclusiveWithFlock plus a
+// call counter. The hook asserts the injected fd/how arguments, counts calls,
+// and fails the test as soon as the loop exceeds MaxEINTRRetries+1 attempts, so
+// a broken retry bound fails fast instead of spinning. The errno for each call
+// comes from fn, which receives the 1-based call number.
+func boundedFlock(t *testing.T, f *os.File, fn func(call int) error) (func(fd, how int) error, func() int) {
+	t.Helper()
+	n := 0
+	hook := func(fd, how int) error {
+		t.Helper()
+		if want := int(f.Fd()); fd != want {
+			t.Fatalf("flock fd = %d, want %d", fd, want)
+		}
+		if how != syscall.LOCK_EX {
+			t.Fatalf("flock how = %#x, want LOCK_EX", how)
+		}
+		n++
+		if n > MaxEINTRRetries+1 {
+			t.Fatalf("flock called %d times, want at most %d (retry bound not enforced)", n, MaxEINTRRetries+1)
+		}
+		return fn(n)
+	}
+	return hook, func() int { return n }
+}
+
+// TestLockExclusiveEINTRExhausted pins the retry bound: a flock(2) that always
+// returns EINTR must be attempted exactly MaxEINTRRetries+1 times and then fail
+// with the documented "exceeded N EINTR retries" error.
+func TestLockExclusiveEINTRExhausted(t *testing.T) {
+	f := openFaultLockFile(t)
+	flock, calls := boundedFlock(t, f, func(int) error { return syscall.EINTR })
+
+	err := lockExclusiveWithFlock(f, flock)
+
+	if got, want := calls(), MaxEINTRRetries+1; got != want {
+		t.Errorf("flock calls = %d, want %d", got, want)
+	}
+	want := fmt.Sprintf("flock LOCK_EX: exceeded %d EINTR retries", MaxEINTRRetries)
+	if err == nil || err.Error() != want {
+		t.Fatalf("lockExclusiveWithFlock error = %v, want %q", err, want)
+	}
+}
+
+// TestLockExclusiveEINTRThenSuccess checks that an EINTR interrupted wait is
+// retried and that the following successful attempt returns nil.
+func TestLockExclusiveEINTRThenSuccess(t *testing.T) {
+	f := openFaultLockFile(t)
+	flock, calls := boundedFlock(t, f, func(call int) error {
+		if call <= MaxEINTRRetries {
+			return syscall.EINTR
+		}
+		return nil
+	})
+
+	if err := lockExclusiveWithFlock(f, flock); err != nil {
+		t.Fatalf("lockExclusiveWithFlock: %v", err)
+	}
+	if got, want := calls(), MaxEINTRRetries+1; got != want {
+		t.Errorf("flock calls = %d, want %d", got, want)
+	}
+}
+
+// TestLockExclusiveNonEINTR checks that a non-EINTR errno is returned
+// immediately, wrapped with the "flock LOCK_EX:" prefix and still matchable
+// with errors.Is.
+func TestLockExclusiveNonEINTR(t *testing.T) {
+	f := openFaultLockFile(t)
+	flock, calls := boundedFlock(t, f, func(int) error { return syscall.EBADF })
+
+	err := lockExclusiveWithFlock(f, flock)
+
+	if err == nil {
+		t.Fatal("lockExclusiveWithFlock returned nil, want EBADF")
+	}
+	if !strings.HasPrefix(err.Error(), "flock LOCK_EX:") {
+		t.Errorf("error %q lacks %q prefix", err, "flock LOCK_EX:")
+	}
+	if !errors.Is(err, syscall.EBADF) {
+		t.Errorf("error %v does not wrap EBADF", err)
+	}
+	if got := calls(); got != 1 {
+		t.Errorf("flock calls = %d, want 1", got)
 	}
 }
