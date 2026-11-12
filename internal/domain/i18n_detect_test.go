@@ -91,6 +91,44 @@ func TestMatchMetaLineReturnsLangSignal(t *testing.T) {
 	}
 }
 
+// TestMatchMetaLineEmptySuffix pins the empty ("") label suffix, which
+// validSuffix accepts at every free-suffix split and on the RU dict fast-path.
+func TestMatchMetaLineEmptySuffix(t *testing.T) {
+	cases := []struct {
+		name     string
+		lines    []string
+		wantKey  string
+		wantLang Lang
+		wantDict bool
+		wantVals []string
+	}{
+		{"status_en_empty_suffix", []string{"- Status (): open"}, "Status", LangEN, false, []string{"open"}},
+		{"created_en_empty_first_suffix", []string{"- Created (): 2026-01-01 10:00 · by (кем): user"}, "Created", LangEN, false, []string{"2026-01-01 10:00", "user"}},
+		{"created_en_empty_second_suffix", []string{"- Created (created): 2026-01-01 10:00 · by (): user"}, "Created", LangEN, false, []string{"2026-01-01 10:00", "user"}},
+		{"created_ru_dict_empty_author_suffix", []string{
+			"- Created (Создан): 2026-01-01 10:00 · by (): user", // canonical
+			"- Created (Создан): 2026-01-01 10:00 · by ): user",  // non-emission
+		}, "Created", LangRU, true, []string{"2026-01-01 10:00", "user"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, line := range tc.lines {
+				key, lang, dictMatched, vals, ok := matchMetaLine(line)
+				if !ok {
+					t.Errorf("matchMetaLine(%q) ok = false, want true", line)
+					continue
+				}
+				if key != tc.wantKey || lang != tc.wantLang || dictMatched != tc.wantDict {
+					t.Errorf("matchMetaLine(%q) = (%q, %q, %v), want (%q, %q, %v)", line, key, lang, dictMatched, tc.wantKey, tc.wantLang, tc.wantDict)
+				}
+				if strings.Join(vals, "|") != strings.Join(tc.wantVals, "|") {
+					t.Errorf("matchMetaLine(%q) vals = %v, want %v", line, vals, tc.wantVals)
+				}
+			}
+		})
+	}
+}
+
 // TestDetectLangDictPrecedence pins LOCK D4 v2: the first dict-matched signal
 // (exact dict suffix/form; plain EN counts as an en-dict match) decides the
 // language; free (non-dict) signals never decide — a free suffix early in
