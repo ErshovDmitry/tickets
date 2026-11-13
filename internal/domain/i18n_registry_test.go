@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -85,14 +86,7 @@ func TestRegistryCoversEmbeddedFiles(t *testing.T) {
 	}
 
 	for code := range registry {
-		found := false
-		for _, ec := range embeddedCodes {
-			if string(code) == ec {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(embeddedCodes, string(code)) {
 			t.Errorf("registry[%s] not matched by embedded file", code)
 		}
 	}

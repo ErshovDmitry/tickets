@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -202,7 +202,7 @@ func buildAllDicts(reg map[Lang]*dict) []dictEntry {
 			others = append(others, code)
 		}
 	}
-	sort.Slice(others, func(i, j int) bool { return others[i] < others[j] })
+	slices.Sort(others)
 	for _, code := range others {
 		out = append(out, dictEntry{code, reg[code]})
 	}

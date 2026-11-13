@@ -62,7 +62,7 @@ func validSuffix(s string) bool {
 func matchMetaLine(line string) (metaKey string, lang Lang, dictMatched bool, values []string, ok bool) {
 	// Try all dicts: match emission forms against line.
 	for _, entry := range allDicts {
-		if k, v, ok := tryMetaDict(line, entry.d, entry.lang); ok {
+		if k, v, ok := tryMetaDict(line, entry.d); ok {
 			return k, entry.lang, true, v, true
 		}
 	}
@@ -124,7 +124,7 @@ func matchMetaLine(line string) (metaKey string, lang Lang, dictMatched bool, va
 	return "", LangEN, false, nil, false
 }
 
-func tryMetaDict(line string, d *dict, lang Lang) (string, []string, bool) {
+func tryMetaDict(line string, d *dict) (string, []string, bool) {
 	// Status/Priority/Project: "- Label (suffix): value"
 	for k, prefix := range map[string]string{
 		"Status":   d.statusFmt[:len(d.statusFmt)-2], // strip " %s"
@@ -147,8 +147,7 @@ func tryMetaDict(line string, d *dict, lang Lang) (string, []string, bool) {
 			ts := parts[0]
 			// Strip label suffix from author part: "(suffix): author" -> "author"
 			authorPart := parts[1]
-			if idx := strings.Index(authorPart, "): "); idx >= 0 {
-				author := authorPart[idx+3:]
+			if _, author, found := strings.Cut(authorPart, "): "); found {
 				return "Created", []string{ts, author}, true
 			}
 		}

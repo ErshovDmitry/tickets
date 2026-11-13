@@ -94,7 +94,7 @@ func TestValidateDictStringFieldsCovered(t *testing.T) {
 	dj := validDict(t)
 	setters := stringFieldSetters(&dj)
 
-	typ := reflect.TypeOf(dictJSON{})
+	typ := reflect.TypeFor[dictJSON]()
 	val := reflect.ValueOf(&dj).Elem()
 
 	stringFields := 0
@@ -164,8 +164,7 @@ func TestValidateDictHeaders(t *testing.T) {
 				if !strings.HasPrefix(err.Error(), "headers: ") {
 					t.Errorf("error prefix: got %q, want prefix %q", err.Error(), "headers: ")
 				}
-				var se *json.SyntaxError
-				if !errors.As(err, &se) {
+				if _, ok := errors.AsType[*json.SyntaxError](err); !ok {
 					t.Errorf("errors.As: expected *json.SyntaxError, got %T", err)
 				}
 				return
