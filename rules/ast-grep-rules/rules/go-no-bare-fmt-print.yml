@@ -1,0 +1,51 @@
+# Go: bare fmt.Print* writes straight to os.Stdout.
+# Separate rule id from the built-in go-no-fmt-println (which also matches
+# fmt.Fprint* without analysing the writer argument and is therefore
+# path-suppressed in .pi-lens.json). This rule matches only the three bare
+# stdout forms, so it never needs a per-path suppression.
+id: go-no-bare-fmt-print
+language: Go
+severity: warning
+message: "Bare fmt.Print* writes to os.Stdout; use slog or an io.Writer"
+note: |
+  fmt.Print, fmt.Printf and fmt.Println always write to os.Stdout: the
+  output is not configurable and cannot be routed to a log aggregator.
+  Production code should use log/slog (Go 1.21+) or an explicit io.Writer
+  taken as a parameter (fmt.Fprint/Fprintf/Fprintln).
+
+  This rule deliberately does NOT match fmt.Fprint* forms: those take a
+  writer argument and are legitimate when the writer is injected. The
+  built-in go-no-fmt-println rule covers F*-forms project-wide.
+
+  Detection-only: CLI entry points that intentionally print to stdout are
+  a project policy call this rule cannot make.
+
+  BAD:  fmt.Println("done")
+  GOOD: slog.Info("done")
+  GOOD: fmt.Fprintln(w, "done")
+rule:
+  pattern: $FUNC($$$)
+constraints:
+  FUNC:
+    regex: "^fmt\\.(Print|Printf|Println)$"
+ignores:
+  - "**/*_test.go"
+  - "**/examples/**"
+  - "**/tests/fixtures/**"
+  - "**/cases/**"
+metadata:
+  category: logging
+  tags:
+    - go
+    - idiom
+    - logging
+  has_fix: false
+  examples:
+    bad: |
+      func main() {
+          fmt.Println("hello")
+      }
+    good: |
+      func main() {
+          slog.Info("hello")
+      }

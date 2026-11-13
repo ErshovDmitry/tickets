@@ -1,0 +1,51 @@
+id: go-no-bare-fmt-print
+valid:
+  - |
+    func f(w io.Writer) {
+        fmt.Fprintln(w, "value:", 42)
+    }
+  - |
+    func f(w io.Writer) {
+        fmt.Fprintf(w, "value: %d\n", 42)
+    }
+  - |
+    func f(w io.Writer) {
+        fmt.Fprint(w, "done")
+    }
+  - |
+    func f(w io.Writer) {
+        fmt.Fprintln(w)
+    }
+  - |
+    func f() {
+        log.Printf("started on port %d", port)
+    }
+  - |
+    func f() {
+        slog.Info("hello", "key", "value")
+    }
+  - |
+    func f() string {
+        return fmt.Sprintf("value: %d", 42)
+    }
+  - |
+    func f() string {
+        return fmt.Sprint("value: ", 42)
+    }
+invalid:
+  - |
+    func f() {
+        fmt.Println("hello")
+    }
+  - |
+    func f() {
+        fmt.Printf("value: %d\n", 42)
+    }
+  - |
+    func f() {
+        fmt.Print()
+    }
+  - |
+    func f(args []any) {
+        fmt.Println(args...)
+    }
