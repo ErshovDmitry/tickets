@@ -27,7 +27,7 @@ Every ticket records a project name. By default it is the basename of the `ticke
 ticket new "Cross-project entry" -P otherproj
 
 # filter a listing by project (exact match, case-sensitive)
-ticket list all -P otherproj
+ticket list all -P otherproj [--type BUG|OPS|TD|ENH] [--priority low|normal|high]
 ```
 
 Behaviour worth knowing:
@@ -44,7 +44,7 @@ Closed tickets pile up; move them out of the active listing without losing anyth
 ```bash
 ticket archive         # move all closed (done/closed) into tickets/archive/
 ticket archive 7       # move one specific ticket
-ticket list archive    # list the archive
+ticket list archive [--type BUG|OPS|TD|ENH] [--priority low|normal|high]   # list the archive
 ticket show 7          # show works for archived tickets too
 ticket set 7 wip "reopened"   # restores the ticket from the archive into work
 ```

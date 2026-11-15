@@ -10,18 +10,28 @@ import (
 	"ticket/internal/store"
 )
 
-// cmdList implements `list [active|open|wip|done|closed|archive|all] [-P project]`
-// with the default filter active. The archive filter lists tickets under
-// tickets/archive/ instead of the main directory. An empty first argument
-// falls back to the default (an empty first argument counts as unset).
+// cmdList implements `list [active|open|wip|done|closed|archive|all] [-P project]
+// [--type BUG|OPS|TD|ENH] [--priority low|normal|high]` with the default filter
+// active. The archive filter lists tickets under tickets/archive/ instead of the
+// main directory (type/priority/-P still apply there, status does not). An empty
+// first argument falls back to the default (an empty first argument counts as
+// unset).
 // T-0040: -P flag filters by exact project name match
 // (case-sensitive); unknown flags error (deliberate deviation from the
-// pre-Go behaviour, for typo protection). Signature per wave-1 dispatch contract
-// (wiki 8bd93a4e, A1).
+// pre-Go behaviour, for typo protection). T-0188: --type/--priority are value
+// flags combining with the status and -P filters by AND; the value is ALWAYS the
+// next token (even one that looks like a status or a flag), a repeated flag keeps
+// the last value.
+// Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
 func cmdList(st *store.Store, args []string, who, project string, lang domain.Lang, stdout, stderr io.Writer) int {
-	// Parse flags: -P can appear anywhere, --json is bare flag, positional filter = first non-flag arg
+	// Parse flags: -P/--type/--priority can appear anywhere, --json is bare
+	// flag, positional filter = first non-flag arg. Enum values are recorded
+	// raw and validated after the positional checks so that a bad status still
+	// wins over a bad type/priority (T-0188).
 	var projectFilter string
 	var jsonMode bool
+	var typeRaw, priorityRaw string
+	var typeSet, prioritySet bool
 	var positional []string
 	for i := 0; i < len(args); i++ {
 		if args[i] == "-P" {
@@ -35,6 +45,23 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 				fmt.Fprintln(stderr, domain.ErrFlagPRequiresNonEmpty(lang))
 				return exitError
 			}
+		} else if args[i] == "--type" {
+			// Value-flag (T-0188): the next token is the value, always.
+			if i+1 >= len(args) {
+				fmt.Fprintln(stderr, domain.ErrFlagRequiresValue(lang, "--type"))
+				return exitError
+			}
+			i++
+			typeRaw = args[i]
+			typeSet = true
+		} else if args[i] == "--priority" {
+			if i+1 >= len(args) {
+				fmt.Fprintln(stderr, domain.ErrFlagRequiresValue(lang, "--priority"))
+				return exitError
+			}
+			i++
+			priorityRaw = args[i]
+			prioritySet = true
 		} else if args[i] == "--json" {
 			if jsonMode {
 				fmt.Fprintln(stderr, domain.ErrRepeatedFlagJson(lang))
@@ -60,6 +87,28 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	if !isListFilter(want) {
 		fmt.Fprintln(stderr, domain.ErrListFilterInvalid(lang))
 		return exitError
+	}
+
+	// Enum validation runs AFTER the positional checks (T-0188): `list bogus
+	// --type BUGX` reports the bad status, not the bad type. An explicitly
+	// empty value is invalid, never a wildcard.
+	var typeFilter domain.Type
+	if typeSet {
+		typ, ok := typeByName(typeRaw)
+		if !ok {
+			fmt.Fprintln(stderr, domain.ErrTypeInvalid(lang))
+			return exitError
+		}
+		typeFilter = typ
+	}
+	var priorityFilter domain.Priority
+	if prioritySet {
+		prio, ok := priorityByName(priorityRaw)
+		if !ok {
+			fmt.Fprintln(stderr, domain.ErrPriorityInvalid(lang))
+			return exitError
+		}
+		priorityFilter = prio
 	}
 
 	var tickets []domain.Ticket
@@ -90,6 +139,14 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 		}
 		// Apply -P filter (exact match, case-sensitive)
 		if projectFilter != "" && t.Project != projectFilter {
+			continue
+		}
+		// Type/priority filters (T-0188): exact, case-sensitive, AND with
+		// every other filter — including for the archive source.
+		if typeSet && t.Type != typeFilter {
+			continue
+		}
+		if prioritySet && t.Priority != priorityFilter {
 			continue
 		}
 		output = append(output, t)
@@ -125,12 +182,19 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	}
 
 	if len(output) == 0 {
-		// Determine filter description for noTickets message
-		filterDesc := want
+		// Determine filter description for noTickets message: every ACTIVE
+		// filter is named so the empty result is explainable (T-0188).
+		filterParts := []string{want}
 		if projectFilter != "" {
-			filterDesc = want + " -P " + projectFilter
+			filterParts = append(filterParts, "-P "+projectFilter)
 		}
-		fmt.Fprintln(stdout, domain.NoTickets(lang, filterDesc))
+		if typeSet {
+			filterParts = append(filterParts, "--type "+string(typeFilter))
+		}
+		if prioritySet {
+			filterParts = append(filterParts, "--priority "+string(priorityFilter))
+		}
+		fmt.Fprintln(stdout, domain.NoTickets(lang, strings.Join(filterParts, " ")))
 		return exitOK
 	}
 	// Print with project column when len(uniqueProjects) > 1
