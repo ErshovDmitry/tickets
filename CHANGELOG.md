@@ -5,6 +5,12 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-11-16
+
+### Changed
+
+- Internal hardening only, no user-visible CLI changes: expanded test coverage (lock retry/EINTR bounds, store empty-file handling, domain i18n suffixes), a new lint guard against bare `fmt.Print`, and a behavior-preserving domain refactor.
+
 ## [1.2.5] - 2026-11-12
 
 ### Added
