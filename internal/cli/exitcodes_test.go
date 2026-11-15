@@ -1,9 +1,7 @@
 package cli
 
-// Guard against re-hardcoded exit codes (T-0163); the set is extracted once from production sources and drives the synthetic fixtures too. Violation: a bare integer literal
-// returned from a package-level FuncDecl (function or method) with exactly one plain
-// int result, duplicating a package-level exit[A-Z]... untyped int constant. Never
-// claimed as covered: "+1", int(0), named results returned bare after assignment,
+// Guard against re-hardcoded exit codes (T-0163); the set is extracted once from production sources and drives the synthetic fixtures too. Violation: a bare integer literal returned from a package-level FuncDecl (function or method) with exactly one plain
+// int result, duplicating a package-level exit[A-Z]... untyped int constant. Never claimed as covered: "+1", int(0), named results returned bare after assignment,
 // function literals, multi-result helpers, //go:build-tagged files (not evaluated).
 
 import (
@@ -25,13 +23,15 @@ type exitConstants map[int64]string
 
 var productionExitCodes exitConstants
 
-// mustExitCodes extracts the production set once, failing loudly when it is empty
-// or a documented constant did not survive extraction.
+// mustExitCodes extracts the production set once; a tree without production sources
+// skips, an empty set or a lost documented constant fails loudly.
 func mustExitCodes(t *testing.T) exitConstants {
 	t.Helper()
 	if productionExitCodes == nil {
 		codes := make(exitConstants)
-		scanDir(t, ".", codes)
+		if _, parsedFiles, _ := scanDir(t, ".", codes); parsedFiles == 0 {
+			t.Skip("no production Go sources in the scan dir: run from the package source tree")
+		}
 		productionExitCodes = codes
 	}
 	if len(productionExitCodes) == 0 {
