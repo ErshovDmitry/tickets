@@ -85,31 +85,9 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		return exitError
 	}
 	f.details = details
-	// firstUse check BEFORE Create (T-0040): known projects = unique
-	// t.Project from List+ListArchive
-	firstUse := false
-	if project != "" {
-		known := make(map[string]bool)
-		allTickets, warnings := st.List()
-		logParseWarnings(st, warnings)
-		for _, w := range warnings {
-			fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
-		}
-		for _, t := range allTickets {
-			known[t.Project] = true
-		}
-		archiveTickets, warnings2 := st.ListArchive()
-		logParseWarnings(st, warnings2)
-		for _, w := range warnings2 {
-			fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
-		}
-		for _, t := range archiveTickets {
-			known[t.Project] = true
-		}
-		if !known[project] {
-			firstUse = true
-		}
-	}
+	// firstUse check BEFORE Create (T-0040): known projects are the union
+	// of the main, archive, and deleted directories (T-0189).
+	firstUse := project != "" && !knownProjects(st, stderr)[project]
 	n, err := st.Create(newTicket(f, typ, prio, project, lang))
 	if err != nil {
 		return createError(stderr, lang, st, err)
@@ -128,6 +106,33 @@ func cmdNew(st *store.Store, args []string, who, project string, lang domain.Lan
 		fmt.Fprintln(stderr, domain.WarnTicketsSavedTo(lang, dir))
 	}
 	return exitOK
+}
+
+// knownProjects collects every project name that already has a ticket in
+// the main, archive, or deleted directory (T-0040 first-use check). The
+// deleted scan is included so a project whose tickets all live under
+// tickets/deleted/ is not reported as first-use (T-0189): the warning
+// exists to catch a typo in -P, and a deleted-only project is still known.
+// Parse warnings of all three scans are logged and replayed to stderr,
+// matching the archive scan (never silenced, never fatal).
+func knownProjects(st *store.Store, stderr io.Writer) map[string]bool {
+	known := make(map[string]bool)
+	add := func(tickets []domain.Ticket, warnings []store.ParseWarning) {
+		logParseWarnings(st, warnings)
+		for _, w := range warnings {
+			fmt.Fprintf(stderr, "ticket: %s\n", w.Error())
+		}
+		for _, t := range tickets {
+			known[t.Project] = true
+		}
+	}
+	mainTickets, mainWarnings := st.List()
+	add(mainTickets, mainWarnings)
+	archiveTickets, archiveWarnings := st.ListArchive()
+	add(archiveTickets, archiveWarnings)
+	deletedTickets, deletedWarnings := st.ListDeleted()
+	add(deletedTickets, deletedWarnings)
+	return known
 }
 
 // parseNewFlags consumes `-t/-p/-d/-w/-P` value pairs left to right (as the bash era did):
