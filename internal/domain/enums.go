@@ -6,19 +6,20 @@ import "fmt"
 type Status string
 
 const (
-	StatusOpen   Status = "open"
-	StatusWip    Status = "wip"
-	StatusDone   Status = "done"
-	StatusClosed Status = "closed"
+	StatusOpen    Status = "open"
+	StatusWip     Status = "wip"
+	StatusDone    Status = "done"
+	StatusClosed  Status = "closed"
+	StatusDeleted Status = "deleted"
 )
 
-// ParseStatus parses one of open|wip|done|closed.
+// ParseStatus parses one of open|wip|done|closed|deleted.
 func ParseStatus(s string) (Status, error) {
 	switch Status(s) {
-	case StatusOpen, StatusWip, StatusDone, StatusClosed:
+	case StatusOpen, StatusWip, StatusDone, StatusClosed, StatusDeleted:
 		return Status(s), nil
 	default:
-		return "", fmt.Errorf("статус — один из: open wip done closed")
+		return "", fmt.Errorf("статус — один из: open wip done closed deleted")
 	}
 }
 

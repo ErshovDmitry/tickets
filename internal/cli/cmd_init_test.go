@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,7 +22,7 @@ func TestInitProjectCreatesStructure(t *testing.T) {
 		t.Fatalf("initProject: code=%d stderr=%q", code, stderr.String())
 	}
 	tickets := filepath.Join(root, "tickets")
-	for _, dir := range []string{tickets, filepath.Join(tickets, "archive")} {
+	for _, dir := range []string{tickets, filepath.Join(tickets, "archive"), filepath.Join(tickets, "deleted")} {
 		info, err := os.Stat(dir)
 		if err != nil {
 			t.Fatalf("Stat %s: %v", dir, err)
@@ -33,8 +35,8 @@ func TestInitProjectCreatesStructure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadDir tickets: %v", err)
 	}
-	if len(entries) != 1 || entries[0].Name() != "archive" {
-		t.Errorf("tickets/ holds %d entries, want exactly [archive]", len(entries))
+	if len(entries) != 2 || entries[0].Name() != "archive" || entries[1].Name() != "deleted" {
+		t.Errorf("tickets/ holds %d entries, want exactly [archive deleted]", len(entries))
 	}
 	wantStdout := "Инициализировано: " + tickets + "\n"
 	if stdout.String() != wantStdout {
@@ -68,7 +70,7 @@ func TestInitProjectIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadDir tickets: %v", err)
 	}
-	if len(entries) != 1 || entries[0].Name() != "archive" {
+	if len(entries) != 2 || entries[0].Name() != "archive" || entries[1].Name() != "deleted" {
 		t.Errorf("repeat init changed the structure: %d entries", len(entries))
 	}
 }
@@ -132,6 +134,43 @@ func TestInitProjectArchiveRegularFile(t *testing.T) {
 	}
 	if !bytes.Equal(data, origContent) {
 		t.Errorf("conflict overwrote the file: got %q want %q", data, origContent)
+	}
+}
+
+// TestInitProjectDeletedRegularFile verifies a pre-planted regular file at
+// tickets/deleted is a conflict (T-0189, cross-platform): exit 1 with the
+// exact conflict line and the file's bytes preserved. archive/ is NOT
+// pre-created (W1 review A2): the conflict must not leave a partial
+// side effect, so archive/ must not exist afterwards.
+func TestInitProjectDeletedRegularFile(t *testing.T) {
+	root := t.TempDir()
+	tickets := filepath.Join(root, "tickets")
+	if err := os.MkdirAll(tickets, 0o755); err != nil {
+		t.Fatalf("MkdirAll tickets: %v", err)
+	}
+	deleted := filepath.Join(tickets, "deleted")
+	origContent := []byte("planted file")
+	if err := os.WriteFile(deleted, origContent, 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 1 {
+		t.Fatalf("deleted file: code=%d want 1 stderr=%q", code, stderr.String())
+	}
+	wantStderr := "ticket: Конфликт: " + deleted + "\n"
+	if stderr.String() != wantStderr {
+		t.Errorf("stderr=%q want %q", stderr.String(), wantStderr)
+	}
+	data, err := os.ReadFile(deleted)
+	if err != nil {
+		t.Fatalf("ReadFile after conflict: %v", err)
+	}
+	if !bytes.Equal(data, origContent) {
+		t.Errorf("conflict overwrote the file: got %q want %q", data, origContent)
+	}
+	if _, err := os.Lstat(filepath.Join(tickets, "archive")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("archive/ created despite deleted conflict: err=%v", err)
 	}
 }
 

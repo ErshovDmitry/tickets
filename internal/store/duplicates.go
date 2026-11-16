@@ -6,7 +6,8 @@ import (
 )
 
 // NumberConflict reports a ticket number carried by more than one file
-// across s.Dir and s.Dir/archive (T-0157). Paths are the canonical
+// across s.Dir, s.Dir/archive and s.Dir/deleted (T-0157, T-0189). Paths
+// are the canonical
 // ambiguity set: absolute, deduplicated, sorted — the same shape
 // AmbiguousNumberError carries.
 type NumberConflict struct {
@@ -14,8 +15,8 @@ type NumberConflict struct {
 	Paths  []string
 }
 
-// Duplicates scans the main directory and the archive and returns every
-// number owned by more than one file, sorted by number. It is the
+// Duplicates scans the main directory, the archive and deleted/ and
+// returns every number owned by more than one file, sorted by number. It is the
 // inventory source for the CLI's non-fatal duplicate reports (list prints
 // a warning per conflict; archive-all skips conflicting numbers): unlike
 // the strict find gates it never fails on ambiguity, only on unreadable
@@ -35,6 +36,13 @@ func (s *Store) Duplicates() ([]NumberConflict, error) {
 	}
 	for _, e := range archiveEntries {
 		byNumber[e.Number] = append(byNumber[e.Number], locatedFile{fileEntry: e, dir: archiveDir})
+	}
+	deletedDir, deletedEntries, derr := s.deletedScan()
+	if derr != nil {
+		return nil, derr
+	}
+	for _, e := range deletedEntries {
+		byNumber[e.Number] = append(byNumber[e.Number], locatedFile{fileEntry: e, dir: deletedDir})
 	}
 	numbers := make([]int, 0, len(byNumber))
 	for n, files := range byNumber {

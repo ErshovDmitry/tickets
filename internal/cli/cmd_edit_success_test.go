@@ -221,7 +221,9 @@ func TestEditNotFound(t *testing.T) {
 // TestEditAmbiguous pins the shared T-0157 report: exit 2, the localized
 // header plus every conflicting path, no mutation.
 func TestEditAmbiguous(t *testing.T) {
-	dir := t.TempDir()
+	// mustEval mirrors paths.Resolve's EvalSymlinks: Windows CI temp dirs
+	// may carry 8.3 short components (RUNNER~1) that Resolve expands.
+	dir := mustEval(t, t.TempDir())
 	createTestTicket(t, dir)
 	writeJSONTicket(t, dir, "T-0001-done.md", 1, "done", "Duplicate", "tickets", "2026-09-08 12:00")
 	openPath := filepath.Join(dir, "T-0001-open.md")
@@ -235,7 +237,7 @@ func TestEditAmbiguous(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "номер тикета 1 неоднозначен") ||
 		!strings.Contains(stderr, openPath) || !strings.Contains(stderr, donePath) {
-		t.Errorf("stderr = %q, want ambiguous header plus both paths", stderr)
+		t.Errorf("stderr = %q, want ambiguous header plus both paths (open=%q done=%q)", stderr, openPath, donePath)
 	}
 	afterOpen, _ := os.ReadFile(openPath)
 	afterDone, _ := os.ReadFile(donePath)

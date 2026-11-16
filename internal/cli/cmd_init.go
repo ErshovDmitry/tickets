@@ -37,13 +37,24 @@ func initProject(cwd string, lang domain.Lang, stdout, stderr io.Writer) int {
 		return initError(lang, stderr, err)
 	}
 	archive := filepath.Join(tickets, "archive")
-	if _, err := paths.IsRealDir(archive); err != nil {
-		if errors.Is(err, paths.ErrNotRealDir) {
-			return conflict(lang, stderr, archive) // pre-planted symlink/file (T-0082)
+	deleted := filepath.Join(tickets, "deleted")
+	// Probe both subdirs before creating anything (W1 review A2): a
+	// conflict on one must not leave a partial side effect — creating
+	// archive/ and then bailing out on deleted/ would be one. A
+	// pre-planted symlink, regular file or broken symlink is a conflict,
+	// never overwritten (T-0082, T-0189).
+	for _, sub := range []string{archive, deleted} {
+		if _, err := paths.IsRealDir(sub); err != nil {
+			if errors.Is(err, paths.ErrNotRealDir) {
+				return conflict(lang, stderr, sub)
+			}
+			return initError(lang, stderr, err)
 		}
-		return initError(lang, stderr, err)
 	}
 	if err := os.MkdirAll(archive, 0o755); err != nil {
+		return initError(lang, stderr, err)
+	}
+	if err := os.MkdirAll(deleted, 0o755); err != nil {
 		return initError(lang, stderr, err)
 	}
 	fmt.Fprintln(stdout, domain.MsgInitialized(lang, tickets))
