@@ -154,7 +154,7 @@ func newStoreWithOptions(dir string, readOnly bool, opts []Option) (*Store, erro
 // NewReadOnly validates the directory and returns a Store for read-only
 // commands (List, Find and friends) only: it skips the write probe, so
 // opening a directory never mutates it. Mutations (Create, SetStatus,
-// Archive) are rejected at runtime: withLock returns ErrReadOnly for a
+// Archive, Delete) are rejected at runtime: withLock returns ErrReadOnly for a
 // read-only Store.
 func NewReadOnly(dir string, opts ...Option) (*Store, error) {
 	if err := validateDir(dir); err != nil {

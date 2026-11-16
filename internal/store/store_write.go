@@ -14,8 +14,8 @@ import (
 
 // validateJournalInput enforces the T-0065 line-oriented journal invariant: a comment
 // or "who" value carrying CR or LF can split a journal line and inject a forged entry,
-// so all four journal-write sites (setStatusLocked, appendSameStatusLocked,
-// Store.Edit, archiveOneLocked) reject such values up-front. The check is the same
+// so all five journal-write sites (setStatusLocked, appendSameStatusLocked,
+// Store.Edit, archiveOneLocked, deleteOneLocked) reject such values up-front. The check is the same
 // strings.ContainsAny(..., "\r\n") the CLI uses (cmd_new.go:59, T-0044 precedent for
 // title) — no escape-and-roundtrip, no partial strip.
 //

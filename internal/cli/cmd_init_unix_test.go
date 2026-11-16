@@ -106,6 +106,85 @@ func TestInitProjectArchiveSymlink(t *testing.T) {
 	}
 }
 
+// TestInitProjectDeletedSymlink verifies a pre-planted tickets/deleted
+// symlink is a conflict (T-0189): IsRealDir never follows a trailing
+// symlink, so even a resolvable link is rejected. Exit 1 with the exact
+// conflict line, the outside target is never created and the symlink
+// itself survives untouched. archive/ is NOT pre-created (W1 review A2):
+// the conflict must not leave a partial side effect, so archive/ must
+// not exist afterwards.
+func TestInitProjectDeletedSymlink(t *testing.T) {
+	root := t.TempDir()
+	tickets := filepath.Join(root, "tickets")
+	if err := os.MkdirAll(tickets, 0o755); err != nil {
+		t.Fatalf("MkdirAll tickets: %v", err)
+	}
+	deleted := filepath.Join(tickets, "deleted")
+	target := filepath.Join(root, "outside-target")
+	if err := os.Symlink(target, deleted); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 1 {
+		t.Fatalf("deleted symlink: code=%d want 1 stderr=%q", code, stderr.String())
+	}
+	wantStderr := "ticket: Конфликт: " + deleted + "\n"
+	if stderr.String() != wantStderr {
+		t.Errorf("stderr=%q want %q", stderr.String(), wantStderr)
+	}
+	if _, err := os.Lstat(target); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("outside target exists after conflict: err=%v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(tickets, "archive")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("archive/ created despite deleted conflict: err=%v", err)
+	}
+	info, err := os.Lstat(deleted)
+	if err != nil {
+		t.Fatalf("Lstat after conflict: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("deleted symlink was overwritten: mode=%v", info.Mode())
+	}
+}
+
+// TestInitProjectDeletedBrokenSymlink verifies a broken tickets/deleted
+// symlink is a conflict (T-0189): Lstat sees the link itself, init exits 1
+// with the exact conflict line and the broken link is not replaced by a
+// real directory. archive/ is NOT pre-created (W1 review A2): the
+// conflict must not leave a partial side effect, so archive/ must not
+// exist afterwards.
+func TestInitProjectDeletedBrokenSymlink(t *testing.T) {
+	root := t.TempDir()
+	tickets := filepath.Join(root, "tickets")
+	if err := os.MkdirAll(tickets, 0o755); err != nil {
+		t.Fatalf("MkdirAll tickets: %v", err)
+	}
+	deleted := filepath.Join(tickets, "deleted")
+	if err := os.Symlink(filepath.Join(root, "nonexistent-target"), deleted); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := initProject(root, domain.LangRU, &stdout, &stderr); code != 1 {
+		t.Fatalf("deleted broken symlink: code=%d want 1 stderr=%q", code, stderr.String())
+	}
+	wantStderr := "ticket: Конфликт: " + deleted + "\n"
+	if stderr.String() != wantStderr {
+		t.Errorf("stderr=%q want %q", stderr.String(), wantStderr)
+	}
+	if _, err := os.Lstat(filepath.Join(tickets, "archive")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("archive/ created despite deleted conflict: err=%v", err)
+	}
+	info, err := os.Lstat(deleted)
+	if err != nil {
+		t.Fatalf("Lstat after init: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("broken symlink was overwritten: mode=%v", info.Mode())
+	}
+}
+
 // TestInitProjectSymlinkToDirTickets verifies the preserved behavior
 // (T-0062): tickets is a symlink to a real directory — init proceeds with
 // exit 0 and creates archive/ in the symlink's target.

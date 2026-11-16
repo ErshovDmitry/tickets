@@ -20,6 +20,7 @@ const (
 	reasonJournalDup     = "journal-dup"
 	reasonDirRead        = "dir-read"
 	reasonArchiveDir     = "archive-dir"
+	reasonDeletedDir     = "deleted-dir"
 	reasonParse          = "parse"
 	// normalize guard and skip codes (T-0125). Their files are parsed but
 	// deliberately left byte-identical, so they never reach reasonOf.
@@ -67,6 +68,20 @@ func reasonOf(err error) string {
 func archiveReason(err error) string {
 	if errors.Is(err, ErrArchiveInvalid) {
 		return reasonArchiveDir
+	}
+	if _, ok := errors.AsType[*fs.PathError](err); ok {
+		return reasonIOError
+	}
+	return reasonOf(err)
+}
+
+// deletedReason is archiveReason for the protected deleted/ directory
+// (T-0189): an invalid deleted path keeps its own reason, and an
+// OS-level failure there is its own read problem, not a ticket parse
+// issue.
+func deletedReason(err error) string {
+	if errors.Is(err, ErrDeletedInvalid) {
+		return reasonDeletedDir
 	}
 	if _, ok := errors.AsType[*fs.PathError](err); ok {
 		return reasonIOError
