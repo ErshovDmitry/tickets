@@ -115,6 +115,13 @@ type dict struct {
 	updateCheckNoReleases string // no placeholders
 	updateCheckDev        string // 1 %s: current version
 	errUpdateCheck        string // 1 %v: error
+
+	// T-0187: `ticket edit` messages. Placeholder counts are validated in
+	// loadDict (i18n_dict_rules.go); runtime access goes through getDict.
+	errEditUnknownFlag  string // 1 %s: the offending flag argument
+	errEditFieldNewline string // no placeholders (title/project CR/LF)
+	errEditAlreadyField string // 1 %d: number; 2 %s: field name, quoted value
+	errProjectEmpty     string // no placeholders (whitespace-only project)
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the

@@ -1,6 +1,6 @@
 ---
 name: ticket-cli-reference
-version: "1.9"
+version: "1.10"
 created: 2026-09-04
 modified: 2026-11-16
 type: reference
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-16 (T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-16 (T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block, T-0187 added the `ticket edit` block to the command list); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -43,6 +43,11 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       повторный set в тот же статус с комментарием допишет журнал
       (статус и имя файла не меняются), без комментария — ошибка;
       перевод архивного тикета в open/wip возвращает его из архива в работу
+  ticket edit <номер> [--title "<кратко>"] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--project <проект>]
+      правка краткого описания/типа/приоритета/проекта тикета на месте (статус и имя файла не меняются);
+      архивный тикет правится в archive/ без возврата в работу, --project меняет только метаданные;
+      только раздельные пары "--флаг значение": форма "--флаг=значение" и короткие флаги отклоняются; повтор — последнее значение;
+      явно переданное неизменённое значение отклоняет всю правку (код 1, ничего не записывается); успех тихий (код 0)
   ticket archive [<номер>]
       перенести закрытые тикеты (done/closed) в archive/;
       без номера — все закрытые, с номером — один указанный
@@ -77,9 +82,9 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 
 Поиск каталога тикетов (первое совпадение выигрывает): -C/--tickets-dir → $TICKETS_DIR → восходящий поиск tickets/ от текущего каталога.
 
-Блокировка каталога: TICKET_LOCK_TIMEOUT задаёт, сколько ticket ждёт захват .lock, прежде чем вернуть ошибку; значение — Go-длительность с обязательной единицей (30s, 2m, 500ms); пустое или невалидное значение молча даёт дефолт; 0 или меньше — одна попытка без ожидания; действует на new, set и archive.
+Блокировка каталога: TICKET_LOCK_TIMEOUT задаёт, сколько ticket ждёт захват .lock, прежде чем вернуть ошибку; значение — Go-длительность с обязательной единицей (30s, 2m, 500ms); пустое или невалидное значение молча даёт дефолт; 0 или меньше — одна попытка без ожидания; действует на new, set, edit и archive.
 
-Коды выхода: 0 — успех; 1 — ошибка (неверные аргументы, тикет не найден, конфликт, ошибка ввода или хранилища, сбой проверки обновлений); 2 — неоднозначный номер тикета (команды show, set, archive, new, recover): один номер принадлежит нескольким файлам — в stderr печатаются номер и конфликтующие файлы. Команда list при дубликатах печатает такое же предупреждение, но завершается с кодом 0; 3 — доступно обновление (команда update-check).
+Коды выхода: 0 — успех; 1 — ошибка (неверные аргументы, тикет не найден, конфликт, ошибка ввода или хранилища, сбой проверки обновлений); 2 — неоднозначный номер тикета (команды show, set, edit, archive, new, recover): один номер принадлежит нескольким файлам — в stderr печатаются номер и конфликтующие файлы. Команда list при дубликатах печатает такое же предупреждение, но завершается с кодом 0; 3 — доступно обновление (команда update-check).
 
 Статусы: open — новый; wip — в работе; done — исправлено; closed — отклонён/дубликат.
 Типы: BUG — поломка; OPS — инцидент/обслуживание; TD — техдолг; ENH — улучшение.
@@ -98,3 +103,5 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-11-11 | T-0159: `ticket recover` missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (recover block, `recover` in the exit-code line) | 1.6 |
 | 2026-11-11 | T-0162: the single-file no-op and the single-file-with-another-name exit 1 were undocumented | Re-synced with `internal/cli/templates/usage.ru.txt` (conservative no-op lines, `единственного файла с другим именем`) | 1.7 |
 | 2026-11-16 | T-0188: the `list` `--type`/`--priority` filters were missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (list syntax line and the `--type`/`--priority` block) | 1.9 |
+| 2026-11-16 | T-0187: `ticket edit` was missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (edit block) | 1.9 |
+| 2026-11-16 | Merge of T-0188 and T-0187 | Rebase resolution: help text keeps both the `list` filters and the `edit` block; version bumped past both parents | 1.10 |

@@ -15,9 +15,12 @@ import (
 // implementations call into the os package directly. removeTmp removes the
 // post-commit tmp name (initial removal, link-fail cleanup, best-effort
 // retry); removeFile stays reserved for old/rollback removals so swapRemove
-// call-counts remain unchanged; renameFile is the same-status journal-only
-// rename-over commit (replaces the existing target: atomic on POSIX, on
-// Windows MoveFileEx(MOVEFILE_REPLACE_EXISTING) non-atomically).
+// call-counts remain unchanged; renameFile is the in-place rename-over
+// commit (same-status journal append and metadata edit; replaces the
+// existing target: atomic on POSIX, on Windows
+// MoveFileEx(MOVEFILE_REPLACE_EXISTING) non-atomically). The directory
+// is not fsynced after the rename, so crash-durability is no stronger than
+// the pre-existing cross-status commit (see rewriteInPlaceLocked).
 var (
 	linkFile   = os.Link
 	renameFile = os.Rename

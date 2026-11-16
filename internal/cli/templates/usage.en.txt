@@ -25,6 +25,11 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       re-setting the same status with a comment appends a journal entry
       (status and file name unchanged), without a comment it is an error;
       moving an archived ticket back to open/wip restores it from the archive into work
+  ticket edit <number> [--title "<brief>"] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--project <project>]
+      edit the title/type/priority/project of a ticket in place (status and file name never change);
+      an archived ticket is edited inside the archive/ without a reopen, --project only changes the metadata;
+      only separate "--flag value" pairs: "--flag=value" and short flags are refused; a repeat keeps the last value;
+      an explicitly unchanged value refuses the whole edit (exit 1, nothing is written); success is silent (exit 0)
   ticket archive [<number>]
       move closed tickets (done/closed) into archive/;
       without a number — all closed ones, with a number — only the given one
@@ -59,9 +64,9 @@ Global flag (before the command, every command except init):
 
 Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → upward scan for tickets/ from the current directory.
 
-Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set and archive.
+Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set, edit and archive.
 
-Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check).
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check).
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.

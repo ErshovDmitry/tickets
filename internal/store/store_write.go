@@ -14,8 +14,8 @@ import (
 
 // validateJournalInput enforces the T-0065 line-oriented journal invariant: a comment
 // or "who" value carrying CR or LF can split a journal line and inject a forged entry,
-// so all three journal-write sites (setStatusLocked, appendSameStatusLocked,
-// archiveOneLocked) reject such values up-front. The check is the same
+// so all four journal-write sites (setStatusLocked, appendSameStatusLocked,
+// Store.Edit, archiveOneLocked) reject such values up-front. The check is the same
 // strings.ContainsAny(..., "\r\n") the CLI uses (cmd_new.go:59, T-0044 precedent for
 // title) — no escape-and-roundtrip, no partial strip.
 //
@@ -249,51 +249,4 @@ func (s *Store) setStatusLocked(n int, next domain.Status, who, comment string) 
 	}
 	s.Logger().Info("store.set.commit", "number", n, "from", oldStatus, "to", next, "path", target)
 	return target, warnings, nil
-}
-
-// appendSameStatusLocked journals a same-status set (comment != "") in place: the file
-// name and directory never change (target == old), one From==To==cur.Status journal
-// entry is appended, and the commit is a rename-over via the renameFile hook. The
-// rename-over replaces the existing file atomically on POSIX (rename(2)); on Windows
-// MoveFileEx(MOVEFILE_REPLACE_EXISTING) replaces it non-atomically, and a sharing
-// violation (target held open without FILE_SHARE_DELETE) fails the commit with the old
-// file intact and the tmp removed. Any rename error is joined with the tmp cleanup; no
-// rollback is needed because old == target stays alive. Caveat: a journal append
-// written out of lock between readTicketFile and the rename is silently lost — the same
-// lost-update window the cross-status path has.
-func (s *Store) appendSameStatusLocked(n int, cur fileEntry, curDir, who, comment string) (string, []ParseWarning, error) {
-	// T-0065: same-status journal-only path is the third write site and shares the same
-	// line-oriented format, so the same guard applies.
-	if err := validateJournalInput(comment, who); err != nil {
-		return "", nil, err
-	}
-	old := filepath.Join(curDir, cur.Name)
-	tk, _, unknown, err := readTicketFile(old, cur.Number)
-	if err != nil {
-		return "", nil, fmt.Errorf("store: read %s: %w", cur.Name, err)
-	}
-	warnings := journalDupWarnings(cur.Name, tk)
-	tk.Status = cur.Status
-	tk.Journal = append(tk.Journal, domain.JournalEntry{
-		From:    cur.Status,
-		To:      cur.Status,
-		Comment: comment,
-		Who:     who,
-		At:      time.Now(),
-	})
-	rendered, err := domain.Render(tk, unknown)
-	if err != nil {
-		return "", nil, fmt.Errorf("store: render: %w", err)
-	}
-	tmpPath, err := s.writeTmp(n, cur.Status, rendered, curDir)
-	if err != nil {
-		s.Logger().Error("store.set.append.failure", "number", n, "stage", "tmp")
-		return "", nil, err
-	}
-	if err := renameFile(tmpPath, old); err != nil {
-		s.Logger().Error("store.set.append.failure", "number", n, "stage", "rename")
-		return "", nil, errors.Join(fmt.Errorf("store: rename commit: %w", err), removeTmp(tmpPath))
-	}
-	s.Logger().Info("store.set.append", "number", n, "status", cur.Status, "path", old)
-	return old, warnings, nil
 }

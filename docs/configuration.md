@@ -14,7 +14,7 @@ Environment variables that control where `ticket` stores data, who it records as
 
 Each chain is evaluated left to right: the first non-empty value wins. `TICKET_WHO` falls back to `USER`, then `USERNAME` (Windows), then the literal `agent`. `TICKET_LANG` falls back to `LC_ALL`, then `LANG`. Its prefix (up to the first `_` or `.`, case-insensitive) selects a known language; an unknown prefix falls back to English. Only when all three are empty is the default Russian used.
 
-`TICKET_LOCK_TIMEOUT` is read on every lock acquisition, so it applies to each invocation independently. The value is a Go duration and must carry a unit: `30s`, `2m`, `500ms`, `1h`; the only unit-less value Go accepts is the literal `0`. The default `5s` is defined in the code (`internal/store/store_lock.go`, `defaultLockTimeout`) — there is no second place where it is set. An empty or unparsable value — including one without a unit, such as `5` — silently falls back to that default, without any warning. A value `<= 0` means a single lock attempt, without waiting. The variable affects only the mutating commands (`new`, `set`, `archive`); the reading ones (`list`, `show`) open the tickets directory read-only and never take the lock.
+`TICKET_LOCK_TIMEOUT` is read on every lock acquisition, so it applies to each invocation independently. The value is a Go duration and must carry a unit: `30s`, `2m`, `500ms`, `1h`; the only unit-less value Go accepts is the literal `0`. The default `5s` is defined in the code (`internal/store/store_lock.go`, `defaultLockTimeout`) — there is no second place where it is set. An empty or unparsable value — including one without a unit, such as `5` — silently falls back to that default, without any warning. A value `<= 0` means a single lock attempt, without waiting. The variable affects only the mutating commands (`new`, `set`, `edit`, `archive`); the reading ones (`list`, `show`) open the tickets directory read-only and never take the lock.
 
 Raise it when the tickets directory lives on a slow disk or on a network filesystem, or when many `ticket` processes run in parallel (CI, several agents at once) and the lock is held long enough to exceed 5 s. Lower it when a busy directory should fail fast instead of waiting.
 
@@ -22,11 +22,11 @@ Raise it when the tickets directory lives on a slow disk or on a network filesys
 
 `ticket` can keep a structured debug log of its own operation. Logging is off by default and is controlled by one global flag and one environment variable.
 
-**Enabling.** Logging starts when the global flag `--verbose` is placed BEFORE the command name (`ticket --verbose list`) or when `TICKET_LOG` is non-empty. When neither is set, there is no logging at all and every output byte is identical to an invocation without the feature. This applies to the seven logged commands (`new`, `list`, `show`, `set`, `archive`, `recover`, `normalize`) — except their `-h`/`--help` subcommand form, which prints usage and builds no logger; `init`, `help`, `version` and a bare `ticket` build no logger at all and ignore `TICKET_LOG` entirely — see "Open failure" below.
+**Enabling.** Logging starts when the global flag `--verbose` is placed BEFORE the command name (`ticket --verbose list`) or when `TICKET_LOG` is non-empty. When neither is set, there is no logging at all and every output byte is identical to an invocation without the feature. This applies to the eight logged commands (`new`, `list`, `show`, `set`, `archive`, `recover`, `normalize`, `edit`) — except their `-h`/`--help` subcommand form, which prints usage and builds no logger; `init`, `help`, `version` and a bare `ticket` build no logger at all and ignore `TICKET_LOG` entirely — see "Open failure" below.
 
 **Destination.** `TICKET_LOG` wins over `--verbose`. With `--verbose` alone records go to stderr; with `TICKET_LOG` set they are appended to that file: the file is opened for append, created owner-only when absent, an existing file keeps its current mode, and parent directories are never created. No record ever reaches stdout — stdout stays pure command output. Both destinations receive byte-identical records — the same handler, only the writer differs.
 
-**Open failure.** If the log file cannot be opened, `ticket` prints ONE stderr line naming the path twice and wrapping the OS error text, and exits 1 BEFORE the command runs. For the seven logged commands (`new`, `list`, `show`, `set`, `archive`, `recover`, `normalize`) a missing parent directory therefore fails pre-dispatch: stdout stays empty, the exit code is 1, there is no fallback and no ticket is mutated. `init`, `help`, `version` and a bare `ticket` build no logger at all and ignore `TICKET_LOG` entirely. Example (Linux; the OS error text on other platforms is illustrative only):
+**Open failure.** If the log file cannot be opened, `ticket` prints ONE stderr line naming the path twice and wrapping the OS error text, and exits 1 BEFORE the command runs. For the eight logged commands (`new`, `list`, `show`, `set`, `archive`, `recover`, `normalize`, `edit`) a missing parent directory therefore fails pre-dispatch: stdout stays empty, the exit code is 1, there is no fallback and no ticket is mutated. `init`, `help`, `version` and a bare `ticket` build no logger at all and ignore `TICKET_LOG` entirely. Example (Linux; the OS error text on other platforms is illustrative only):
 
 ```text
 ticket: open log file /home/user/logs/ticket.log: open /home/user/logs/ticket.log: no such file or directory
@@ -49,7 +49,7 @@ The `ticket: open log file ...:` prefix is hardcoded English wrapped around the 
 | `dir.resolve` | debug | `source`, `dir` | tickets dir resolved (`source` is `--tickets-dir`, `TICKETS_DIR` or `scan`) |
 | `dir.resolve.fail` | error | `source` | tickets-dir resolution failed |
 | `store.open` | error | `dir` | the store failed to open |
-| `store.read.warning` | warn | `path`, `reason` | one record per parse warning surfaced by `new`/`list`/`set`/`archive`/`normalize` |
+| `store.read.warning` | warn | `path`, `reason` | one record per parse warning surfaced by `new`/`list`/`set`/`archive`/`normalize`/`edit` |
 | `store.lock.acquired` | debug | `path` | the tickets-directory lock was acquired |
 | `store.lock.released` | debug | `path` | the lock was released |
 | `store.lock.error` | error | `path`, `reason` | the lock could not be acquired or released, or its file was replaced (`reason` is `timeout`, `error` or `swapped`) |
@@ -59,6 +59,8 @@ The `ticket: open log file ...:` prefix is hardcoded English wrapped around the 
 | `store.set.commit` | info | `number`, `from`, `to`, `path` | the status change was committed |
 | `store.set.failure` | error | `number`, `to`, `stage` | the status change failed (`stage` is `collision`, `already`, `tmp`, `link` or `old`) |
 | `store.set.append.failure` | error | `number`, `stage` | the in-place journal append failed (`stage` is `tmp` or `rename`) |
+| `store.edit` | info | `number`, `status`, `path` | the metadata edit was committed in place (status and file name unchanged) |
+| `store.edit.failure` | error | `number`, `stage` | the metadata edit failed (`stage` is `ambiguous`, `tmp` or `rename`) |
 | `store.archive.commit` | info | `number`, `status`, `path` | the ticket was archived |
 | `store.archive.failure` | error | `number`, `stage` | the archive failed (`stage` is `already`, `not_closed`, `collision`, `tmp`, `link` or `old`) |
 | `store.normalize.rewritten` | info | `number`, `status`, `path` | `normalize` rewrote one ticket file to the canonical layout |
