@@ -71,6 +71,17 @@ type dictJSON struct {
 	ErrEditFieldNewline string `json:"errEditFieldNewline"`
 	ErrEditAlreadyField string `json:"errEditAlreadyField"`
 	ErrProjectEmpty     string `json:"errProjectEmpty"`
+
+	// T-0189: `ticket delete` messages. Same pipeline as the edit keys:
+	// loadDict unmarshals them from langs/*.json, validateDictJSON checks them
+	// (i18n_dict_rules.go); runtime access lives in i18n_delete_messages.go.
+	ErrDeleteOnlyOpen       string `json:"errDeleteOnlyOpen"`
+	ErrDeleteAlreadyDeleted string `json:"errDeleteAlreadyDeleted"`
+	ErrDeleteInvalidRef     string `json:"errDeleteInvalidRef"`
+	DeletePromptFmt         string `json:"deletePromptFmt"`
+	DeleteAsk               string `json:"deleteAsk"`
+	DeleteRefused           string `json:"deleteRefused"`
+	DeleteCancelled         string `json:"deleteCancelled"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -146,5 +157,12 @@ func loadDict(data []byte) (*dict, error) {
 		errEditFieldNewline:         dj.ErrEditFieldNewline,
 		errEditAlreadyField:         dj.ErrEditAlreadyField,
 		errProjectEmpty:             dj.ErrProjectEmpty,
+		errDeleteOnlyOpen:           dj.ErrDeleteOnlyOpen,
+		errDeleteAlreadyDeleted:     dj.ErrDeleteAlreadyDeleted,
+		errDeleteInvalidRef:         dj.ErrDeleteInvalidRef,
+		deletePromptFmt:             dj.DeletePromptFmt,
+		deleteAsk:                   dj.DeleteAsk,
+		deleteRefused:               dj.DeleteRefused,
+		deleteCancelled:             dj.DeleteCancelled,
 	}, nil
 }

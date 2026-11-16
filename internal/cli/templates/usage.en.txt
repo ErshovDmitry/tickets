@@ -44,6 +44,14 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       so exit 0 means "the wanted name is already on disk", not "a recovery happened"
       exit 2 when the number is not cleanly recoverable (three or more files, diverging contents, equal statuses in the file names);
       keeping the stale file, naming a file outside the pair or a single file with another name is exit 1 and changes nothing
+  ticket delete <number|filename> [--yes] [--force]
+      soft-delete a ticket into deleted/ (body, metadata and journal are preserved; one transition-to-deleted journal line is appended);
+      <number|filename> is one ref: a number or an exact base name (for example T-0001-open.md), never a path;
+      without --force only an open ticket in the main directory is deletable; --force also covers the other main statuses and archive;
+      without --yes it prints the candidate path and asks yes/no; without --yes and without a terminal it refuses and changes nothing;
+      --yes skips the prompt but never the guard; a duplicate number or an identical base name in several directories is exit 2 with every conflicting path;
+      an exact base name picks one file out of a duplicate number; already deleted, a target collision or a not-found ref is exit 1 and changes nothing;
+      a repeat after a successful delete is exit 1 (already deleted), never a no-op success; success prints the deleted file's path
   ticket normalize [-P <project>] [--dry-run]
       one-shot: bring legacy ticket files to the canonical markdown layout;
       only files whose bytes differ from the canonical form are rewritten: the name and status stay the same,
@@ -66,7 +74,7 @@ Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → 
 
 Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set, edit and archive.
 
-Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check).
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover, delete): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check).
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.

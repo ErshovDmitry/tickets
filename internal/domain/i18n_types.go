@@ -122,6 +122,16 @@ type dict struct {
 	errEditFieldNewline string // no placeholders (title/project CR/LF)
 	errEditAlreadyField string // 1 %d: number; 2 %s: field name, quoted value
 	errProjectEmpty     string // no placeholders (whitespace-only project)
+
+	// T-0189: `ticket delete` messages. Placeholder counts are validated in
+	// loadDict (i18n_dict_rules.go); runtime access goes through getDict.
+	errDeleteOnlyOpen       string // 1 %s: current filename-derived status
+	errDeleteAlreadyDeleted string // no placeholders (terminal deleted state)
+	errDeleteInvalidRef     string // 1 %s: the offending ref argument
+	deletePromptFmt         string // 1 %s: absolute candidate path
+	deleteAsk               string // no placeholders (yes/no prompt)
+	deleteRefused           string // no placeholders (non-TTY without --yes)
+	deleteCancelled         string // no placeholders (no/EOF/invalid answer)
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the

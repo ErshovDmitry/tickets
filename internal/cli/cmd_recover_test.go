@@ -80,18 +80,30 @@ func crashPair(t *testing.T, dir string) (oldPath, newPath string) {
 	return oldPath, newPath
 }
 
-// treeState snapshots every file (relative path → contents) under dir,
-// including archive/, so a refusal can be proven to have changed nothing.
+// treeEntrySuffix is appended to a directory's relative path in treeState,
+// so an entry set can be compared without confusing a directory with a file
+// of the same name (paths never end in a separator).
+const treeEntrySuffix = string(filepath.Separator)
+
+// treeState snapshots every entry (relative path → contents) under dir,
+// including archive/ and deleted/, so a refusal can be proven to have changed
+// nothing. Directories are recorded as well (empty content, separator-suffixed
+// key): an empty directory a refusal created — e.g. a stray deleted/ — would be
+// invisible to a contents-only snapshot.
 func treeState(t *testing.T, dir string) map[string]string {
 	t.Helper()
 	out := map[string]string{}
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil {
 			return err
 		}
 		rel, relErr := filepath.Rel(dir, p)
 		if relErr != nil {
 			return relErr
+		}
+		if d.IsDir() {
+			out[rel+treeEntrySuffix] = ""
+			return nil
 		}
 		b, readErr := os.ReadFile(p)
 		if readErr != nil {
@@ -123,16 +135,22 @@ func assertFileMetaUnchanged(t *testing.T, path string, before fs.FileInfo) {
 	}
 }
 
-// assertSameTree fails when the on-disk tree differs from before.
+// assertSameTree fails when the on-disk tree differs from before: the entry
+// set (files and directories, so a stray empty deleted/ counts) and every
+// file's contents must be identical.
 func assertSameTree(t *testing.T, dir string, before map[string]string) {
 	t.Helper()
 	after := treeState(t, dir)
 	if len(after) != len(before) {
-		t.Fatalf("tree changed: %d files before, %d after (%v)", len(before), len(after), after)
+		t.Fatalf("tree changed: %d entries before, %d after (%v)", len(before), len(after), after)
 	}
 	for k, v := range before {
-		if after[k] != v {
-			t.Fatalf("file %s changed by a refusal", k)
+		got, ok := after[k]
+		if !ok {
+			t.Fatalf("entry %s disappeared by a refusal", k)
+		}
+		if got != v {
+			t.Fatalf("entry %s changed by a refusal", k)
 		}
 	}
 }

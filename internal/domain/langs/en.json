@@ -59,5 +59,13 @@
   "errEditUnknownFlag": "ticket: unknown flag for edit command: %s",
   "errEditFieldNewline": "ticket: edit value must not contain a line break",
   "errEditAlreadyField": "ticket: ticket %d already has %s %q",
-  "errProjectEmpty": "ticket: project must not be empty"
+  "errProjectEmpty": "ticket: project must not be empty",
+
+  "errDeleteOnlyOpen": "ticket: without --force only an open ticket in the main directory can be deleted (currently: %s)",
+  "errDeleteAlreadyDeleted": "ticket: ticket already deleted",
+  "errDeleteInvalidRef": "ticket: \"%s\" is not a ticket number or file name",
+  "deletePromptFmt": "ticket: delete %s",
+  "deleteAsk": "Delete this ticket? yes/no: ",
+  "deleteRefused": "ticket: no terminal to confirm on; re-run with --yes (nothing was changed)",
+  "deleteCancelled": "ticket: delete cancelled, nothing was changed"
 }
