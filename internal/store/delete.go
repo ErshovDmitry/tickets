@@ -103,7 +103,7 @@ func (s *Store) deleteOneLocked(ref string, force bool, who string) (string, err
 		return "", derr
 	}
 	if deletedDir == "" { // no deleted/ yet: create it now (mirrors archive)
-		if mkErr := os.MkdirAll(deletedPath, 0o755); mkErr != nil {
+		if mkErr := os.MkdirAll(deletedPath, 0o750); mkErr != nil {
 			return "", fmt.Errorf("store: mkdir deleted: %w", mkErr)
 		}
 		deletedDir = deletedPath
