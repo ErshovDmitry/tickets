@@ -117,6 +117,13 @@ var (
 	getErrEditFieldNewline         = func(dj dictJSON) string { return dj.ErrEditFieldNewline }
 	getErrEditAlreadyField         = func(dj dictJSON) string { return dj.ErrEditAlreadyField }
 	getErrProjectEmpty             = func(dj dictJSON) string { return dj.ErrProjectEmpty }
+	getErrDeleteOnlyOpen           = func(dj dictJSON) string { return dj.ErrDeleteOnlyOpen }
+	getErrDeleteAlreadyDeleted     = func(dj dictJSON) string { return dj.ErrDeleteAlreadyDeleted }
+	getErrDeleteInvalidRef         = func(dj dictJSON) string { return dj.ErrDeleteInvalidRef }
+	getDeletePromptFmt             = func(dj dictJSON) string { return dj.DeletePromptFmt }
+	getDeleteAsk                   = func(dj dictJSON) string { return dj.DeleteAsk }
+	getDeleteRefused               = func(dj dictJSON) string { return dj.DeleteRefused }
+	getDeleteCancelled             = func(dj dictJSON) string { return dj.DeleteCancelled }
 )
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
@@ -244,4 +251,16 @@ var dictValidationRules = []dictRule{
 	count("errEditAlreadyField", "s", 1, getErrEditAlreadyField),
 	count("errEditAlreadyField", "q", 1, getErrEditAlreadyField),
 	nonEmpty("errProjectEmpty", getErrProjectEmpty),
+
+	// T-0189: `ticket delete` keys — placeholder counts per key.
+	nonEmpty("errDeleteOnlyOpen", getErrDeleteOnlyOpen),
+	count("errDeleteOnlyOpen", "s", 1, getErrDeleteOnlyOpen),
+	nonEmpty("errDeleteAlreadyDeleted", getErrDeleteAlreadyDeleted),
+	nonEmpty("errDeleteInvalidRef", getErrDeleteInvalidRef),
+	count("errDeleteInvalidRef", "s", 1, getErrDeleteInvalidRef),
+	nonEmpty("deletePromptFmt", getDeletePromptFmt),
+	count("deletePromptFmt", "s", 1, getDeletePromptFmt),
+	nonEmpty("deleteAsk", getDeleteAsk),
+	nonEmpty("deleteRefused", getDeleteRefused),
+	nonEmpty("deleteCancelled", getDeleteCancelled),
 }

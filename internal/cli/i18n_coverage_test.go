@@ -68,6 +68,8 @@ func TestI18nErrorsLocalizeToEN(t *testing.T) {
 		{"show non-existent", []string{"show", "42"}, "stderr", "not found", 1},
 		{"show non-numeric arg", []string{"show", "x"}, "stderr", "is not a ticket number", 1},
 		{"set invalid status", []string{"set", "1", "BAD", "note"}, "stderr", "status must be one of", 1},
+		{"delete invalid ref", []string{"delete", "x"}, "stderr", "is not a ticket number or file name", 1},
+		{"delete not found", []string{"delete", "42"}, "stderr", "not found", 1},
 		{"archive empty", []string{"archive"}, "stdout", "No closed tickets", 0},
 	}
 	for _, tc := range cases {
@@ -87,6 +89,29 @@ func TestI18nErrorsLocalizeToEN(t *testing.T) {
 			assertNoCyrillic(t, "stderr", serr)
 		})
 	}
+
+	// delete's not-open guard is state-dependent (the ticket must leave
+	// open), which the shared seeded store above must not do: isolate it in
+	// a fresh dir so both the guard text and its Cyrillic-freeness are
+	// proven through the black-box entry point.
+	t.Run("delete non-open without --force", func(t *testing.T) {
+		gdir := t.TempDir()
+		if sout, serr, code := runEN(t, gdir, "new", "seed ticket"); code != 0 {
+			t.Fatalf("seed new: code=%d stdout=%q stderr=%q", code, sout, serr)
+		}
+		if sout, serr, code := runEN(t, gdir, "set", "1", "wip"); code != 0 {
+			t.Fatalf("set wip: code=%d stdout=%q stderr=%q", code, sout, serr)
+		}
+		sout, serr, code := runEN(t, gdir, "delete", "1")
+		if code != 1 {
+			t.Fatalf("delete wip without --force: code=%d want 1; stderr: %q", code, serr)
+		}
+		if want := domain.ErrDeleteOnlyOpen(domain.LangEN, "wip"); !strings.Contains(serr, want) {
+			t.Errorf("stderr = %q, missing EN substring %q", serr, want)
+		}
+		assertNoCyrillic(t, "stdout", sout)
+		assertNoCyrillic(t, "stderr", serr)
+	})
 
 	// init: cli.Run routes init to os.Getwd (not TICKETS_DIR), so the
 	// hermetic path is t.Chdir into a fresh temp dir; TICKETS_DIR points

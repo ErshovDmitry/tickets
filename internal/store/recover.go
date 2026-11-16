@@ -31,8 +31,7 @@ import (
 
 // Recovery refusal reasons, carried by RecoveryStateError.Reason. The CLI
 // (cmd_recover) maps them to exit codes: same-status and divergent mean
-// "the number is not cleanly recoverable" (exit 2), the rest are plain
-// refusal/usage states (exit 1).
+// "not cleanly recoverable" (exit 2); the rest are refusal/usage (exit 1).
 const (
 	// RecoverReasonSelectionNoMatch: the selected basename is not one of
 	// the two files carrying the number.
@@ -89,7 +88,9 @@ func (e *RecoveryStateError) Error() string {
 // only the name (and regular-file check) is enforced. On success it
 // returns the absolute path of the kept file and removes only the stale
 // old file; a repeated call with exactly the kept file left is a no-op
-// returning the same path. Any refusal or I/O error leaves the tree
+// returning the same path. T-0189: the scan also covers tickets/deleted/
+// (an interrupted Delete); a deleted/ file is only ever kept, never
+// removed, renamed or rewritten. Any refusal or I/O error leaves the tree
 // untouched and returns "" with a typed error (ErrNotFound,
 // *AmbiguousNumberError for more than two files, *RecoveryStateError for
 // state mismatches).
@@ -117,7 +118,7 @@ func (s *Store) recoverLocked(n int, keepBase string) (string, error) {
 	if perr := validSelection(n, keepBase); perr != nil {
 		return fail("selection", "", perr)
 	}
-	files, err := s.findAllNumber(n)
+	files, err := s.findRecoverFiles(n)
 	if err != nil {
 		return fail("scan", "", err)
 	}
@@ -140,6 +141,9 @@ func (s *Store) recoverLocked(n int, keepBase string) (string, error) {
 	if sel == nil || oth == nil {
 		return fail("state", "", &RecoveryStateError{Number: n, Keep: keepBase, Reason: RecoverReasonSelectionNoMatch})
 	}
+	if rse := s.deletedDiscardRefusal(n, sel, oth); rse != nil {
+		return fail("state", filepath.Join(oth.dir, oth.Name), rse)
+	}
 	if stateErr := s.verifyPair(n, sel, oth); stateErr != nil {
 		return fail("state", filepath.Join(oth.dir, oth.Name), stateErr)
 	}
@@ -153,8 +157,8 @@ func (s *Store) recoverLocked(n int, keepBase string) (string, error) {
 	return keepPath, nil
 }
 
-// validSelection rejects a keep argument that is not a canonical ticket
-// basename for number n with a known status.
+// validSelection rejects a keep argument that is not a canonical
+// basename for ticket n with a known status.
 func validSelection(n int, keepBase string) error {
 	if strings.ContainsAny(keepBase, `/\\`) {
 		return fmt.Errorf("store: recover: keep must be a basename, got %q", keepBase)
@@ -174,19 +178,17 @@ func validSelection(n int, keepBase string) error {
 
 // recoverSingle handles the single-file postcondition: exactly one file
 // remains, it carries the selected name and is a regular file, so the
-// wanted name is already on disk — a no-op success. Nothing is deleted,
-// overwritten, renamed or marked: the file is only Lstat'd and never
-// reopened for writing, so its bytes, journal and mtime stay intact.
+// wanted name is already on disk — a no-op success. The file is only
+// Lstat'd, never reopened for writing: bytes, journal and mtime stay intact.
 //
-// The name alone does NOT prove that this is the previously kept new file.
-// After a successful recovery the stale old file is gone and the new file is
-// left byte-identical (recovery never rewrites it), so a lone stale old file
-// carrying the selected name looks exactly the same; and a plain set leaves
-// the same trailing journal record a recovery would. Neither the filename
-// nor the journal encodes that a recovery happened, so this branch is
-// deliberately conservative: exit 0 means "the wanted name is on disk", not
-// "a recovery happened". Any other single file is a typed refusal
-// (RecoverReasonSingleMismatch).
+// The name alone does NOT prove this is the previously kept new file:
+// after a successful recovery the stale old file is gone and the new file
+// is left byte-identical (recovery never rewrites it), so a lone stale old
+// file carrying the selected name looks exactly the same, and a plain set
+// leaves the same trailing journal record a recovery would. Neither the
+// filename nor the journal encodes that a recovery happened, so exit 0
+// means "the wanted name is on disk", not "a recovery happened". Any
+// other single file is a typed refusal (RecoverReasonSingleMismatch).
 func (s *Store) recoverSingle(log *slog.Logger, n int, f locatedFile, keepBase string) (string, error) {
 	fail := func(err error) (string, error) {
 		log.Error("store.recover.failure", "number", n, "keep", keepBase,
@@ -208,9 +210,9 @@ func (s *Store) recoverSingle(log *slog.Logger, n int, f locatedFile, keepBase s
 	return path, nil
 }
 
-// splitSelection picks the selected file (matching basename) and the other
-// half of the pair. Same-status pairs are rejected before this, so two
-// files can never share the selected name.
+// splitSelection picks the selected file (matching basename) and the
+// other half of the pair. Same-status pairs are rejected before this.
+// deletedDiscardRefusal (T-0189) rejects discarding a deleted/ file.
 func splitSelection(files []locatedFile, keepBase string) (sel, oth *locatedFile) {
 	for i := range files {
 		if files[i].Name == keepBase {
@@ -223,8 +225,7 @@ func splitSelection(files []locatedFile, keepBase string) (sel, oth *locatedFile
 }
 
 // verifyPair proves the crash signature with sel as the candidate new
-// file. If that fails it tries the reverse direction to distinguish a
-// keep-old selection from genuinely divergent contents.
+// file; on failure it tries the reverse to distinguish keep-old from divergent.
 func (s *Store) verifyPair(n int, sel, oth *locatedFile) error {
 	ok, err := s.crashSignature(oth, sel)
 	if err != nil {
@@ -247,11 +248,11 @@ func (s *Store) verifyPair(n int, sel, oth *locatedFile) error {
 // plus one trailing journal record From=old status → To=new status, where
 // oldLoc's file does not itself already end in that same transition (a
 // duplicate terminal record marks a replayed commit, not an interrupted
-// one). The
-// filename statuses are authoritative (V19); comparison is content-based,
-// never path-order-based. Equality is proven by re-rendering both tickets:
-// the render covers every parsed field, the unknown trailer bytes and the
-// raw templates, so any other difference fails the comparison.
+// one). The filename statuses are authoritative (V19); comparison is
+// content-based, never path-order-based. Equality is proven by
+// re-rendering both tickets: the render covers every parsed field, the
+// unknown trailer bytes and the raw templates, so any difference fails
+// the comparison.
 func (s *Store) crashSignature(oldLoc, newLoc *locatedFile) (bool, error) {
 	oldTk, _, oldUnknown, err := readTicketFile(filepath.Join(oldLoc.dir, oldLoc.Name), oldLoc.Number)
 	if err != nil {

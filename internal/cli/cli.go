@@ -28,7 +28,7 @@ import (
 // before dispatch and thus also skips tickets-dir resolution.
 //
 // Command handlers (cmd_new.go, cmd_list.go, cmd_show.go, cmd_set.go,
-// cmd_archive.go, cmd_recover.go, cmd_edit.go) share the common shape
+// cmd_archive.go, cmd_recover.go, cmd_delete.go, cmd_edit.go) share the common shape
 //
 //	func cmdX(st *store.Store, args []string, who, project string, stdout, stderr io.Writer) int
 //
@@ -163,10 +163,10 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 			return exitError
 		}
 		return cmdUpdateCheck(lang, version, stdout, stderr)
-	case "new", "list", "show", "set", "archive", "recover", "normalize", "edit":
+	case "new", "list", "show", "set", "archive", "recover", "delete", "normalize", "edit":
 		// Subcommand help interception (T-0041): -h/--help as the FIRST
 		// argument is never a valid positional (new: title; show/set/archive/
-		// recover: ticket number; list: filter), so print usage and exit 0. Only
+		// recover/delete: ticket ref; list: filter), so print usage and exit 0. Only
 		// args[1] is checked: flag values (-d text, -P project) and the
 		// subsequent positionals (incl. the set comment) all land in args[2+],
 		// so a --help there must NOT trigger help ("new Тикет -d \"see
@@ -231,7 +231,7 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 	// Only mutating commands open the Store writable (write probe); list/show
 	// and normalize --dry-run use NewReadOnly.
 	var st *store.Store
-	if cmd == "new" || cmd == "set" || cmd == "archive" || cmd == "recover" || cmd == "edit" || cmd == "normalize" && !nf.dryRun {
+	if cmd == "new" || cmd == "set" || cmd == "archive" || cmd == "recover" || cmd == "delete" || cmd == "edit" || cmd == "normalize" && !nf.dryRun {
 		st, err = store.New(dir, store.WithLogger(lg))
 	} else { // list, show, normalize --dry-run
 		st, err = store.NewReadOnly(dir, store.WithLogger(lg))
@@ -267,6 +267,8 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		code = cmdSet(st, args, who, project, lang, stdout, stderr)
 	case "recover":
 		code = cmdRecover(st, args, who, project, lang, stdout, stderr)
+	case "delete":
+		code = cmdDelete(st, args, who, project, lang, stdout, stderr)
 	case "edit":
 		code = cmdEdit(st, args, who, project, lang, stdout, stderr)
 	case "normalize":
