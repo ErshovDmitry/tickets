@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"ticket/internal/domain"
 )
@@ -28,11 +27,14 @@ type NormalizeResult struct {
 	Warnings []ParseWarning
 }
 
-// Normalize rewrites every ticket in s.Dir and s.Dir/archive whose bytes
-// differ from the canonical domain.Render form, keeping the file name, its
-// status (the file name is authoritative, V19) and the journal unchanged. It
-// is the one-shot migration for files written before the markdownlint fix:
-// no journal line is appended and no file is renamed, moved or archived.
+// Normalize rewrites every ticket in s.Dir, s.Dir/archive and
+// s.Dir/deleted whose bytes differ from the canonical domain.Render form,
+// keeping the file name, its status (the file name is authoritative, V19)
+// and the journal unchanged. It is the one-shot migration for files written
+// before the markdownlint fix: no journal line is appended and no file is
+// renamed, moved or archived. A deleted ticket is rewritten in place, where
+// it lies — deleted/ stays terminal (T-0189 W3): normalize never moves a
+// file out of deleted/.
 //
 // DryRun opens nothing writable and takes no lock, so it also works on a
 // read-only tickets directory; a real run holds the per-store advisory lock
@@ -51,24 +53,38 @@ func (s *Store) Normalize(o NormalizeOptions) (NormalizeResult, error) {
 	return res, err
 }
 
-// normalizeLocked walks the active directory and then the archive, in that
-// order. The archive is optional: no archive/ is not an error, while an
-// invalid (a symlink or a file, T-0078) or unreadable one is a single
-// warning and the active directory's results still stand.
+// normalizeLocked walks the active directory, then the archive, then
+// deleted/, in that order (T-0189 W3). Both optional directories keep their
+// List parity: missing is a silent skip, while an invalid (a symlink or a
+// file, T-0078 / T-0189) or unreadable one is a single warning and the
+// results of the directories already walked still stand. The walk always
+// continues past such a warning — before W3 an invalid archive stopped the
+// walk, which was unobservable only because archive was the last directory;
+// deleted/ after it made the continue semantics explicit.
 func (s *Store) normalizeLocked(o NormalizeOptions) (NormalizeResult, error) {
 	var res NormalizeResult
 	if err := s.normalizeDirLocked(s.Dir, o, &res); err != nil {
 		return res, err
 	}
 	archiveDir, err := validArchiveDir(s.Dir)
-	if err != nil {
+	switch {
+	case err != nil:
 		res.Warnings = append(res.Warnings, ParseWarning{Name: filepath.Join(s.Dir, "archive"), Err: err, Reason: archiveReason(err)})
-		return res, nil
+	case archiveDir != "":
+		if err := s.normalizeDirLocked(archiveDir, o, &res); err != nil {
+			return res, err
+		}
 	}
-	if archiveDir == "" {
-		return res, nil
+	deletedDir, err := validDeletedDir(s.Dir)
+	switch {
+	case err != nil:
+		res.Warnings = append(res.Warnings, ParseWarning{Name: filepath.Join(s.Dir, "deleted"), Err: err, Reason: deletedReason(err)})
+	case deletedDir != "":
+		if err := s.normalizeDirLocked(deletedDir, o, &res); err != nil {
+			return res, err
+		}
 	}
-	return res, s.normalizeDirLocked(archiveDir, o, &res)
+	return res, nil
 }
 
 // normalizeDirLocked normalizes every entry scanDir returns for dir; hidden
@@ -197,100 +213,3 @@ func (s *Store) commitNormalizedLocked(p string, e fileEntry, rendered []byte, r
 }
 
 // Warning errors behind the normalize reasons: the two guard skips (the file
-// is left byte-identical) and the post-rename restore failure. They carry the
-// user-facing sentence only; the reason code names the condition.
-var (
-	errUnrecognizedMeta = &parseErr{msg: "bash-era metadata labels, file left unchanged"}
-	errIncompleteMeta   = &parseErr{msg: "incomplete metadata, file left unchanged"}
-	// errRestoreAttrs labels a post-rename restore failure: the bytes ARE
-	// committed, so it must never read like the read-only skip above.
-	errRestoreAttrs = &parseErr{msg: "file rewritten, but its attributes could not be restored"}
-)
-
-// legacyMetaLabels are the bash-era metadata label names (docs_api/
-// reference-init-tickets.md:107-110). matchMetaLine knows only the dict form
-// ("- Status (Статус): open"), so these lines are never captured as head
-// metadata. Since T-0166 Render can in fact reproduce such a line via
-// Ticket.HeadStray; the guard below stays deliberately conservative:
-// bash-era files are handed to a human instead of being rewritten, and
-// loosening the guard is out of scope for T-0166.
-var legacyMetaLabels = []string{"Статус", "Приоритет", "Создан", "Проект"}
-
-// normalizeRenderable reports why raw must not be rewritten, or "" when a
-// Render round-trip is safe. Two independent checks, both on the raw bytes
-// and both before any content decision:
-//
-//  1. a bash-era label line anywhere in the head region (the H1 line and the
-//     metadata block, up to the first "## " header — the ParseHeader/Parse
-//     secHead boundary). The post-T-0166 renderer reproduces the line via
-//     Ticket.HeadStray, yet the guard intentionally remains conservative:
-//     a bash-era file signals a human-edited or pre-tool origin, so it is
-//     skipped for a human to review rather than rewritten silently;
-//  2. an empty required field means the render would invent a value or lose
-//     one, so the file is left for a human.
-func normalizeRenderable(tk *domain.Ticket, raw []byte) string {
-	if hasLegacyMetaLabels(raw) {
-		return reasonUnrecognizedMeta
-	}
-	if tk.Type == "" || tk.Priority == "" || tk.Project == "" ||
-		strings.TrimSpace(tk.Title) == "" || tk.Created.IsZero() {
-		return reasonIncompleteMeta
-	}
-	return ""
-}
-
-// hasLegacyMetaLabels scans the head region of raw for a legacy label line.
-// CRLF files are handled by trimming the CR of every line, exactly as the
-// parser does, so a converted file cannot slip past the guard.
-func hasLegacyMetaLabels(raw []byte) bool {
-	for line := range bytes.SplitSeq(raw, []byte("\n")) {
-		line = bytes.TrimSuffix(line, []byte("\r"))
-		if bytes.HasPrefix(line, []byte("## ")) {
-			return false
-		}
-		if isLegacyMetaLine(line) {
-			return true
-		}
-	}
-	return false
-}
-
-// isLegacyMetaLine reports whether line is a bash-era label bullet. The
-// marker may be "-", "*" or "+", it may be indented, and a space may sit
-// before the colon ("  - Статус : open"): all three are label lines a
-// hand-edited or pre-tool file can carry. Since T-0166, Render can
-// reproduce such lines via Ticket.HeadStray; the guard stays deliberately
-// conservative anyway (see normalizeRenderable). The label must be followed by the colon (optionally after spaces and
-// tabs) so an ordinary word that merely starts with "Статус" is not matched.
-func isLegacyMetaLine(line []byte) bool {
-	line = bytes.TrimLeft(line, " \t")
-	if len(line) == 0 || (line[0] != '-' && line[0] != '*' && line[0] != '+') {
-		return false
-	}
-	line = bytes.TrimLeft(line[1:], " \t")
-	for _, label := range legacyMetaLabels {
-		if !bytes.HasPrefix(line, []byte(label)) {
-			continue
-		}
-		rest := bytes.TrimLeft(line[len(label):], " \t")
-		if len(rest) > 0 && rest[0] == ':' {
-			return true
-		}
-	}
-	return false
-}
-
-// normalizeGuardErr maps a guard reason to the warning error that carries it.
-// Only the two reasons normalizeRenderable returns are known here, and an
-// unknown one is refused by name instead of being reported as another
-// guard's condition (that would hide a producer bug behind a wrong message).
-func normalizeGuardErr(reason string) error {
-	switch reason {
-	case reasonUnrecognizedMeta:
-		return errUnrecognizedMeta
-	case reasonIncompleteMeta:
-		return errIncompleteMeta
-	default:
-		return fmt.Errorf("store: unknown normalize guard reason %q", reason)
-	}
-}
