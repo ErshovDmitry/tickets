@@ -1,6 +1,6 @@
 ---
 name: ticket-cli-reference
-version: "1.10"
+version: "1.11"
 created: 2026-09-04
 modified: 2026-11-16
 type: reference
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-16 (T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block, T-0187 added the `ticket edit` block to the command list); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-16 (T-0189 W3 added the `list` `deleted` mode and the `deleted/` notes to `show`/`set`/`edit`/`archive`/`recover`/`normalize`, T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block, T-0187 added the `ticket edit` block to the command list); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -19,7 +19,7 @@ ticket version <ver>
 ticket — тикеты проекта (файлы T-NNNN-<status>.md в <проект>/tickets/).
 
   ticket init
-      создать структуру тикетов в текущем каталоге: tickets/ и tickets/archive/ (идемпотентно)
+      создать структуру тикетов в текущем каталоге: tickets/, tickets/archive/ и tickets/deleted/ (идемпотентно)
   ticket new "<кратко>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<подробности>"] [-w кто] [-P <проект>]
       создать тикет (статус open), печатает путь к файлу;
       -P переопределяет проект (по умолчанию = basename родителя tickets/);
@@ -28,29 +28,33 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       @ без пути — ошибка: тикет не создаётся, сообщение локализовано;
       содержимое переносится байт в байт, пустой файл или stdin — пустое значение Details: в тикете показывается блок-формат Details (то же, что при -d ""); ограничения на размер нет;
       формат Details — нумерованный список, по одному пункту на строку: N. <что> — <файл:строка>; <решение>
-  ticket list [active|open|wip|done|closed|archive|all] [-P <проект>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]
+  ticket list [active|open|wip|done|closed|archive|deleted|all] [-P <проект>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]
       список тикетов; по умолчанию active (= open + wip);
       archive — закрытые тикеты, унесённые в архив;
+      deleted — мягко удалённые тикеты в tickets/deleted/; все прочие режимы (active/open/wip/done/closed/archive/all) их скрывают, all по-прежнему только основной каталог;
       -P фильтрует по проекту (точное совпадение, регистр важен);
       --type/--priority фильтруют по типу и приоритету (точное совпадение, регистр важен), соединяются со статусом и -P по И;
       неверное значение --type/--priority — ошибка (код 1)
       колонка проекта отображается когда проекты в выводе различаются;
       --json выводит массив JSON (6 полей: number, status, type, priority, title, created); пусто = []
   ticket show <номер|имя-файла>
-      показать тикет (ищет и в архиве)
+      показать тикет (ищет и в архиве, и в deleted/); неоднозначный номер — код 2 со всеми конфликтующими путями
   ticket set <номер> <статус> ["комментарий"]
       сменить статус (сам переименует файл и допишет строку в журнал тикета);
       повторный set в тот же статус с комментарием допишет журнал
       (статус и имя файла не меняются), без комментария — ошибка;
-      перевод архивного тикета в open/wip возвращает его из архива в работу
+      перевод архивного тикета в open/wip возвращает его из архива в работу;
+      deleted этим путём не назначается: явное имя статуса или тикет, чей файл лежит в deleted/, отклоняются — код 1, файл не меняется
   ticket edit <номер> [--title "<кратко>"] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--project <проект>]
       правка краткого описания/типа/приоритета/проекта тикета на месте (статус и имя файла не меняются);
       архивный тикет правится в archive/ без возврата в работу, --project меняет только метаданные;
       только раздельные пары "--флаг значение": форма "--флаг=значение" и короткие флаги отклоняются; повтор — последнее значение;
-      явно переданное неизменённое значение отклоняет всю правку (код 1, ничего не записывается); успех тихий (код 0)
+      явно переданное неизменённое значение отклоняет всю правку (код 1, ничего не записывается); успех тихий (код 0);
+      тикет, чей файл лежит в deleted/, отклоняется (код 1, ничего не записывается)
   ticket archive [<номер>]
       перенести закрытые тикеты (done/closed) в archive/;
-      без номера — все закрытые, с номером — один указанный
+      без номера — все закрытые, с номером — один указанный;
+      удалённые тикеты игнорируются: ни переносятся в архив, ни восстанавливаются из него
   ticket recover <номер> <файл-новый> [--yes]
       восстановить тикет после прерванной смены статуса, оставившей два файла на один номер;
       <файл-новый> — базовое имя файла, который сохраняется (например T-0001-done.md), не путь;
@@ -61,7 +65,8 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       recover лишь проверяет наличие нужного файла: он не может доказать, что это ранее сохранённый файл, а не одинокий устаревший,
       поэтому код 0 значит «нужное имя уже на диске», а не «восстановление произошло»
       код 2 — номер не восстановить однозначно (три файла и более, расходящееся содержимое, одинаковый статус в именах);
-      выбор старого файла, файла вне пары или единственного файла с другим именем — код 1, дерево не меняется
+      выбор старого файла, файла вне пары или единственного файла с другим именем — код 1, дерево не меняется;
+      пара после прерывания с участием deleted/ восстанавливается по тем же правилам — сохранить удалённый файл можно, выбор устаревшего источника по-прежнему код 1
   ticket delete <номер|имя-файла> [--yes] [--force]
       мягко удалить тикет в deleted/ (тело, метаданные и журнал сохраняются; добавляется одна строка журнала о переходе в deleted);
       <номер|имя-файла> — один ref: номер или точное базовое имя (например T-0001-open.md), не путь;
@@ -76,7 +81,8 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       журнал не дополняется (отдельной журнальной строки о миграции нет);
       -P ограничивает прогон одним проектом (точное совпадение, регистр важен);
       --dry-run печатает пути, которые были бы переписаны, и ничего не пишет;
-      файлы, которые команда не берётся чинить, пропускаются с предупреждением (старые метки «- Статус:», неполные метаданные)
+      файлы, которые команда не берётся чинить, пропускаются с предупреждением (старые метки «- Статус:», неполные метаданные);
+      удалённые тикеты тоже переписываются на месте (порядок обхода: main, затем archive, затем deleted)
   ticket update-check
       есть ли новый релиз на GitHub? (явная проверка; никогда автоматически); кэш на пользователя (24 ч), повтор не чаще чем раз в 1 ч; безопасна офлайн: сбой не блокирует другие команды
 
@@ -92,9 +98,9 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 
 Блокировка каталога: TICKET_LOCK_TIMEOUT задаёт, сколько ticket ждёт захват .lock, прежде чем вернуть ошибку; значение — Go-длительность с обязательной единицей (30s, 2m, 500ms); пустое или невалидное значение молча даёт дефолт; 0 или меньше — одна попытка без ожидания; действует на new, set, edit и archive.
 
-Коды выхода: 0 — успех; 1 — ошибка (неверные аргументы, тикет не найден, конфликт, ошибка ввода или хранилища, сбой проверки обновлений); 2 — неоднозначный номер тикета (команды show, set, edit, archive, new, recover, delete): один номер принадлежит нескольким файлам — в stderr печатаются номер и конфликтующие файлы. Команда list при дубликатах печатает такое же предупреждение, но завершается с кодом 0; 3 — доступно обновление (команда update-check).
+Коды выхода: 0 — успех; 1 — ошибка (неверные аргументы, тикет не найден, конфликт, ошибка ввода или хранилища, сбой проверки обновлений); 2 — неоднозначный номер тикета (команды show, set, edit, archive, new, recover, delete): один номер принадлежит нескольким файлам — в stderr печатаются номер и конфликтующие файлы. Команда list при дубликатах печатает такое же предупреждение, но завершается с кодом 0; 3 — доступно обновление (команда update-check). Дубликаты номеров внутри `tickets/deleted/` подчиняются тем же правилам: `list` (в любом режиме) предупреждает и выходит с кодом 0, `show` выходит с кодом 2 со всеми конфликтующими путями, а `set`/`edit` отказывают по удалённому тикету с кодом 1.
 
-Статусы: open — новый; wip — в работе; done — исправлено; closed — отклонён/дубликат.
+Статусы: open — новый; wip — в работе; done — исправлено; closed — отклонён/дубликат; deleted — мягко удалён (терминальный, read-only).
 Типы: BUG — поломка; OPS — инцидент/обслуживание; TD — техдолг; ENH — улучшение.
 Секреты (пароли, токены, ключи) в тикеты НЕ писать.
 ```

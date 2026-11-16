@@ -28,7 +28,7 @@
   "errRepeatedFlagJson": "ticket: повторный флаг --json",
   "errUnknownFlagList": "ticket: неизвестный флаг: %s",
   "errListOneArgMax": "ticket: список принимает не более одного аргумента (фильтр)",
-  "errListFilterInvalid": "ticket: фильтр — один из: active open wip done closed archive all",
+  "errListFilterInvalid": "ticket: фильтр — один из: active open wip done closed archive deleted all",
   "errTitleStartsWithDash": "ticket: краткое описание не может начинаться с '-'",
   "errTitleEmpty": "ticket: краткое описание не может быть пустым",
   "errTypeInvalid": "ticket: тип — один из: BUG OPS TD ENH",
@@ -67,5 +67,7 @@
   "deletePromptFmt": "ticket: удалить %s",
   "deleteAsk": "Удалить тикет? yes/no: ",
   "deleteRefused": "ticket: нет терминала для подтверждения; повторите с --yes (ничего не изменено)",
-  "deleteCancelled": "ticket: удаление отменено, ничего не изменено"
+  "deleteCancelled": "ticket: удаление отменено, ничего не изменено",
+
+  "errTicketDeletedReadOnly": "ticket: тикет %d удалён (файл в tickets/deleted/) и доступен только для чтения: set, reopen и edit отклоняются, файл не меняется"
 }

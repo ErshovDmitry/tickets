@@ -50,7 +50,7 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 	// t.Status): a crafted body status like "../../../x" made the old code
 	// read files outside TICKETS_DIR (filepath.Join cleans the inner ".."
 	// elements out of the directory — T-0006).
-	_, _, raw, err := st.FindRaw(n)
+	_, _, raw, err := st.FindRawAcross(n)
 	if err != nil {
 		// T-0157: more than one file carries n — refuse and list every
 		// conflicting path instead of silently reading an arbitrary one.
@@ -111,11 +111,14 @@ func notFoundHinted(st *store.Store, stderr io.Writer, lang domain.Lang, arg str
 	return rc
 }
 
-// scanMax returns the highest ticket number across the main and archive
-// listings and whether either scan produced warnings.
+// scanMax returns the highest ticket number across the main, archive and
+// deleted listings (numbering includes deleted/, T-0189) and whether any
+// of the scans produced warnings. The deleted listing stays a hint-only
+// source: it only widens the reported bound, never what show can read.
 func scanMax(st *store.Store) (maxNum int, warned bool) {
 	main, warns := st.List()
 	archive, archiveWarns := st.ListArchive()
+	deleted, deletedWarns := st.ListDeleted()
 	for _, t := range main {
 		if t.Number > maxNum {
 			maxNum = t.Number
@@ -126,16 +129,21 @@ func scanMax(st *store.Store) (maxNum int, warned bool) {
 			maxNum = t.Number
 		}
 	}
-	return maxNum, len(warns) > 0 || len(archiveWarns) > 0
+	for _, t := range deleted {
+		if t.Number > maxNum {
+			maxNum = t.Number
+		}
+	}
+	return maxNum, len(warns) > 0 || len(archiveWarns) > 0 || len(deletedWarns) > 0
 }
 
 // showByName resolves an exact ticket file name via the store's
-// FindExact escape hatch (T-0157): one match prints the file's exact
+// FindExactAcross escape hatch (T-0157): one match prints the file's exact
 // bytes; an ambiguous name (same base name in main and archive) lists
 // every conflicting path; an absent name is a not-found report. As with
 // the number path, the raw bytes come from the single validated handle.
 func showByName(st *store.Store, name string, lang domain.Lang, stdout, stderr io.Writer) int {
-	_, _, raw, err := st.FindExact(name)
+	_, _, raw, err := st.FindExactAcross(name)
 	if err != nil {
 		var amb *store.AmbiguousNumberError
 		if errors.As(err, &amb) {

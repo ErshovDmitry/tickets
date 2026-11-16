@@ -10,10 +10,14 @@ import (
 	"ticket/internal/store"
 )
 
-// cmdList implements `list [active|open|wip|done|closed|archive|all] [-P project]
-// [--type BUG|OPS|TD|ENH] [--priority low|normal|high]` with the default filter
-// active. The archive filter lists tickets under tickets/archive/ instead of the
-// main directory (type/priority/-P still apply there, status does not). An empty
+// cmdList implements `list [active|open|wip|done|closed|archive|deleted|all]
+// [-P project] [--type BUG|OPS|TD|ENH] [--priority low|normal|high]` with the
+// default filter active. The archive filter lists tickets under
+// tickets/archive/ instead of the main directory, the deleted filter lists
+// tickets under tickets/deleted/ (T-0189); for both, type/priority/-P still
+// apply and the status filter does not. Every other mode hides deleted
+// tickets — all stays main-only by design (a deleted ticket re-appears only
+// through list deleted). An empty
 // first argument falls back to the default (an empty first argument counts as
 // unset).
 // T-0040: -P flag filters by exact project name match
@@ -114,9 +118,12 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	var tickets []domain.Ticket
 	var warnings []store.ParseWarning
 
-	if want == "archive" {
+	switch want {
+	case "archive":
 		tickets, warnings = st.ListArchive()
-	} else {
+	case "deleted":
+		tickets, warnings = st.ListDeleted()
+	default:
 		tickets, warnings = st.List()
 	}
 
@@ -134,7 +141,7 @@ func cmdList(st *store.Store, args []string, who, project string, lang domain.La
 	uniqueProjects := make(map[string]bool)
 	for i := range tickets {
 		t := tickets[i]
-		if want != "archive" && !matchFilter(t.Status, want) {
+		if want != "archive" && want != "deleted" && !matchFilter(t.Status, want) {
 			continue
 		}
 		// Apply -P filter (exact match, case-sensitive)
@@ -227,7 +234,7 @@ func reportDuplicates(st *store.Store, lang domain.Lang, stderr io.Writer) {
 // isListFilter reports whether want is a valid list filter.
 func isListFilter(want string) bool {
 	switch want {
-	case "active", "open", "wip", "done", "closed", "archive", "all":
+	case "active", "open", "wip", "done", "closed", "archive", "deleted", "all":
 		return true
 	}
 	return false

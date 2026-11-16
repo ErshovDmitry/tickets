@@ -132,6 +132,10 @@ type dict struct {
 	deleteAsk               string // no placeholders (yes/no prompt)
 	deleteRefused           string // no placeholders (non-TTY without --yes)
 	deleteCancelled         string // no placeholders (no/EOF/invalid answer)
+
+	// T-0189 W3: terminal/read-only refusal for a set/edit/reopen targeted
+	// at a ticket whose file lives in tickets/deleted/.
+	errTicketDeletedReadOnly string // 1 %d: number
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the
