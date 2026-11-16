@@ -54,3 +54,22 @@ func (e *AmbiguousNumberError) Error() string {
 
 // Unwrap exposes the ErrAmbiguousNumber sentinel.
 func (e *AmbiguousNumberError) Unwrap() error { return ErrAmbiguousNumber }
+
+// AlreadyFieldError reports an edit that explicitly passes the value the
+// ticket already has for one of its editable fields (T-0187). A single
+// unchanged field rejects the WHOLE edit before any write — including a
+// mix of changed and unchanged fields — mirroring the no-partial-apply
+// rule the same-status set has. Number/Field/Value are carried so the cli
+// can render the pinned message without the store spelling out UI text
+// (same pattern as AlreadyStatusError). Field is one of the journal field
+// names: "title", "type", "priority", "project".
+type AlreadyFieldError struct {
+	Number int
+	Field  string
+	Value  string
+}
+
+// Error renders the internal (non-UI) description of the rejection.
+func (e *AlreadyFieldError) Error() string {
+	return fmt.Sprintf("store: ticket %d: %s already %q", e.Number, e.Field, e.Value)
+}

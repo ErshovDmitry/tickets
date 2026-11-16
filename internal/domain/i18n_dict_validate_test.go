@@ -83,6 +83,10 @@ func stringFieldSetters(dj *dictJSON) map[string]*string {
 		"updateCheckNoReleases":       &dj.UpdateCheckNoReleases,
 		"updateCheckDev":              &dj.UpdateCheckDev,
 		"errUpdateCheck":              &dj.ErrUpdateCheck,
+		"errEditUnknownFlag":          &dj.ErrEditUnknownFlag,
+		"errEditFieldNewline":         &dj.ErrEditFieldNewline,
+		"errEditAlreadyField":         &dj.ErrEditAlreadyField,
+		"errProjectEmpty":             &dj.ErrProjectEmpty,
 	}
 }
 
@@ -117,8 +121,8 @@ func TestValidateDictStringFieldsCovered(t *testing.T) {
 		}
 		*sp = ""
 	}
-	if stringFields != 55 {
-		t.Errorf("dictJSON: expected 55 string fields, got %d", stringFields)
+	if stringFields != 59 {
+		t.Errorf("dictJSON: expected 59 string fields, got %d", stringFields)
 	}
 	if len(setters) != stringFields {
 		t.Errorf("setter table: expected %d entries, got %d", stringFields, len(setters))
@@ -180,8 +184,8 @@ func TestValidateDictHeaders(t *testing.T) {
 // expects the "<jsonKey>: empty" error for it.
 func TestValidateDictEmptyFields(t *testing.T) {
 	probe := stringFieldSetters(&dictJSON{})
-	if len(probe) != 55 {
-		t.Fatalf("setter table: expected 55 entries, got %d", len(probe))
+	if len(probe) != 59 {
+		t.Fatalf("setter table: expected 59 entries, got %d", len(probe))
 	}
 	for key := range probe {
 		t.Run(key, func(t *testing.T) {

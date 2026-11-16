@@ -28,6 +28,7 @@ ticket new "Broken export" -t BUG -p high -d "Fails on large files"
 ticket list [--type BUG|OPS|TD|ENH] [--priority low|normal|high]   # active tickets (open + wip)
 ticket show 7                                           # print a ticket (searches the archive)
 ticket set 7 done "fixed, tests green"                  # change status, renames the file
+ticket edit 7 --title "Export fails on huge files"      # edit metadata in place; silent success, one journal line per changed field
 ticket recover 7 T-0007-done.md                        # resolve a crash pair (ambiguous number, exit 2)
 ticket normalize --dry-run                              # list legacy ticket files that would be re-rendered
 ticket normalize                                        # re-render them in place (name untouched; body status reconciled to it, no journal line)

@@ -113,6 +113,10 @@ var (
 	getUpdateCheckNoReleases       = func(dj dictJSON) string { return dj.UpdateCheckNoReleases }
 	getUpdateCheckDev              = func(dj dictJSON) string { return dj.UpdateCheckDev }
 	getErrUpdateCheck              = func(dj dictJSON) string { return dj.ErrUpdateCheck }
+	getErrEditUnknownFlag          = func(dj dictJSON) string { return dj.ErrEditUnknownFlag }
+	getErrEditFieldNewline         = func(dj dictJSON) string { return dj.ErrEditFieldNewline }
+	getErrEditAlreadyField         = func(dj dictJSON) string { return dj.ErrEditAlreadyField }
+	getErrProjectEmpty             = func(dj dictJSON) string { return dj.ErrProjectEmpty }
 )
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
@@ -230,4 +234,14 @@ var dictValidationRules = []dictRule{
 	count("updateCheckDev", "s", 1, getUpdateCheckDev),
 	nonEmpty("errUpdateCheck", getErrUpdateCheck),
 	count("errUpdateCheck", "v", 1, getErrUpdateCheck),
+
+	// T-0187: `ticket edit` keys — placeholder counts per key.
+	nonEmpty("errEditUnknownFlag", getErrEditUnknownFlag),
+	count("errEditUnknownFlag", "s", 1, getErrEditUnknownFlag),
+	nonEmpty("errEditFieldNewline", getErrEditFieldNewline),
+	nonEmpty("errEditAlreadyField", getErrEditAlreadyField),
+	count("errEditAlreadyField", "d", 1, getErrEditAlreadyField),
+	count("errEditAlreadyField", "s", 1, getErrEditAlreadyField),
+	count("errEditAlreadyField", "q", 1, getErrEditAlreadyField),
+	nonEmpty("errProjectEmpty", getErrProjectEmpty),
 }

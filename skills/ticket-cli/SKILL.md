@@ -1,11 +1,11 @@
 ---
 name: ticket-cli
-version: "1.14"
+version: "1.16"
 created: 2026-09-04
 modified: 2026-11-16
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
-description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive/recover/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`."
+description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/archive/recover/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`."
 ---
 
 # ticket-cli
@@ -81,6 +81,22 @@ ticket set <number> <status> ["comment"]
 
 Renames the file and appends a journal line. Re-setting the SAME status WITH a comment appends a journal entry only (no rename); the same status WITHOUT a comment is an error. Moving an archived ticket to `open`/`wip` returns it from the archive into work.
 
+### `edit`
+
+```text
+ticket edit <number> [--title <title>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--project <project>]
+```
+
+Edits metadata in place: only title/type/priority/project of an existing ticket; the status and the file name stay unchanged. The body changes only where the edit demands it: a default Summary follows the new title, the Journal gains one line per changed field, and every unrelated section (Details, user comments, comments) is preserved as it was. The number comes first, then ONLY long split-form flags — the glued `--title=value` form is NOT recognised and there are no short flags. Order is free, a repeated flag is last-wins; an unknown flag, a missing value or an extra positional argument is exit 1, and so is a call without any field.
+
+Values are validated before anything is written: an invalid type/priority, a whitespace-only title/project, control characters or a leading dash in the title, and CRLF in any value (journal injection) are exit 1 with no write. ANY explicitly passed value that equals the current one rejects the WHOLE operation (exit 1, nothing written) — even when other fields would change. Success is SILENT: exit 0, empty stdout/stderr.
+
+Each changed field appends its OWN journal line `<field>: old → new` in the fixed order title → type → priority → project, under one timestamp and one author; the status transition of the line is the current status (From = To), so values with parentheses round-trip. A title change rewrites the H1 and updates Summary only when Summary was the default (empty or equal to the old title); a custom Summary survives. Archived tickets are edited in place — no reopen, no move; `--project` rewrites only the metadata field: there are no per-project directories and nothing moves.
+
+🔴 The ticket CONTENT language rule applies to the values you pass: write the new title/details in **Russian** (project rule since 2026-11-06); flag values and file names stay English.
+
+Exit codes: `0` — silent success; `1` — usage/validation error or an explicitly unchanged field (no write); `2` — ambiguous number, like `show`/`set`.
+
 ### `recover`
 
 ```text
@@ -139,6 +155,8 @@ Explicit check for a newer release on GitHub — never automatic, never blocks o
 
 `ticket normalize` uses only `0` and `1`: it never reports an ambiguous number (both files are migrated and the duplicate is warned about) and never returns 2.
 
+`ticket edit` uses `0`/`1`/`2`: `0` — silent success; `1` — a usage/validation error or an explicitly unchanged field (the whole operation is refused, nothing is written); `2` — ambiguous number (both conflicting absolute paths on stderr).
+
 `ticket recover` reuses these codes: `0` also covers a conservative no-op (a repeat after a successful recovery, or a single file already named `<new-file>`) and never proves that a recovery happened; `1` covers a usage error, a refused confirmation, a missing file, an I/O error (archive scan included), the keep-old choice and a selection that is not the crash pair; `2` means the number cannot be recovered automatically — more than two files, diverging content or equal statuses. A divergent pair is `2`, never `1`.
 
 ## Status lifecycle
@@ -164,7 +182,7 @@ Labels are bilingual under the RU default locale:
 - `Details` — specifics as a numbered list, one item per line: `N. <what> — <file:line>; <fix>`.
 - With `TICKET_LANG=en` plain labels are produced: `## Summary`, `- Status: open`.
 - Journal line format: `YYYY-MM-DD HH:MM — статус: X → Y · comment (who)`.
-- `Journal` is append-only, written automatically by `new`/`set`.
+- `Journal` is append-only, written automatically by `new`/`set`/`edit`.
 
 ## Pitfalls
 
@@ -215,3 +233,5 @@ ticket-cli/
 | 2026-11-11 | T-0125: `ticket normalize` was undocumented; the new section had overwritten `ticket archive`, and the sandbox command put `-C` after the command | Restored the `archive` section, added `normalize` after it, fixed the sandbox command to `ticket -C /tmp/corpus normalize --dry-run`, and stated that the file name is authoritative for a disagreeing body status line | 1.12 |
 | 2026-11-11 | T-0173: `ticket update-check` was undocumented | Added the `update-check` section and exit code `3` | 1.13 |
 | 2026-11-16 | T-0188: the `list` filters `--type`/`--priority` were undocumented | Documented the new `list` syntax and the filter semantics (exact case-sensitive values, AND with the status/`-P` filters, next-token value rule, invalid value = exit 1, empty result = `No tickets`/`[]` with exit 0, archive source) | 1.14 |
+| 2026-11-16 | T-0187 (GitHub #20): `ticket edit` was a non-goal and undocumented | Added the `edit` section (long-only split-form flags, per-field journal order title→type→priority→project, whole-operation no-op on explicitly unchanged values, silent success, archive edited in place, `--project` is metadata-only) and the edit exit-code notes | 1.15 |
+| 2026-11-16 | Merge of PR #23 (list filters, T-0188) and PR #24 (`ticket edit`, T-0187) | Rebase resolution: both features kept — `list --type`/`--priority` and the `edit` section coexist; version bumped past both parents | 1.16 |

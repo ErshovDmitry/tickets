@@ -54,5 +54,10 @@
   "updateCheckAvailable": "new release %s available: %s",
   "updateCheckNoReleases": "no releases published yet",
   "updateCheckDev": "development build (%s): release comparison skipped",
-  "errUpdateCheck": "ticket: update check failed: %v"
+  "errUpdateCheck": "ticket: update check failed: %v",
+
+  "errEditUnknownFlag": "ticket: unknown flag for edit command: %s",
+  "errEditFieldNewline": "ticket: edit value must not contain a line break",
+  "errEditAlreadyField": "ticket: ticket %d already has %s %q",
+  "errProjectEmpty": "ticket: project must not be empty"
 }

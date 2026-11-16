@@ -63,6 +63,14 @@ type dictJSON struct {
 	UpdateCheckNoReleases       string          `json:"updateCheckNoReleases"`
 	UpdateCheckDev              string          `json:"updateCheckDev"`
 	ErrUpdateCheck              string          `json:"errUpdateCheck"`
+
+	// T-0187: `ticket edit` messages. Ride the same langs/*.json documents
+	// through the validation pipeline in i18n_dict_rules.go and land on the
+	// shared dict; runtime access lives in i18n_edit_messages.go via getDict.
+	ErrEditUnknownFlag  string `json:"errEditUnknownFlag"`
+	ErrEditFieldNewline string `json:"errEditFieldNewline"`
+	ErrEditAlreadyField string `json:"errEditAlreadyField"`
+	ErrProjectEmpty     string `json:"errProjectEmpty"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -134,5 +142,9 @@ func loadDict(data []byte) (*dict, error) {
 		updateCheckNoReleases:       dj.UpdateCheckNoReleases,
 		updateCheckDev:              dj.UpdateCheckDev,
 		errUpdateCheck:              dj.ErrUpdateCheck,
+		errEditUnknownFlag:          dj.ErrEditUnknownFlag,
+		errEditFieldNewline:         dj.ErrEditFieldNewline,
+		errEditAlreadyField:         dj.ErrEditAlreadyField,
+		errProjectEmpty:             dj.ErrProjectEmpty,
 	}, nil
 }

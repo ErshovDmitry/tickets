@@ -33,6 +33,10 @@ ticket show 7
 ticket set 7 wip "took the ticket"
 ticket set 7 done "fixed, tests green"
 
+# edit metadata in place: only --title/--type/--priority/--project (long flags, split form);
+# each changed field gets its own journal line; success is silent (exit 0)
+ticket edit 7 --title "Export fails on huge files" --priority normal
+
 # move closed tickets (done/closed) into tickets/archive/
 ticket archive         # all closed
 ticket archive 7       # one specific
@@ -58,6 +62,7 @@ Command shapes at a glance:
 - `ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]`
 - `ticket show <number|filename>`
 - `ticket set <number> <status> ["comment"]`
+- `ticket edit <number> [--title <title>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--project <project>]`
 - `ticket archive [<number>]`
 - `ticket recover <number> <new-file> [--yes]`
 - `ticket normalize [-P <project>] [--dry-run]`
@@ -139,6 +144,11 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       re-setting the same status with a comment appends a journal entry
       (status and file name unchanged), without a comment it is an error;
       moving an archived ticket back to open/wip restores it from the archive into work
+  ticket edit <number> [--title "<brief>"] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--project <project>]
+      edit the title/type/priority/project of a ticket in place (status and file name never change);
+      an archived ticket is edited inside the archive/ without a reopen, --project only changes the metadata;
+      only separate "--flag value" pairs: "--flag=value" and short flags are refused; a repeat keeps the last value;
+      an explicitly unchanged value refuses the whole edit (exit 1, nothing is written); success is silent (exit 0)
   ticket archive [<number>]
       move closed tickets (done/closed) into archive/;
       without a number — all closed ones, with a number — only the given one
@@ -173,9 +183,9 @@ Global flag (before the command, every command except init):
 
 Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → upward scan for tickets/ from the current directory.
 
-Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set and archive.
+Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set, edit and archive.
 
-Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check).
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check).
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate.
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
@@ -194,6 +204,22 @@ ticket --verbose show 7 2>/dev/null   # log still goes to stderr, ticket text st
 ```
 
 The record format, the destination rules, the failure behaviour and the complete event list live in [configuration.md](configuration.md) — they are not duplicated here.
+
+## Editing metadata (`edit`)
+
+Edits the metadata of an existing ticket in place — only title, type, priority and project; the status and the file name never change, the default Summary and the Journal are updated, the unrelated body sections are preserved:
+
+```bash
+ticket edit 7 --title "New title" --type ENH --priority high --project otherproj
+```
+
+- Four fields only, long flags only, split form only: `--title <title>`, `--type BUG|OPS|TD|ENH`, `--priority low|normal|high`, `--project <project>`. The glued `--title=value` form is NOT recognised and there are no short flags. The number must come first; an unknown flag, a missing value or an extra positional argument is exit 1, and so is a call without any field.
+- Values are validated before anything is written: an invalid type or priority, a whitespace-only title or project, control characters or a leading dash in the title, and CRLF in any value (journal injection) are exit 1 with no write.
+- Every explicitly passed value that equals the current one rejects the WHOLE operation with exit 1 and writes nothing — even when the other fields would change. Success is silent: exit 0, nothing on stdout or stderr.
+- Each changed field appends its own journal line `<field>: old → new` in the fixed order title, type, priority, project, under one timestamp and one author; the status transition of the line is the current status (From = To), so values containing parentheses round-trip.
+- Changing the title rewrites the H1; the Summary section is updated only when it was empty or still equal to the old title (the default) — a custom Summary is preserved.
+- Status and file name never change; an archived ticket is edited in place (no reopen, no move). `--project` rewrites only the metadata field — per-project directories do not exist, nothing is moved.
+- The write reuses the same-status in-place path of `set` (temp file in the same directory, then rename); a read-only tickets directory is refused. An ambiguous number behaves like `show`/`set`: both conflicting absolute paths go to stderr, exit 2.
 
 ## Recovering after an interrupted status change (`recover`)
 
@@ -247,7 +273,7 @@ ticket normalize                # rewrite them in place
 - Types in the header: `BUG` — breakage; `OPS` — incident/maintenance; `TD` — tech debt; `ENH` — enhancement.
 - i18n: the file format follows `TICKET_LANG` at creation time. An English locale produces plain labels (`## Summary`, `- Status: open`); a Russian locale produces bilingual labels (`## Summary (Кратко)`, `- Status (Статус): open`). Tickets with Russian-only headers (`## Кратко`, `- Статус:`) are not recognised by the parser: those fields stay empty and the next `set` rewrites the file in the current format without them — fix such files by hand. Files in the pre-MD022 format (current format, but without the blank line after the heading) are read and normalised on the next `set`.
 - `ticket new` without `-d` (or with an empty `Details` value, e.g. from an empty file or stdin) inserts a format block into `Details` — the numbered-list rule: one item per line, `N. <what> — <file:line>; <fix>`.
-- Archive: `ticket archive` moves closed tickets into `tickets/archive/`; `list archive` shows the archive; `show` and `set` work with archived tickets — moving one back to `open`/`wip` returns it into work.
+- Archive: `ticket archive` moves closed tickets into `tickets/archive/`; `list archive` shows the archive; `show` and `set` work with archived tickets — moving one back to `open`/`wip` returns it into work; `edit` edits an archived ticket in place, without moving it.
 - Secrets (passwords, tokens, keys) must NOT be written into tickets.
 
 Example ticket (`TICKET_LANG=en ticket new "Broken export" -t ENH -p low`):
@@ -282,6 +308,6 @@ Broken export
 - `Details` — specifics as a numbered list, one item per line: `N. <what> — <file:line>; <fix>` (file:line, logs, reproduction).
 - `User comments` — written by the user, read by the agent before working on the ticket; the agent never writes there.
 - `Comments` — the agent's working notes.
-- `Journal` — append-only log written automatically by `new` / `set`.
+- `Journal` — append-only log written automatically by `new` / `set` / `edit`.
 
 Agent integration, cross-project work, and the archive workflow in context: [scenarios.md](scenarios.md).
