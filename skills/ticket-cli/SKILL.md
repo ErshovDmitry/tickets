@@ -1,8 +1,8 @@
 ---
 name: ticket-cli
-version: "1.13"
+version: "1.14"
 created: 2026-09-04
-modified: 2026-11-11
+modified: 2026-11-16
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/archive/recover/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`."
@@ -56,10 +56,14 @@ Details format: a numbered list, one item per line — `N. <what> — <file:line
 ### `list`
 
 ```text
-ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]
+ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]
 ```
 
 Default is `active` (= open + wip). `archive` lists tickets already moved into `tickets/archive/` (done/closed only). `-P` filters by project (exact, case-sensitive); the project column appears when projects in the output differ. `--json` (since v1.2.3, T-0081) prints a JSON array with 6 fields (`number, status, type, priority, title, created`); empty result = `[]`.
+
+`--type` (`BUG`/`OPS`/`TD`/`ENH`) and `--priority` (`low`/`normal`/`high`) filter by the ticket metadata: exact values, case-sensitive. They combine with the status and `-P` filters by AND, so `ticket list open --type BUG --priority high -P proj` needs all four to match.
+
+Each of these flags takes the NEXT token as its value, even when that token looks like a status or another flag: `--type open` is an invalid type, not a status filter. An invalid or empty value is an error (exit 1) — `ticket list --type BUGX` prints `ticket: type must be one of: BUG OPS TD ENH` to stderr. No matches is NOT an error: the plain output prints `No tickets (active --type BUG).` and `--json` prints `[]`, both with exit code 0. `archive` selects the archive as the source; the status filter does not apply there, but `--type`, `--priority` and `-P` do.
 
 ### `show`
 
@@ -210,3 +214,4 @@ ticket-cli/
 | 2026-11-11 | T-0162: a lone stale file whose name equals the wanted `keepBase` yields a conservative no-op (exit 0) without proof that it is the previously saved file | Documented the ambiguity — exit 0 covers a conservative no-op (repeat after a successful recovery, or a single file already named `<new-file>`) and never proves that a recovery happened | 1.11 |
 | 2026-11-11 | T-0125: `ticket normalize` was undocumented; the new section had overwritten `ticket archive`, and the sandbox command put `-C` after the command | Restored the `archive` section, added `normalize` after it, fixed the sandbox command to `ticket -C /tmp/corpus normalize --dry-run`, and stated that the file name is authoritative for a disagreeing body status line | 1.12 |
 | 2026-11-11 | T-0173: `ticket update-check` was undocumented | Added the `update-check` section and exit code `3` | 1.13 |
+| 2026-11-16 | T-0188: the `list` filters `--type`/`--priority` were undocumented | Documented the new `list` syntax and the filter semantics (exact case-sensitive values, AND with the status/`-P` filters, next-token value rule, invalid value = exit 1, empty result = `No tickets`/`[]` with exit 0, archive source) | 1.14 |

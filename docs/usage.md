@@ -23,6 +23,8 @@ ticket list
 ticket list all        # including done/closed
 ticket list archive    # archive only
 ticket list all -P otherproj   # filter by project (exact match, case-sensitive)
+ticket list --type BUG          # filter by type (exact match, case-sensitive)
+ticket list --priority high     # filter by priority (exact match, case-sensitive)
 
 # show a ticket (searches the archive too)
 ticket show 7
@@ -53,7 +55,7 @@ Parse warnings from `list` and `normalize` are printed to stderr; both commands 
 Command shapes at a glance:
 
 - `ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who] [-P <project>]`
-- `ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]`
+- `ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]`
 - `ticket show <number|filename>`
 - `ticket set <number> <status> ["comment"]`
 - `ticket archive [<number>]`
@@ -72,6 +74,22 @@ Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_
 - `-` — the content of stdin.
 - An empty file or empty stdin — an empty `Details` value; the command succeeds and the created ticket shows the Details format block (the same as with `-d ""`).
 - A missing file or a failed stdin read — an error: the message is localized (the file error names the path) and no ticket is created.
+
+### List filters (`--type`, `--priority`)
+
+`--type` and `--priority` narrow the selection and combine with the status and `-P` filters by AND:
+
+```bash
+ticket list --type BUG                              # only BUG tickets
+ticket list --priority high                         # only high priority
+ticket list open --type BUG --priority high -P proj # status AND type AND priority AND project
+```
+
+- Values are exact and case-sensitive: `--type` takes `BUG`, `OPS`, `TD`, `ENH`; `--priority` takes `low`, `normal`, `high`.
+- Each flag takes the NEXT token as its value, even when that token looks like a status or a flag: `--type open` is an invalid type, not a status filter.
+- An invalid value is an error (exit 1): `ticket list --type BUGX` prints `ticket: type must be one of: BUG OPS TD ENH` to stderr.
+- No matches is not an error: the plain output prints `No tickets (active --type BUG).` and `--json` prints `[]`, both with exit code 0.
+- `archive` selects the archive as the source; the status filter does not apply there, but `--type`, `--priority` and `-P` do.
 
 ## List output
 
@@ -106,10 +124,12 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       @ without a path is an error: no ticket is created, the message is localized;
       the content is copied byte for byte, an empty file or stdin gives an empty Details value — the ticket then shows the Details format block (the same as -d ""); there is no size limit;
       Details format — a numbered list, one item per line: N. <what> — <file:line>; <fix>
-  ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]
+  ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]
       list tickets; default active (= open + wip);
       archive — closed tickets moved into the archive;
       -P filters by project (exact match, case-sensitive);
+      --type/--priority filter by type and priority (exact match, case-sensitive), combined with the status and -P filters by AND;
+      an invalid --type/--priority value is an error (exit 1)
       project column shown when output tickets have differing projects;
       --json outputs a JSON array (6 fields: number, status, type, priority, title, created); empty = []
   ticket show <number|filename>

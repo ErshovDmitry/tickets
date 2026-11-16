@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.8"
+version: "1.9"
 created: 2026-09-04
-modified: 2026-11-11
+modified: 2026-11-16
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-16 (T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -28,10 +28,12 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       @ без пути — ошибка: тикет не создаётся, сообщение локализовано;
       содержимое переносится байт в байт, пустой файл или stdin — пустое значение Details: в тикете показывается блок-формат Details (то же, что при -d ""); ограничения на размер нет;
       формат Details — нумерованный список, по одному пункту на строку: N. <что> — <файл:строка>; <решение>
-  ticket list [active|open|wip|done|closed|archive|all] [-P <проект>] [--json]
+  ticket list [active|open|wip|done|closed|archive|all] [-P <проект>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]
       список тикетов; по умолчанию active (= open + wip);
       archive — закрытые тикеты, унесённые в архив;
       -P фильтрует по проекту (точное совпадение, регистр важен);
+      --type/--priority фильтруют по типу и приоритету (точное совпадение, регистр важен), соединяются со статусом и -P по И;
+      неверное значение --type/--priority — ошибка (код 1)
       колонка проекта отображается когда проекты в выводе различаются;
       --json выводит массив JSON (6 полей: number, status, type, priority, title, created); пусто = []
   ticket show <номер|имя-файла>
@@ -95,3 +97,4 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-10-29 | T-0109: `-d` input rules and the Details format rule missing in the help text | Re-synced with `internal/cli/templates/usage.ru.txt` | 1.5 |
 | 2026-11-11 | T-0159: `ticket recover` missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (recover block, `recover` in the exit-code line) | 1.6 |
 | 2026-11-11 | T-0162: the single-file no-op and the single-file-with-another-name exit 1 were undocumented | Re-synced with `internal/cli/templates/usage.ru.txt` (conservative no-op lines, `единственного файла с другим именем`) | 1.7 |
+| 2026-11-16 | T-0188: the `list` `--type`/`--priority` filters were missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (list syntax line and the `--type`/`--priority` block) | 1.9 |

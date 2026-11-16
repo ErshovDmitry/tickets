@@ -25,7 +25,7 @@ From the project root:
 ```bash
 ticket init                                             # create tickets/ (idempotent)
 ticket new "Broken export" -t BUG -p high -d "Fails on large files"
-ticket list                                             # active tickets (open + wip)
+ticket list [--type BUG|OPS|TD|ENH] [--priority low|normal|high]   # active tickets (open + wip)
 ticket show 7                                           # print a ticket (searches the archive)
 ticket set 7 done "fixed, tests green"                  # change status, renames the file
 ticket recover 7 T-0007-done.md                        # resolve a crash pair (ambiguous number, exit 2)

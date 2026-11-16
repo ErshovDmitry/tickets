@@ -10,10 +10,12 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       @ without a path is an error: no ticket is created, the message is localized;
       the content is copied byte for byte, an empty file or stdin gives an empty Details value — the ticket then shows the Details format block (the same as -d ""); there is no size limit;
       Details format — a numbered list, one item per line: N. <what> — <file:line>; <fix>
-  ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--json]
+  ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]
       list tickets; default active (= open + wip);
       archive — closed tickets moved into the archive;
       -P filters by project (exact match, case-sensitive);
+      --type/--priority filter by type and priority (exact match, case-sensitive), combined with the status and -P filters by AND;
+      an invalid --type/--priority value is an error (exit 1)
       project column shown when output tickets have differing projects;
       --json outputs a JSON array (6 fields: number, status, type, priority, title, created); empty = []
   ticket show <number|filename>
