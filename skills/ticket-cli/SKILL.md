@@ -1,11 +1,11 @@
 ---
 name: ticket-cli
-version: "1.16"
+version: "1.17"
 created: 2026-09-04
 modified: 2026-11-16
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
-description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/archive/recover/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`."
+description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/archive/recover/delete/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`."
 ---
 
 # ticket-cli
@@ -16,7 +16,7 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 
 - Tickets are plain files `tickets/T-NNNN-<status>.md`; files are the single source of truth; there is NO database.
 - The CLI is `ticket` on your `PATH` (`~/bin/ticket`; `%USERPROFILE%\bin\ticket.exe` on Windows); `-P <project>` flag: see README.
-- Numbers are issued atomically via OS locks and are never reused. Status lives in the file name — NEVER rename ticket files manually.
+- Numbers are issued atomically via OS locks and are never reused — a soft-deleted ticket keeps its number, too. Status lives in the file name — NEVER rename ticket files manually.
 - Ticket directory discovery, first match wins: `-C`/`--tickets-dir` → `$TICKETS_DIR` → upward scan from cwd for `tickets/` (see README Installation).
 - i18n: language chain `TICKET_LANG → LC_ALL → LANG`, default **RU**; `TICKET_LANG=en` opts into English help and English-label ticket files.
 - 🔴 Ticket CONTENT language: write titles, Details, comments and journal entries in **Russian** (project rule since 2026-11-06). The `-t`/`-p` flag values and file names stay English (`T-NNNN-<status>.md`); the i18n setting above only governs help text and section labels, not what you write.
@@ -56,14 +56,14 @@ Details format: a numbered list, one item per line — `N. <what> — <file:line
 ### `list`
 
 ```text
-ticket list [active|open|wip|done|closed|archive|all] [-P <project>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]
+ticket list [active|open|wip|done|closed|archive|deleted|all] [-P <project>] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--json]
 ```
 
-Default is `active` (= open + wip). `archive` lists tickets already moved into `tickets/archive/` (done/closed only). `-P` filters by project (exact, case-sensitive); the project column appears when projects in the output differ. `--json` (since v1.2.3, T-0081) prints a JSON array with 6 fields (`number, status, type, priority, title, created`); empty result = `[]`.
+Default is `active` (= open + wip). `archive` lists tickets already moved into `tickets/archive/` (done/closed only). `deleted` lists soft-deleted tickets from `tickets/deleted/`; every OTHER mode — `active`, `open`, `wip`, `done`, `closed`, `archive` and `all` — HIDES them, and `all` keeps its old meaning: the main directory only. `-P` filters by project (exact, case-sensitive); the project column appears when projects in the output differ. `--json` (since v1.2.3, T-0081) prints a JSON array with 6 fields (`number, status, type, priority, title, created`); empty result = `[]`.
 
 `--type` (`BUG`/`OPS`/`TD`/`ENH`) and `--priority` (`low`/`normal`/`high`) filter by the ticket metadata: exact values, case-sensitive. They combine with the status and `-P` filters by AND, so `ticket list open --type BUG --priority high -P proj` needs all four to match.
 
-Each of these flags takes the NEXT token as its value, even when that token looks like a status or another flag: `--type open` is an invalid type, not a status filter. An invalid or empty value is an error (exit 1) — `ticket list --type BUGX` prints `ticket: type must be one of: BUG OPS TD ENH` to stderr. No matches is NOT an error: the plain output prints `No tickets (active --type BUG).` and `--json` prints `[]`, both with exit code 0. `archive` selects the archive as the source; the status filter does not apply there, but `--type`, `--priority` and `-P` do.
+Each of these flags takes the NEXT token as its value, even when that token looks like a status or another flag: `--type open` is an invalid type, not a status filter. An invalid or empty value is an error (exit 1) — `ticket list --type BUGX` prints `ticket: type must be one of: BUG OPS TD ENH` to stderr. No matches is NOT an error: the plain output prints `No tickets (active --type BUG).` and `--json` prints `[]`, both with exit code 0. `archive` selects the archive as the source and `deleted` selects `tickets/deleted/`; the status filter does not apply to either, but `--type`, `--priority` and `-P` do (AND).
 
 ### `show`
 
@@ -71,7 +71,7 @@ Each of these flags takes the NEXT token as its value, even when that token look
 ticket show <number|filename>
 ```
 
-Shows a ticket; searches the archive too.
+Shows a ticket; searches `tickets/`, `tickets/archive/` and `tickets/deleted/`. A duplicate number is exit 2 with every conflicting absolute path on stderr; an exact filename selects one file out of the duplicate.
 
 ### `set`
 
@@ -80,6 +80,8 @@ ticket set <number> <status> ["comment"]
 ```
 
 Renames the file and appends a journal line. Re-setting the SAME status WITH a comment appends a journal entry only (no rename); the same status WITHOUT a comment is an error. Moving an archived ticket to `open`/`wip` returns it from the archive into work.
+
+`deleted` is terminal and read-only, and `set` NEVER assigns it: naming that status, or addressing a ticket whose file lives in `tickets/deleted/`, is refused (exit 1, file unchanged). There is no undelete — a reopen to `open`/`wip` is not supported for a deleted ticket.
 
 ### `edit`
 
@@ -91,11 +93,11 @@ Edits metadata in place: only title/type/priority/project of an existing ticket;
 
 Values are validated before anything is written: an invalid type/priority, a whitespace-only title/project, control characters or a leading dash in the title, and CRLF in any value (journal injection) are exit 1 with no write. ANY explicitly passed value that equals the current one rejects the WHOLE operation (exit 1, nothing written) — even when other fields would change. Success is SILENT: exit 0, empty stdout/stderr.
 
-Each changed field appends its OWN journal line `<field>: old → new` in the fixed order title → type → priority → project, under one timestamp and one author; the status transition of the line is the current status (From = To), so values with parentheses round-trip. A title change rewrites the H1 and updates Summary only when Summary was the default (empty or equal to the old title); a custom Summary survives. Archived tickets are edited in place — no reopen, no move; `--project` rewrites only the metadata field: there are no per-project directories and nothing moves.
+Each changed field appends its OWN journal line `<field>: old → new` in the fixed order title → type → priority → project, under one timestamp and one author; the status transition of the line is the current status (From = To), so values with parentheses round-trip. A title change rewrites the H1 and updates Summary only when Summary was the default (empty or equal to the old title); a custom Summary survives. Archived tickets are edited in place — no reopen, no move; `--project` rewrites only the metadata field: there are no per-project directories and nothing moves. A ticket whose file lives in `tickets/deleted/` is refused (exit 1, nothing written): deleted is terminal, `edit` cannot resurrect it.
 
 🔴 The ticket CONTENT language rule applies to the values you pass: write the new title/details in **Russian** (project rule since 2026-11-06); flag values and file names stay English.
 
-Exit codes: `0` — silent success; `1` — usage/validation error or an explicitly unchanged field (no write); `2` — ambiguous number, like `show`/`set`.
+Exit codes: `0` — silent success; `1` — usage/validation error, an explicitly unchanged field (no write), or a ticket whose file lives in `tickets/deleted/` (refused before any write); `2` — ambiguous number, like `show`/`set`.
 
 ### `recover`
 
@@ -103,15 +105,31 @@ Exit codes: `0` — silent success; `1` — usage/validation error or an explici
 ticket recover <number> <new-file> [--yes]
 ```
 
-Repairs the pair an interrupted status change leaves behind (`T-NNNN-old.md` + `T-NNNN-new.md`, e.g. `T-0007-open.md` + `T-0007-done.md`): `show`, `set` and `archive` report the number as ambiguous (exit 2) and print both conflicting ABSOLUTE paths. `<new-file>` is the basename from that diagnostic (e.g. `T-0007-done.md`) — it selects the canonical file, and the path is NEVER guessed: the basename is matched against `tickets/` and `tickets/archive/` (an identical basename in both dirs is a refusal).
+Repairs the pair an interrupted status change leaves behind (`T-NNNN-old.md` + `T-NNNN-new.md`, e.g. `T-0007-open.md` + `T-0007-done.md`): `show`, `set` and `archive` report the number as ambiguous (exit 2) and print both conflicting ABSOLUTE paths. `<new-file>` is the basename from that diagnostic (e.g. `T-0007-done.md`) — it selects the canonical file, and the path is NEVER guessed: the basename is matched against `tickets/`, `tickets/archive/` and `tickets/deleted/` (an identical basename in two dirs is a refusal).
 
 Only the exact crash signature is accepted: the new file must equal the old one plus exactly one trailing journal entry `From=old status → To=new status`, and the old file must LACK that entry. The comparison runs after parse/render (all fields, unknown/RawTemplates included), so any other difference is rejected and the pair is left byte-identical.
 
-What it does NOT do: it deletes ONLY the old file — the new file is never opened for writing, its content and journal stay byte-identical, no `tmp/` and no recovery journal entry are created. Repeating the command when only the new file remains is a conservative no-op with exit 0, and so is a single file that is already named `<new-file>`: recover only checks that the wanted name is on disk, it cannot prove that this is the previously saved file rather than a lone stale one, so exit 0 never proves that a recovery happened. The keep-old choice is refused; roll the status back afterwards with a normal `ticket set <number> <old-status> "reason"`.
+What it does NOT do: it deletes ONLY the old file — the new file is never opened for writing, its content and journal stay byte-identical, no `tmp/` and no recovery journal entry are created. Repeating the command when only the new file remains is a conservative no-op with exit 0, and so is a single file that is already named `<new-file>`: recover only checks that the wanted name is on disk, it cannot prove that this is the previously saved file rather than a lone stale one, so exit 0 never proves that a recovery happened. The keep-old choice is refused; roll the status back afterwards with a normal `ticket set <number> <old-status> "reason"`. A crash pair that includes `tickets/deleted/` (an interrupted `delete`: the stale source in the main directory plus `T-NNNN-deleted.md`) is recovered by the same signature rule — keeping the deleted file succeeds, keeping the stale source stays the ordinary keep-old refusal — and it does NOT undelete anything: the ticket stays terminal.
 
 Confirmation: without `--yes` it prints keep/discard and asks yes/no; a non-TTY run without `--yes` exits 1 having done nothing, so automation MUST pass `--yes`. Any error keeps the pair for a retry, but path reporting differs: the ambiguity report (more than two files, also from `show`/`set`/`archive`) prints every conflicting ABSOLUTE path, while a `RecoveryState` refusal prints only the conflicting BASENAMES (same-status names none). Never assume paths appear in every error — pass the bare basename.
 
 🔴 Run `recover` only in a sandbox (`-C /tmp/…` or `TICKETS_DIR`): it deletes a file — NEVER in the live `tickets/`.
+
+### `delete`
+
+```text
+ticket delete <number|filename> [--yes] [--force]
+```
+
+Soft-deletes a ticket: the file is MOVED into `tickets/deleted/T-NNNN-deleted.md` — body, metadata, unknown sections and the existing journal are preserved, and exactly one journal line records the transition to `deleted`. Success prints the deleted file's path. `<number|filename>` is ONE ref — a number or an exact basename (for example `T-0001-open.md`), never a path; the exact basename is also how one file is picked out of a duplicate number.
+
+Guards: without `--force` only an `open` ticket in the main directory is deletable; `--force` also covers the other main statuses and the archive. Without `--yes` the command prints the candidate path and asks yes/no; a non-TTY run without `--yes` exits 1 having done nothing, so automation MUST pass `--yes`.
+
+Exit codes: `0` — the ticket is now in `deleted/`; `1` — usage error, not-found ref, already deleted, target collision (that name already exists in `deleted/`), refused confirmation or an I/O error — nothing changes; `2` — an ambiguous number or an identical basename in several directories, every conflicting path printed to stderr and nothing changed. A repeat after a successful delete is `1` (already deleted), never a no-op success.
+
+`deleted` is TERMINAL and read-only: `set` (a reopen to `open`/`wip` included) and `edit` refuse such a ticket (exit 1, file unchanged), `set` never assigns the status, and there is no undelete. `archive` ignores deleted tickets; `list deleted` is the only mode that shows them. Numbers are never reused — the deleted file keeps its number.
+
+🔴 `delete` moves a file: run it only in a sandbox (`-C /tmp/…` or `TICKETS_DIR`), NEVER in the live `tickets/`.
 
 ### `archive`
 
@@ -119,7 +137,7 @@ Confirmation: without `--yes` it prints keep/discard and asks yes/no; a non-TTY 
 ticket archive [<number>]
 ```
 
-Moves done/closed tickets into `tickets/archive/`; no number = all closed, with a number = only the given one.
+Moves done/closed tickets into `tickets/archive/`; no number = all closed, with a number = only the given one. Deleted tickets are IGNORED: never moved into the archive and never restored from it.
 
 ### `normalize`
 
@@ -136,6 +154,8 @@ Guarded — these files are skipped with a warning, never silently rewritten:
 - bash-era label lines (`- Статус:`, `- Приоритет:`, `- Создан:`, `- Проект:`; also with a leading indent, a `*`/`+` bullet and a space before the colon): the parser does not know them, so a rewrite would drop the line;
 - incomplete metadata (empty type/priority/project, blank title, zero created date): a rewrite would invent a value.
 
+Deleted tickets are normalised IN PLACE as well: the walk order is main → archive → deleted, an unreadable or invalid deleted file is skipped with the same warning an archived one gets, and the file name stays authoritative. `--dry-run` writes nothing, deleted files included.
+
 🔴 Run it in a sandbox first (`--dry-run` on a copy: `rm -rf /tmp/corpus && cp -r tickets /tmp/corpus && ticket -C /tmp/corpus normalize --dry-run`) — the command rewrites files in place, and `-C` is a global flag: it MUST precede the command name. Exit code 2 is never returned: duplicate numbers are reported like `list` does and both files are migrated.
 
 ### `update-check`
@@ -150,7 +170,7 @@ Explicit check for a newer release on GitHub — never automatic, never blocks o
 
 - `0` — success.
 - `1` — error (bad arguments, ticket not found, collision, input or store error, failed update check).
-- `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr.
+- `2` — ambiguous ticket number: the number belongs to several ticket files; the number and the conflicting files are printed to stderr. Duplicates inside `tickets/deleted/` follow the same split: `list` (any mode) warns and exits 0, `show` exits 2 with every conflicting path, and `set`/`edit` refuse a deleted ticket with exit 1.
 - `3` — update available: the explicit `ticket update-check` found a newer release on GitHub.
 
 `ticket normalize` uses only `0` and `1`: it never reports an ambiguous number (both files are migrated and the duplicate is warned about) and never returns 2.
@@ -161,7 +181,9 @@ Explicit check for a newer release on GitHub — never automatic, never blocks o
 
 ## Status lifecycle
 
-`open` → `wip` → `done` / `closed`.
+`open` → `wip` → `done` / `closed`; `deleted` — terminal.
+
+`deleted` is assigned ONLY by `ticket delete` (an ordinary `set` never produces it). Once a ticket is deleted, `set` (including any reopen) and `edit` refuse it and there is no undelete; `recover` only closes crash pairs and never resurrects a deleted ticket. `archive` ignores deleted tickets; `list deleted` is the only mode that shows them.
 
 | Status | Meaning |
 |--------|---------|
@@ -169,6 +191,7 @@ Explicit check for a newer release on GitHub — never automatic, never blocks o
 | `wip` | in progress |
 | `done` | fixed |
 | `closed` | rejected / duplicate |
+| `deleted` | soft-deleted into `tickets/deleted/` — terminal, read-only |
 
 Types: `BUG` — breakage; `OPS` — incident/maintenance; `TD` — tech debt; `ENH` — enhancement.
 
@@ -194,6 +217,8 @@ Labels are bilingual under the RU default locale:
 6. Tickets with Russian-only headers (`## Кратко`, `- Статус:`) are NOT parsed: those fields stay empty and the next `set` rewrites the file in the current format without them — fix such files by hand. There is no migration command. Files in the pre-MD022 format (current format without the blank line after the heading) are read and normalised on the next `set`.
 7. `TICKET_LOCK_TIMEOUT` controls how long `ticket` waits for the tickets-directory lock (`.lock`) before failing; the value is a Go duration with a mandatory unit (`30s`, `2m`, `500ms`), and an empty or invalid value silently falls back to the default — a typo never errors out. Raise it for parallel agent runs or CI. The default itself is owned by the code (`defaultLockTimeout` in `internal/store`), so this skill does not repeat the number.
 8. `-C`/`--tickets-dir` and `--verbose` MUST come BEFORE the command name; after it the token is a subcommand argument and the command fails — except after `help`/`version`, where it is ignored — see `docs/configuration.md` for the exact messages.
+9. 🔴 `tickets/deleted/` is NOT `tickets/archive/`: deleted is terminal and read-only, `list deleted` is the only mode that shows it, `all` hides it, `archive` ignores it, and there is NO undelete — `set` (any reopen included) and `edit` refuse such a ticket and change nothing.
+10. Numbers are never reused: a deleted ticket keeps its number in `tickets/deleted/T-NNNN-deleted.md`, and the next `new` skips it. Never renumber or hand-copy a ticket file.
 
 ## Workflow quick reference
 
@@ -201,7 +226,8 @@ Labels are bilingual under the RU default locale:
 2. `ticket new "..." -t ... -p ... -d "..."` — file a problem/incident immediately, with file:line in details; long details go through `-d @file` or `-d -`.
 3. `ticket set N <status> "<comment>"` — move statuses; close with evidence only.
 4. `ticket archive` — tidy up closed tickets.
-5. `ticket show N` — works on archived tickets too.
+5. `ticket show N` — works on archived and deleted tickets too.
+6. `ticket delete N --yes` — soft-delete into `tickets/deleted/` (terminal, read-only; never a substitute for `set done`).
 
 ## Structure
 
@@ -210,6 +236,8 @@ ticket-cli/
 ├── SKILL.md
 └── reference.md
 ```
+
+Tickets directory layout: `tickets/` (main) + `tickets/archive/` (closed) + `tickets/deleted/` (soft-deleted, terminal).
 
 ## See also
 
@@ -235,3 +263,4 @@ ticket-cli/
 | 2026-11-16 | T-0188: the `list` filters `--type`/`--priority` were undocumented | Documented the new `list` syntax and the filter semantics (exact case-sensitive values, AND with the status/`-P` filters, next-token value rule, invalid value = exit 1, empty result = `No tickets`/`[]` with exit 0, archive source) | 1.14 |
 | 2026-11-16 | T-0187 (GitHub #20): `ticket edit` was a non-goal and undocumented | Added the `edit` section (long-only split-form flags, per-field journal order title→type→priority→project, whole-operation no-op on explicitly unchanged values, silent success, archive edited in place, `--project` is metadata-only) and the edit exit-code notes | 1.15 |
 | 2026-11-16 | Merge of PR #23 (list filters, T-0188) and PR #24 (`ticket edit`, T-0187) | Rebase resolution: both features kept — `list --type`/`--priority` and the `edit` section coexist; version bumped past both parents | 1.16 |
+| 2026-11-16 | T-0189 W3 (GitHub #22): `ticket delete`, the `list deleted` mode and the `deleted/` integration were undocumented | Added the `delete` section (soft-delete into `tickets/deleted/`, `--yes`/`--force` guards, exit 0/1/2, repeat = exit 1), the `deleted` list mode and the hiding rule (`all` stays main-only), the `deleted/` notes for `show`/`set`/`edit`/`archive`/`recover`/`normalize`, the `deleted` lifecycle row, pitfalls 9-10 and the tickets-dir layout; version bumped to 1.17 | 1.17 |

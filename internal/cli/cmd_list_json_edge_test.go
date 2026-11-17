@@ -111,7 +111,7 @@ func TestListJSON_UsageGuard(t *testing.T) {
 		}
 		// Signature prefix pinned by TestUsageArchiveKeyLines — flags may
 		// only be appended at the end of the list signature line.
-		if !strings.Contains(help, "ticket list [active|open|wip|done|closed|archive|all]") {
+		if !strings.Contains(help, "ticket list [active|open|wip|done|closed|archive|deleted|all]") {
 			t.Errorf("usage(%s) list signature changed (breaks TestUsageArchiveKeyLines)", lang)
 		}
 	}

@@ -82,6 +82,10 @@ type dictJSON struct {
 	DeleteAsk               string `json:"deleteAsk"`
 	DeleteRefused           string `json:"deleteRefused"`
 	DeleteCancelled         string `json:"deleteCancelled"`
+
+	// T-0189 W3: terminal/read-only refusal (set/edit/reopen on a deleted
+	// ticket). Same pipeline as the delete keys.
+	ErrTicketDeletedReadOnly string `json:"errTicketDeletedReadOnly"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -164,5 +168,6 @@ func loadDict(data []byte) (*dict, error) {
 		deleteAsk:                   dj.DeleteAsk,
 		deleteRefused:               dj.DeleteRefused,
 		deleteCancelled:             dj.DeleteCancelled,
+		errTicketDeletedReadOnly:    dj.ErrTicketDeletedReadOnly,
 	}, nil
 }

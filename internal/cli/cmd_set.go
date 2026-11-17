@@ -50,7 +50,15 @@ func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, std
 	if !ok {
 		return notFound(stderr, lang, numArg)
 	}
-	// T-0074: no pre-parse via Find. SetStatus routes on file names alone
+	// T-0189 W3: deleted is terminal and read-only — refuse a number
+	// living in tickets/deleted/ (or duplicated across deleted/ and the
+	// live dirs) BEFORE any mutation. `set N deleted` itself never reaches
+	// the store: statusByName above does not know the deleted status, so
+	// the target is rejected with the pinned invalid-status message.
+	if rc, done := deletedGuard(st, stderr, lang, n); done {
+		return rc
+	}
+	// T-0074: no pre-parse via Find. SetStatus routes on file names alone SetStatus routes on file names alone
 	// (collision gate before any read), so a foreign same-number file with
 	// a broken H1 surfaces as «файл … уже существует» instead of a parse
 	// error. The store returns the real path: an archived ticket moved

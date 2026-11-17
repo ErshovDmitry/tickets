@@ -376,7 +376,7 @@ func TestListTypePriorityErrors(t *testing.T) {
 		{"empty priority", []string{"--priority", ""}, "приоритет — один из: low normal high", "priority must be one of: low normal high", 1},
 		{"status as type", []string{"--type", "open"}, "тип — один из: BUG OPS TD ENH", "type must be one of: BUG OPS TD ENH", 1},
 		{"flag as type value", []string{"--type", "--json"}, "тип — один из: BUG OPS TD ENH", "type must be one of: BUG OPS TD ENH", 1},
-		{"status beats type", []string{"bogus", "--type", "BUGX"}, "фильтр — один из: active open wip done closed archive all", "filter must be one of: active open wip done closed archive all", 1},
+		{"status beats type", []string{"bogus", "--type", "BUGX"}, "фильтр — один из: active open wip done closed archive deleted all", "filter must be one of: active open wip done closed archive deleted all", 1},
 		{"positional count beats type", []string{"open", "extra", "--type", "BUGX"}, "список принимает не более одного аргумента (фильтр)", "list accepts at most one argument (filter)", 1},
 		// Parse-time flag errors beat every later validation: a dangling
 		// --type after a bad status is reported as a missing value, not as a

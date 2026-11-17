@@ -124,6 +124,7 @@ var (
 	getDeleteAsk                   = func(dj dictJSON) string { return dj.DeleteAsk }
 	getDeleteRefused               = func(dj dictJSON) string { return dj.DeleteRefused }
 	getDeleteCancelled             = func(dj dictJSON) string { return dj.DeleteCancelled }
+	getErrTicketDeletedReadOnly    = func(dj dictJSON) string { return dj.ErrTicketDeletedReadOnly }
 )
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
@@ -263,4 +264,8 @@ var dictValidationRules = []dictRule{
 	nonEmpty("deleteAsk", getDeleteAsk),
 	nonEmpty("deleteRefused", getDeleteRefused),
 	nonEmpty("deleteCancelled", getDeleteCancelled),
+
+	// T-0189 W3: terminal/read-only refusal — 1 %d slot (the number).
+	nonEmpty("errTicketDeletedReadOnly", getErrTicketDeletedReadOnly),
+	count("errTicketDeletedReadOnly", "d", 1, getErrTicketDeletedReadOnly),
 }

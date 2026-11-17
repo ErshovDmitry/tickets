@@ -1,6 +1,6 @@
 # Scenarios
 
-Practical setups: wiring `ticket` into an AI agent's workflow, working across projects, archiving, and handling secrets.
+Practical setups: wiring `ticket` into an AI agent's workflow, working across projects, archiving, deleting, and handling secrets.
 
 ## Agent integration
 
@@ -50,6 +50,27 @@ ticket set 7 wip "reopened"   # restores the ticket from the archive into work
 ```
 
 Archived tickets stay first-class: `show` searches the archive, `set` works on them, and moving one back to `open` or `wip` restores it out of `tickets/archive/` into work.
+
+## Delete lifecycle
+
+A ticket that must not be worked on any more is soft-deleted: the file moves into `tickets/deleted/T-NNNN-deleted.md`, keeps its number, body, metadata and journal, and becomes terminal.
+
+```bash
+ticket delete 7 --yes           # main directory, open: no --force needed
+ticket delete 7                 # without --yes it prints the candidate path and asks yes/no
+ticket delete 7 --yes --force   # wip/done/closed, or an archived ticket
+ticket list deleted             # the only listing that shows deleted tickets
+ticket show 7                   # show searches tickets/, tickets/archive/ and tickets/deleted/
+```
+
+Behaviour worth knowing:
+
+- `deleted` is terminal and read-only: `ticket set 7 wip`, `ticket set 7 open` and `ticket edit 7 --title "…"` refuse such a ticket (exit 1) and the file stays byte-identical. There is NO undelete — a delete is a one-way decision; when the ticket may come back, use `ticket archive` instead.
+- `ticket archive` ignores deleted tickets, and every list mode except `deleted` hides them: `active`/`open`/`wip`/`done`/`closed`/`archive`/`all`. `all` keeps its old meaning (the main directory), so existing scripts see no change.
+- The number stays taken: the next `ticket new` skips it.
+- An interrupted delete leaves a crash pair — the stale source in the main directory plus `T-NNNN-deleted.md`. `ticket recover 7 T-NNNN-deleted.md --yes` closes the pair, keeps the deleted file and does not undelete the ticket.
+- `ticket normalize` walks main → archive → deleted and rewrites a legacy deleted file in place; `--dry-run` covers it too.
+- Without `--yes` and without a terminal the command refuses and changes nothing: automation MUST pass `--yes`.
 
 ## Secrets
 

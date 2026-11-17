@@ -28,7 +28,7 @@
   "errRepeatedFlagJson": "ticket: repeated flag --json",
   "errUnknownFlagList": "ticket: unknown flag: %s",
   "errListOneArgMax": "ticket: list accepts at most one argument (filter)",
-  "errListFilterInvalid": "ticket: filter must be one of: active open wip done closed archive all",
+  "errListFilterInvalid": "ticket: filter must be one of: active open wip done closed archive deleted all",
   "errTitleStartsWithDash": "ticket: title must not start with '-'",
   "errTitleEmpty": "ticket: title must not be empty",
   "errTypeInvalid": "ticket: type must be one of: BUG OPS TD ENH",
@@ -67,5 +67,7 @@
   "deletePromptFmt": "ticket: delete %s",
   "deleteAsk": "Delete this ticket? yes/no: ",
   "deleteRefused": "ticket: no terminal to confirm on; re-run with --yes (nothing was changed)",
-  "deleteCancelled": "ticket: delete cancelled, nothing was changed"
+  "deleteCancelled": "ticket: delete cancelled, nothing was changed",
+
+  "errTicketDeletedReadOnly": "ticket: ticket %d is deleted (file in tickets/deleted/) and is read-only: set, reopen and edit are refused, the file is unchanged"
 }

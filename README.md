@@ -26,13 +26,16 @@ From the project root:
 ticket init                                             # create tickets/ (idempotent)
 ticket new "Broken export" -t BUG -p high -d "Fails on large files"
 ticket list [--type BUG|OPS|TD|ENH] [--priority low|normal|high]   # active tickets (open + wip)
-ticket show 7                                           # print a ticket (searches the archive)
+ticket show 7                                           # print a ticket (searches the archive and deleted/)
 ticket set 7 done "fixed, tests green"                  # change status, renames the file
 ticket edit 7 --title "Export fails on huge files"      # edit metadata in place; silent success, one journal line per changed field
+ticket delete 7 --yes                                   # soft-delete into tickets/deleted/ (terminal, read-only; prompt without --yes)
 ticket recover 7 T-0007-done.md                        # resolve a crash pair (ambiguous number, exit 2)
 ticket normalize --dry-run                              # list legacy ticket files that would be re-rendered
 ticket normalize                                        # re-render them in place (name untouched; body status reconciled to it, no journal line)
 ```
+
+`deleted` is a terminal, read-only status: `ticket delete` moves the file into `tickets/deleted/` (body, metadata and journal preserved), `list deleted` is the only mode that shows such tickets — `active`/`open`/`wip`/`done`/`closed`/`archive`/`all` hide them, and there is no undelete. Numbers are never reused.
 
 ## Exit codes
 

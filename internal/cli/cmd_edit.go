@@ -58,6 +58,12 @@ func cmdEdit(st *store.Store, args []string, who, _ string, lang domain.Lang, st
 	if !ok {
 		return exitError
 	}
+	// T-0189 W3: deleted is terminal and read-only — refuse a number
+	// living in tickets/deleted/ (or duplicated across deleted/ and the
+	// live dirs) BEFORE any mutation; the source file stays unchanged.
+	if rc, done := deletedGuard(st, stderr, lang, n); done {
+		return rc
+	}
 	warnings, err := st.Edit(n, opts, who)
 	if err != nil {
 		return editError(st, stderr, lang, args[0], err)

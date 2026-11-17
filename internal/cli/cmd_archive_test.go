@@ -243,10 +243,11 @@ func TestCmdListArchiveFilter(t *testing.T) {
 func TestUsageArchiveKeyLines(t *testing.T) {
 	usage := string(usageFixture)
 	for _, want := range []string{
-		"ticket list [active|open|wip|done|closed|archive|all]",
+		"ticket list [active|open|wip|done|closed|archive|deleted|all]",
 		"archive — закрытые тикеты, унесённые в архив",
+		"deleted — мягко удалённые тикеты в tickets/deleted/",
 		"ticket show <номер|имя-файла>",
-		"показать тикет (ищет и в архиве)",
+		"показать тикет (ищет и в архиве, и в deleted/)",
 		"ticket set <номер> <статус> [\"комментарий\"]",
 		"перевод архивного тикета в open/wip возвращает его из архива в работу",
 		"ticket archive [<номер>]",
