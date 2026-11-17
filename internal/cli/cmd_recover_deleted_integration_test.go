@@ -6,6 +6,7 @@ package cli
 // the other modes hide it) and show still resolves it from deleted/.
 
 import (
+	"bytes"
 	"os"
 	"strings"
 	"testing"
@@ -17,13 +18,26 @@ import (
 // and show resolves the number from deleted/.
 func TestRecoverKeepDeletedComposesWithListShowDeleted(t *testing.T) {
 	dir := resolvedTempDir(t)
-	_, deletedPath := deletedCrashPair(t, dir)
+	srcPath, deletedPath := deletedCrashPair(t, dir)
 	raw, err := os.ReadFile(deletedPath)
 	if err != nil {
 		t.Fatalf("read deleted: %v", err)
 	}
 	if _, se, code := runRecoverCLI(t, dir, "recover", "1", "T-0001-deleted.md", "--yes"); code != 0 {
 		t.Fatalf("recover: code=%d stderr=%q", code, se)
+	}
+
+	// The stale source is removed by the recovery...
+	if _, err := os.Stat(srcPath); !os.IsNotExist(err) {
+		t.Errorf("stale source %s still present after recover (err=%v)", srcPath, err)
+	}
+	// ...and the kept deleted file is left byte-identical.
+	after, err := os.ReadFile(deletedPath)
+	if err != nil {
+		t.Fatalf("read kept deleted: %v", err)
+	}
+	if !bytes.Equal(after, raw) {
+		t.Errorf("kept deleted file %s changed across recover", deletedPath)
 	}
 
 	// list deleted shows the kept ticket...

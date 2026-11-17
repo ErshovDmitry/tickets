@@ -54,16 +54,18 @@ func TestArchiveAllIgnoresDeleted(t *testing.T) {
 	if !strings.Contains(so, "T-0001-done.md") {
 		t.Errorf("stdout = %q, want the archived done path", so)
 	}
-	archivePath, _, _ := strings.Cut(so, "\n")
-	archivePath = strings.TrimSpace(archivePath)
 
 	// The deleted file stays exactly where it was...
 	if after := readFileBytes(t, deletedPath); len(after) == 0 {
 		t.Errorf("deleted file %s unreadable after archive", deletedPath)
 	}
-	// ...and no copy of it appeared in the archive.
-	if strings.Contains(archivePath, "T-0002") {
-		t.Errorf("archive moved the deleted ticket: %q", archivePath)
+	// ...and no copy of it appeared in the archive directory itself.
+	matches, err := filepath.Glob(filepath.Join(dir, "archive", "T-0002*"))
+	if err != nil {
+		t.Fatalf("glob archive dir: %v", err)
+	}
+	if len(matches) != 0 {
+		t.Errorf("archive dir contains the deleted ticket: %v", matches)
 	}
 }
 
