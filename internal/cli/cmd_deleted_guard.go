@@ -19,6 +19,7 @@ package cli
 // fully account for.
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -34,7 +35,11 @@ import (
 func deletedGuard(st *store.Store, stderr io.Writer, lang domain.Lang, n int) (int, bool) {
 	deletedPaths, err := st.LocateNumberDeleted(n)
 	if err != nil {
-		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		if errors.Is(err, store.ErrReadOnly) {
+			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		} else {
+			fmt.Fprintf(stderr, "ticket: %v\n", err)
+		}
 		return exitError, true
 	}
 	if len(deletedPaths) == 0 {
@@ -42,7 +47,11 @@ func deletedGuard(st *store.Store, stderr io.Writer, lang domain.Lang, n int) (i
 	}
 	livePaths, err := st.LocateNumber(n)
 	if err != nil {
-		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		if errors.Is(err, store.ErrReadOnly) {
+			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		} else {
+			fmt.Fprintf(stderr, "ticket: %v\n", err)
+		}
 		return exitError, true
 	}
 	if len(livePaths) == 0 {

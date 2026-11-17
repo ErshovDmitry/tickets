@@ -168,6 +168,8 @@ func deleteError(st *store.Store, stderr io.Writer, lang domain.Lang, ref string
 		return notFoundHinted(st, stderr, lang, ref)
 	case errors.As(err, &journal):
 		fmt.Fprintln(stderr, domain.ErrJournalNewline(lang))
+	case errors.Is(err, store.ErrReadOnly):
+		fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}

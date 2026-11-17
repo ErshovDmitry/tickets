@@ -69,5 +69,6 @@
   "deleteRefused": "ticket: нет терминала для подтверждения; повторите с --yes (ничего не изменено)",
   "deleteCancelled": "ticket: удаление отменено, ничего не изменено",
 
-  "errTicketDeletedReadOnly": "ticket: тикет %d удалён (файл в tickets/deleted/) и доступен только для чтения: set, reopen и edit отклоняются, файл не меняется"
+  "errTicketDeletedReadOnly": "ticket: тикет %d удалён (файл в tickets/deleted/) и доступен только для чтения: set, reopen и edit отклоняются, файл не меняется",
+  "errReadOnly": "ticket: хранилище тикетов в режиме только чтения"
 }

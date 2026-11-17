@@ -65,11 +65,19 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 		if errors.Is(err, store.ErrNotFound) {
 			return notFoundHinted(st, stderr, lang, args[0])
 		}
-		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		if errors.Is(err, store.ErrReadOnly) {
+			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		} else {
+			fmt.Fprintf(stderr, "ticket: %v\n", err)
+		}
 		return exitError
 	}
 	if _, err := stdout.Write(raw); err != nil {
-		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		if errors.Is(err, store.ErrReadOnly) {
+			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		} else {
+			fmt.Fprintf(stderr, "ticket: %v\n", err)
+		}
 		return exitError
 	}
 	return exitOK
@@ -155,11 +163,19 @@ func showByName(st *store.Store, name string, lang domain.Lang, stdout, stderr i
 		if errors.Is(err, store.ErrNotFound) {
 			return notFoundHinted(st, stderr, lang, name)
 		}
-		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		if errors.Is(err, store.ErrReadOnly) {
+			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		} else {
+			fmt.Fprintf(stderr, "ticket: %v\n", err)
+		}
 		return exitError
 	}
 	if _, err := stdout.Write(raw); err != nil {
-		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		if errors.Is(err, store.ErrReadOnly) {
+			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		} else {
+			fmt.Fprintf(stderr, "ticket: %v\n", err)
+		}
 		return exitError
 	}
 	return exitOK

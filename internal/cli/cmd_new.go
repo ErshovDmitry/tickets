@@ -260,6 +260,10 @@ func createError(stderr io.Writer, lang domain.Lang, st *store.Store, err error)
 		fmt.Fprintln(stderr, domain.ErrFileAlreadyExists(lang, collisionPath(st)))
 		return exitError
 	}
+	if errors.Is(err, store.ErrReadOnly) {
+		fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		return exitError
+	}
 	fmt.Fprintf(stderr, "ticket: %v\n", err)
 	return exitError
 }

@@ -294,3 +294,10 @@ func UpdateCheckDev(lang Lang, version string) string {
 func ErrUpdateCheck(lang Lang, err error) string {
 	return fmt.Sprintf(getDict(lang).errUpdateCheck, err)
 }
+
+// ErrReadOnly returns the localized refusal for any mutating command aimed
+// at a read-only ticket store (T-0192): the store as a whole (rights or
+// mount of TICKETS_DIR) rejects the mutation, no placeholders.
+func ErrReadOnly(lang Lang) string {
+	return getDict(lang).errReadOnly
+}
