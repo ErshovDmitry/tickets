@@ -189,6 +189,8 @@ func editError(st *store.Store, stderr io.Writer, lang domain.Lang, numArg strin
 		fmt.Fprintln(stderr, domain.ErrEditAlreadyField(lang, already.Number, already.Field, already.Value))
 	case errors.Is(err, store.ErrNotFound):
 		return notFoundHinted(st, stderr, lang, numArg)
+	case errors.Is(err, store.ErrReadOnly):
+		fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}

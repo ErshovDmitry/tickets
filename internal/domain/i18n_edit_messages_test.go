@@ -54,7 +54,7 @@ func TestEditMessagesRender(t *testing.T) {
 		{"en unknown flag", ErrEditUnknownFlag(LangEN, "--bogus"), "ticket: unknown flag for edit command: --bogus"},
 		{"ru newline", ErrEditFieldNewline(LangRU), "ticket: новое значение не может содержать перевод строки"},
 		{"en newline", ErrEditFieldNewline(LangEN), "ticket: edit value must not contain a line break"},
-		{"ru already", ErrEditAlreadyField(LangRU, 7, "title", "Старый"), "ticket: у тикета 7 поле title уже «\"Старый\"»"},
+		{"ru already", ErrEditAlreadyField(LangRU, 7, "title", "Старый"), "ticket: у тикета 7 поле title уже \"Старый\""},
 		{"en already", ErrEditAlreadyField(LangEN, 7, "title", "Old"), "ticket: ticket 7 already has title \"Old\""},
 		{"ru project empty", ErrProjectEmpty(LangRU), "ticket: проект не может быть пустым"},
 		{"en project empty", ErrProjectEmpty(LangEN), "ticket: project must not be empty"},

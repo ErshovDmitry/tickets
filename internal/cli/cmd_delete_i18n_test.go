@@ -140,7 +140,7 @@ func TestDeleteReadOnlyStore(t *testing.T) {
 	if code != exitError {
 		t.Fatalf("read-only: code=%d want %d (stderr=%q)", code, exitError, se.String())
 	}
-	if !strings.Contains(se.String(), "read-only") {
+	if !strings.Contains(se.String(), domain.ErrReadOnly(domain.LangRU)) {
 		t.Errorf("stderr=%q, want read-only refusal", se.String())
 	}
 	assertSameTree(t, dir, before)

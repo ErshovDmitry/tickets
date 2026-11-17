@@ -111,11 +111,11 @@ func cmdRecover(st *store.Store, args []string, _, _ string, lang domain.Lang, s
 		printUsage(stdout, stderr, lang)
 		return exitError
 	}
-	// Same positional guard as set/show (T-0068): a flag in the <number> or
+	// Same positional guard as set (T-0068): a flag in the <number> or
 	// <new-file> slot is a usage error, reported for the FIRST offender.
 	for _, a := range args[:2] {
 		if strings.HasPrefix(a, "-") {
-			fmt.Fprintln(stderr, domain.ErrUnknownFlag(lang, a))
+			fmt.Fprintln(stderr, domain.ErrUnknownFlagList(lang, a))
 			return exitError
 		}
 	}
@@ -228,6 +228,9 @@ func recoverError(st *store.Store, stderr io.Writer, lang domain.Lang, numArg st
 		return reportRecoveryState(stderr, lang, rse)
 	case errors.Is(err, store.ErrNotFound):
 		return notFoundHinted(st, stderr, lang, numArg)
+	case errors.Is(err, store.ErrReadOnly):
+		fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		return exitError
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 		return exitError

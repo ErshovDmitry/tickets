@@ -153,11 +153,11 @@ func TestEditNoOpRefusals(t *testing.T) {
 		args    []string
 		wantSub string
 	}{
-		{"unchanged title", []string{"edit", "1", "--title", "Тестовый тикет"}, "у тикета 1 поле title уже «\"Тестовый тикет\"»"},
-		{"unchanged type", []string{"edit", "1", "--type", "BUG"}, "у тикета 1 поле type уже «\"BUG\"»"},
-		{"unchanged priority", []string{"edit", "1", "--priority", "normal"}, "у тикета 1 поле priority уже «\"normal\"»"},
-		{"unchanged project", []string{"edit", "1", "--project", "alpha"}, "у тикета 1 поле project уже «\"alpha\"»"},
-		{"mixed changed and unchanged", []string{"edit", "1", "--title", "Новый", "--type", "BUG"}, "у тикета 1 поле type уже «\"BUG\"»"},
+		{"unchanged title", []string{"edit", "1", "--title", "Тестовый тикет"}, "у тикета 1 поле title уже \"Тестовый тикет\""},
+		{"unchanged type", []string{"edit", "1", "--type", "BUG"}, "у тикета 1 поле type уже \"BUG\""},
+		{"unchanged priority", []string{"edit", "1", "--priority", "normal"}, "у тикета 1 поле priority уже \"normal\""},
+		{"unchanged project", []string{"edit", "1", "--project", "alpha"}, "у тикета 1 поле project уже \"alpha\""},
+		{"mixed changed and unchanged", []string{"edit", "1", "--title", "Новый", "--type", "BUG"}, "у тикета 1 поле type уже \"BUG\""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

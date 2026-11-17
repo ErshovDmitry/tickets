@@ -99,6 +99,8 @@ func archiveError(stderr io.Writer, lang domain.Lang, numArg string, err error) 
 		fmt.Fprintln(stderr, domain.ErrArchiveOnlyDoneClosed(lang, string(notClosed.Status)))
 	case errors.As(err, &collision):
 		fmt.Fprintln(stderr, domain.ErrFileAlreadyExists(lang, collision.Target))
+	case errors.Is(err, store.ErrReadOnly):
+		fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}

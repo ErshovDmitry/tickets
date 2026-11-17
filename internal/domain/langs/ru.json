@@ -58,7 +58,7 @@
 
   "errEditUnknownFlag": "ticket: неизвестный флаг для команды edit: %s",
   "errEditFieldNewline": "ticket: новое значение не может содержать перевод строки",
-  "errEditAlreadyField": "ticket: у тикета %d поле %s уже «%q»",
+  "errEditAlreadyField": "ticket: у тикета %d поле %s уже %q",
   "errProjectEmpty": "ticket: проект не может быть пустым",
 
   "errDeleteOnlyOpen": "ticket: без --force можно удалить только open-тикет из основного каталога (сейчас: %s)",
@@ -69,5 +69,6 @@
   "deleteRefused": "ticket: нет терминала для подтверждения; повторите с --yes (ничего не изменено)",
   "deleteCancelled": "ticket: удаление отменено, ничего не изменено",
 
-  "errTicketDeletedReadOnly": "ticket: тикет %d удалён (файл в tickets/deleted/) и доступен только для чтения: set, reopen и edit отклоняются, файл не меняется"
+  "errTicketDeletedReadOnly": "ticket: тикет %d удалён (файл в tickets/deleted/) и доступен только для чтения: set, reopen и edit отклоняются, файл не меняется",
+  "errReadOnly": "ticket: хранилище тикетов в режиме только чтения"
 }

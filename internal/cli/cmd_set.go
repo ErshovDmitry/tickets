@@ -108,6 +108,8 @@ func setError(st *store.Store, stderr io.Writer, lang domain.Lang, numArg string
 		fmt.Fprintln(stderr, domain.ErrTicketAlreadyStatus(lang, already.Number, string(already.Status)))
 	case errors.Is(err, store.ErrNotFound):
 		return notFoundHinted(st, stderr, lang, numArg)
+	case errors.Is(err, store.ErrReadOnly):
+		fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
 	default:
 		fmt.Fprintf(stderr, "ticket: %v\n", err)
 	}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -69,7 +70,11 @@ func cmdNormalize(st *store.Store, f normalizeFlags, lang domain.Lang, stdout, s
 		fmt.Fprintln(stdout, path)
 	}
 	if err != nil {
-		fmt.Fprintf(stderr, "ticket: %v\n", err)
+		if errors.Is(err, store.ErrReadOnly) {
+			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+		} else {
+			fmt.Fprintf(stderr, "ticket: %v\n", err)
+		}
 		return exitError
 	}
 	return exitOK

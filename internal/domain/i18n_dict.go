@@ -86,6 +86,10 @@ type dictJSON struct {
 	// T-0189 W3: terminal/read-only refusal (set/edit/reopen on a deleted
 	// ticket). Same pipeline as the delete keys.
 	ErrTicketDeletedReadOnly string `json:"errTicketDeletedReadOnly"`
+
+	// T-0192: store-wide read-only refusal (rights/mount of TICKETS_DIR).
+	// No placeholders — the message names the store, not one ticket.
+	ErrReadOnly string `json:"errReadOnly"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -169,5 +173,6 @@ func loadDict(data []byte) (*dict, error) {
 		deleteRefused:               dj.DeleteRefused,
 		deleteCancelled:             dj.DeleteCancelled,
 		errTicketDeletedReadOnly:    dj.ErrTicketDeletedReadOnly,
+		errReadOnly:                 dj.ErrReadOnly,
 	}, nil
 }
