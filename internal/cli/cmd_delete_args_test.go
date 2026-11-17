@@ -2,7 +2,7 @@ package cli
 
 // T-0189 W2-A1: argument-form, invalid-ref and ambiguity-resolution tests for
 // ticket delete. Usage errors print the usage text and exit 1; a flag in the
-// ref slot is the T-0068 ErrUnknownFlag report; an invalid ref is localized;
+// ref slot is the T-0068 ErrUnknownFlagList report; an invalid ref is localized;
 // a duplicated number or an identical base name in several dirs is exit 2
 // with every absolute path, before any prompt and without touching the tree.
 
