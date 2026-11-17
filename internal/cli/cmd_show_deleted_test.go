@@ -78,6 +78,84 @@ func TestShowDeleted_AmbiguityAcrossDirs(t *testing.T) {
 	}
 }
 
+// duplicateNamedInto writes a byte-identical copy of mainPath into
+// dir/<sub>/<baseName> — the cheapest way to stage a same-basename file
+// in another directory without touching the store (the pattern of
+// duplicateIntoDeleted, generalized over the subdirectory and the name).
+func duplicateNamedInto(t *testing.T, dir, sub, mainPath, baseName string) string {
+	t.Helper()
+	data, err := os.ReadFile(mainPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", mainPath, err)
+	}
+	subDir := filepath.Join(dir, sub)
+	if err := os.MkdirAll(subDir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", subDir, err)
+	}
+	p := filepath.Join(subDir, baseName)
+	if err := os.WriteFile(p, data, 0o644); err != nil {
+		t.Fatalf("write %s: %v", p, err)
+	}
+	return p
+}
+
+// TestShowDeleted_ExactNameCollisionAcrossDirs pins the R4 same-basename
+// collision: one base name carried by main, archive AND deleted resolves
+// to exitAmbiguous with EVERY conflicting absolute path — the deleted
+// one included, never a silent first-directory pick.
+func TestShowDeleted_ExactNameCollisionAcrossDirs(t *testing.T) {
+	dir := resolvedTempDir(t)
+	mainPath := newTicketPath(t, dir, "ru", "same base name")
+	base := filepath.Base(mainPath)
+	archivePath := duplicateNamedInto(t, dir, "archive", mainPath, base)
+	deletedPath := duplicateNamedInto(t, dir, "deleted", mainPath, base)
+
+	so, se, code := runDeleteCLI(t, dir, "ru", "show", base)
+	if code != exitAmbiguous {
+		t.Fatalf("show %s: code=%d, want %d (stderr=%q)", base, code, exitAmbiguous, se)
+	}
+	if so != "" {
+		t.Errorf("stdout = %q, want empty", so)
+	}
+	if !strings.Contains(se, "неоднозначен") {
+		t.Errorf("stderr = %q, want the ambiguity header", se)
+	}
+	for _, p := range []string{mainPath, archivePath, deletedPath} {
+		if !strings.Contains(se, p) {
+			t.Errorf("stderr = %q, missing conflicting path %s", se, p)
+		}
+	}
+}
+
+// TestShowDeleted_AmbiguityArchiveAndDeleted pins the R4 numeric case: a
+// number carried by archive and deleted (no main file) is exitAmbiguous
+// with BOTH absolute paths.
+func TestShowDeleted_AmbiguityArchiveAndDeleted(t *testing.T) {
+	dir := resolvedTempDir(t)
+	mainPath := newTicketPath(t, dir, "ru", "archived and deleted")
+	archivePath := duplicateNamedInto(t, dir, "archive", mainPath, "T-0001-done.md")
+	deletedPath := duplicateIntoDeleted(t, dir, mainPath)
+	if err := os.Remove(mainPath); err != nil {
+		t.Fatalf("remove main ticket: %v", err)
+	}
+
+	so, se, code := runDeleteCLI(t, dir, "ru", "show", "1")
+	if code != exitAmbiguous {
+		t.Fatalf("show 1: code=%d, want %d (stderr=%q)", code, exitAmbiguous, se)
+	}
+	if so != "" {
+		t.Errorf("stdout = %q, want empty", so)
+	}
+	if !strings.Contains(se, "неоднозначен") {
+		t.Errorf("stderr = %q, want the ambiguity header", se)
+	}
+	for _, p := range []string{archivePath, deletedPath} {
+		if !strings.Contains(se, p) {
+			t.Errorf("stderr = %q, missing conflicting path %s", se, p)
+		}
+	}
+}
+
 // TestShowDeleted_NotFoundHintCountsDeleted pins the deleted-aware
 // scanMax: with only a deleted ticket present the store is not "empty"
 // and its maximum (7 here) bounds the hint for an above-max request.
