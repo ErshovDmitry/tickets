@@ -13,8 +13,9 @@ import (
 	"ticket/internal/domain"
 )
 
-// is left byte-identical) and the post-rename restore failure. They carry the
-// user-facing sentence only; the reason code names the condition.
+// Warning errors behind the normalize reasons: the two guard skips (the
+// file is left byte-identical) and the post-rename restore failure. They
+// carry the user-facing sentence only; the reason code names the condition.
 var (
 	errUnrecognizedMeta = &parseErr{msg: "bash-era metadata labels, file left unchanged"}
 	errIncompleteMeta   = &parseErr{msg: "incomplete metadata, file left unchanged"}

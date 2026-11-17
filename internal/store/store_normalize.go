@@ -211,5 +211,3 @@ func (s *Store) commitNormalizedLocked(p string, e fileEntry, rendered []byte, r
 	}
 	return nil
 }
-
-// Warning errors behind the normalize reasons: the two guard skips (the file

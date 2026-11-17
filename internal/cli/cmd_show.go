@@ -27,7 +27,7 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 	}
 	// T-0157 escape hatch: an argument that is an exact ticket file name
 	// (no path separators, matches T-NNNN-<status>.md) resolves that very
-	// file via FindExact, even when the number is ambiguous — the user
+	// file via FindExactAcross, even when the number is ambiguous — the user
 	// picked the file from a listing, so the number need not be unique.
 	if !strings.ContainsAny(args[0], "/\\") {
 		if _, _, perr := domain.ParseFilename(args[0]); perr == nil {
@@ -41,11 +41,12 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 		fmt.Fprintln(stderr, domain.ErrTicketArgNonNumeric(lang, args[0]))
 		return exitError
 	}
-	// FindRaw returns the scan-matched file's exact raw bytes, read from
-	// the single validated handle (openValidated): the file is never
+	// FindRawAcross returns the scan-matched file's exact raw bytes, read
+	// from the single validated handle (openValidated): the file is never
 	// re-opened by path after validation, so a symlink swapped into the
 	// name between scan and read cannot leak outside content into show's
-	// output. The body's Status is untrusted ("- Статус: " accepts any
+	// output. FindRawAcross matches the number across the main, archive
+	// and deleted listings (T-0189), so a deleted ticket is readable too. The body's Status is untrusted ("- Статус: " accepts any
 	// bytes), so the path is NEVER rebuilt via domain.Filename(t.Number,
 	// t.Status): a crafted body status like "../../../x" made the old code
 	// read files outside TICKETS_DIR (filepath.Join cleans the inner ".."
@@ -82,13 +83,13 @@ func notFound(stderr io.Writer, lang domain.Lang, arg string) int {
 }
 
 // notFoundHinted reports «не найден» and, for a numeric argument, adds
-// ONE hint line chosen from the store's actual state (main + archive
-// listings; the max is never hardcoded). Branch order is deliberate:
+// ONE hint line chosen from the store's actual state (main + archive +
+// deleted listings; the max is never hardcoded). Branch order is deliberate:
 // n==0 → «номера начинаются с 1»; max==0 → «хранилище пусто», unless
 // the scan rejected present files (warnings) — then the generic hint,
 // so emptiness is never claimed for a store whose files were skipped;
 // n>max → the real bound; in-range miss → the generic hint (show
-// searches archive/ too). Scan warnings are not printed here.
+// searches archive/ and deleted/ too). Scan warnings are not printed here.
 func notFoundHinted(st *store.Store, stderr io.Writer, lang domain.Lang, arg string) int {
 	rc := notFound(stderr, lang, arg)
 	n, ok := parseTicketNumber(arg)
@@ -113,8 +114,9 @@ func notFoundHinted(st *store.Store, stderr io.Writer, lang domain.Lang, arg str
 
 // scanMax returns the highest ticket number across the main, archive and
 // deleted listings (numbering includes deleted/, T-0189) and whether any
-// of the scans produced warnings. The deleted listing stays a hint-only
-// source: it only widens the reported bound, never what show can read.
+// of the scans produced warnings. The deleted listing widens the
+// reported bound and is itself readable by show (T-0189), so the bound
+// and the set of numbers show can print stay in sync.
 func scanMax(st *store.Store) (maxNum int, warned bool) {
 	main, warns := st.List()
 	archive, archiveWarns := st.ListArchive()
@@ -139,7 +141,8 @@ func scanMax(st *store.Store) (maxNum int, warned bool) {
 
 // showByName resolves an exact ticket file name via the store's
 // FindExactAcross escape hatch (T-0157): one match prints the file's exact
-// bytes; an ambiguous name (same base name in main and archive) lists
+// bytes; an ambiguous name (same base name in main, archive or deleted)
+// lists
 // every conflicting path; an absent name is a not-found report. As with
 // the number path, the raw bytes come from the single validated handle.
 func showByName(st *store.Store, name string, lang domain.Lang, stdout, stderr io.Writer) int {
