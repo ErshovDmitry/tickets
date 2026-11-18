@@ -118,6 +118,10 @@ jobs:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
+      # Matrix legs (per-OS build/test) must not cancel each other: with
+      # fail-fast, one failing OS cancels the legs that have not reported
+      # yet (T-0196).
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         include:
