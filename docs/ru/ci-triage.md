@@ -84,6 +84,54 @@ bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics
 
 После включения ci-retry stage 2 метрика `rerun%` начнёт считать и автоматические rerun'ы, а не только ручные. Скрипт печатает эту оговорку в своём выводе.
 
+## Security audit: обновление zizmor и пересмотр baseline
+
+Джоба `security` в `.github/workflows/ci.yml` аудирует оба workflow
+закреплённым zizmor. Красный прогон Security audit означает НОВЫЙ finding
+(всё из задокументированного baseline игнорируется и остаётся зелёным).
+Порядок триажа:
+
+1. **Решение о версии.** Прочитать changelog/release notes upstream для
+   новой версии zizmor. Бамп — отдельный осознанный commit, никогда не в
+   связке с другими изменениями.
+2. **Ассет.** Скачать release-ассет по точному URL и сверить `sha256sum` с
+   полем `digest` из `gh api repos/zizmorcore/zizmor/releases/latest`
+   (или со страницы релиза).
+3. **Аттестация.** Убедиться, что релиз несёт Sigstore-аттестацию от
+   workflow `release-binaries.yml`:
+   `gh attestation verify <asset> --repo zizmorcore/zizmor`.
+4. **Вендоринг (offline-путь, LOCK).** Обновить вендоренные файлы
+   `.github/zizmor/bundle.json` и `.github/zizmor/trusted_root.jsonl`
+   под локом wiki. Bundle выбирать ПО ПРЕДИКАТУ — запись с
+   `SLSA provenance/v1` (например, `gh api
+   repos/zizmorcore/zizmor/attestations/<digest>`), не по индексу массива;
+   trusted root — через `gh attestation trusted-root`. Затем проверка
+   OFFLINE с изоляцией креденшелов (пустой конфиг-каталог, токены сняты):
+   `env -u GH_TOKEN -u GITHUB_TOKEN GH_CONFIG_DIR=<пустой>
+   gh attestation verify <asset> --bundle .github/zizmor/bundle.json
+   --custom-trusted-root .github/zizmor/trusted_root.jsonl
+   --repo zizmorcore/zizmor
+   --signer-workflow zizmorcore/zizmor/.github/workflows/release-binaries.yml
+   --source-ref refs/tags/vX.Y.Z`.
+   Ожидание: exit 0 для подлинного ассета, 1 для подпорченного, 1 для
+   bundle от другого подписанта — проверить все три.
+5. **ДО.** Прогнать аудит на обоих workflow с ТЕКУЩИМ конфигом и зафиксировать
+   числа (`ZIZMOR_CONFIG=.github/zizmor.yml ./zizmor --persona auditor
+   --offline .github/workflows/ci.yml .github/workflows/ci-retry.yml`, плюс
+   прогон без конфига).
+6. **Закрепка одним commit.** Обновить URL+SHA-256 ассета в `ci.yml`, хэши
+   вендоренных файлов в `ci.yml`, ignore-записи (позиции ПЕРЕИЗМЕРИТЬ, не
+   копировать) в `.github/zizmor.yml` и строку журнала аудита в
+   `docs/security-accepted-risks.md` (+ RU-зеркало) — ОДНИМ commit.
+7. **ПОСЛЕ.** Повторный прогон аудита: ожидается «No findings to report» со
+   счётчиком ignored, равным размеру baseline, exit 0 и зелёная джоба
+   Security audit в CI. Числа ДО/ПОСЛЕ — в отчёт.
+
+Реестр принятых рисков (`docs/ru/security-accepted-risks.md`) определяет,
+какие findings могут оставаться в baseline и когда следующий пересмотр
+(любой бамп версии/digest, любая правка workflow, любой новый
+privileged-контур CI либо 90 дней — что раньше).
+
 ## Заметка о локальном доме
 
 Отслеживаемым каноническим домом этой процедуры является эта пара документов: `docs/ci-triage.md` (EN) и `docs/ru/ci-triage.md` (RU). Волна добавляет в локальный, игнорируемый git `AGENTS_ARCHITECTURE.md` (боевое дерево) раздел-указатель со ссылкой на `docs/ci-triage.md` — полный текст там не дублируется.

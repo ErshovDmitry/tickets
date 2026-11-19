@@ -84,6 +84,53 @@ bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics
 
 After ci-retry stage 2 is enabled, the `rerun%` metric will also count the automatic reruns, not only the manual ones. The script prints this caveat in its output.
 
+## Security audit: updating zizmor and reviewing the baseline
+
+The `security` job in `.github/workflows/ci.yml` audits both workflows with
+a pinned zizmor. A red Security audit run means a NEW finding (anything in
+the documented baseline is ignored and stays green). Triage procedure:
+
+1. **Version decision.** Read the upstream changelog/release notes for the
+   new zizmor version. The bump is a separate, deliberate commit — never
+   bundled with other changes.
+2. **Fetch the asset.** Download the release asset by its exact URL and
+   compare `sha256sum` output with the `digest` field from
+   `gh api repos/zizmorcore/zizmor/releases/latest` (or the release page).
+3. **Attestation.** Confirm the release carries a Sigstore attestation from
+   the `release-binaries.yml` workflow:
+   `gh attestation verify <asset> --repo zizmorcore/zizmor`.
+4. **Vendor (offline path, LOCK).** Update the vendored files
+   `.github/zizmor/bundle.json` and `.github/zizmor/trusted_root.jsonl`
+   under a wiki lock. Pick the attestation bundle BY PREDICATE — the entry
+   with `SLSA provenance/v1` (e.g. `gh api
+   repos/zizmorcore/zizmor/attestations/<digest>`), not by array index;
+   fetch the trusted root with `gh attestation trusted-root`. Then verify
+   OFFLINE with credentials isolated (empty config dir, tokens unset):
+   `env -u GH_TOKEN -u GITHUB_TOKEN GH_CONFIG_DIR=<empty>
+   gh attestation verify <asset> --bundle .github/zizmor/bundle.json
+   --custom-trusted-root .github/zizmor/trusted_root.jsonl
+   --repo zizmorcore/zizmor
+   --signer-workflow zizmorcore/zizmor/.github/workflows/release-binaries.yml
+   --source-ref refs/tags/vX.Y.Z`.
+   Expect exit 0 for the genuine asset, 1 for a tampered one, 1 for a
+   bundle from a different signer — probe all three.
+5. **Baseline BEFORE.** Run the audit on both workflows with the CURRENT
+   config and record the numbers (`ZIZMOR_CONFIG=.github/zizmor.yml
+   ./zizmor --persona auditor --offline .github/workflows/ci.yml
+   .github/workflows/ci-retry.yml`, plus a no-config run).
+6. **Pin in one commit.** Update the asset URL + SHA-256 in `ci.yml`, the
+   vendored file hashes in `ci.yml`, the ignores (re-measured positions —
+   never copied) in `.github/zizmor.yml`, and the audit-log row in
+   `docs/security-accepted-risks.md` (+ RU mirror) — as ONE commit.
+7. **AFTER.** Re-run the audit: expect "No findings to report" with the
+   ignored count equal to the baseline size, exit 0, and a green Security
+   audit job in CI. Put the before/after numbers in the report.
+
+The accepted-risks registry (`docs/security-accepted-risks.md`) defines
+which findings may stay in the baseline and when the next review is due
+(any version/digest bump, any workflow change, any new privileged CI
+contour, or 90 days — whichever comes first).
+
 ## Local home note
 
 The tracked canonical home of this procedure is this document pair: `docs/ci-triage.md` (EN) and `docs/ru/ci-triage.md` (RU). The wave adds a pointer section into the local, gitignored `AGENTS_ARCHITECTURE.md` (live tree) that references `docs/ci-triage.md` — the full text is not duplicated there.
