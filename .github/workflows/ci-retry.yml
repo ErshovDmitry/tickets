@@ -37,7 +37,6 @@ env:
   MIN_QUEUE_WAIT_SECONDS: "870"
   DRY_RUN_DEFAULT: "true"
   JOBS_PER_PAGE: "100"
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   retry:
@@ -59,9 +58,13 @@ jobs:
           EVENT_WF_NAME: ${{ github.event.workflow_run.name }}
           EVENT_WF_PATH: ${{ github.event.workflow_run.path }}
           INPUT_RUN_ID: ${{ github.event.inputs.run_id }}
-          # Review pass 2 (blue-1): dispatch arm maps dry_run EXPLICITLY;
-          # it must never silently fall back to DRY_RUN_DEFAULT.
+          # Invariant: the dispatch arm must map dry_run EXPLICITLY and
+          # never silently fall back to DRY_RUN_DEFAULT.
           INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          # Step-scoped token instead of workflow-level env: future-proofing
+          # (a workflow-level var would leak into every future job);
+          # behavior is identical — only this step calls gh.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -83,14 +86,25 @@ jobs:
               RUN_ID="$INPUT_RUN_ID"
               DRY_RUN="$INPUT_DRY_RUN"
               API="repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID"
-              RUN_NAME=$(gh api "$API" --jq '.name')
-              RUN_PATH=$(gh api "$API" --jq '.path')
+              # One API call for both fields (TSV split) — identical values,
+              # half the requests. Two-step read keeps the substitution's
+              # exit status fail-closed under set -e.
+              RUN_META=$(gh api "$API" --jq '[.name,.path]|@tsv')
+              IFS=$'\t' read -r RUN_NAME RUN_PATH <<<"$RUN_META"
               ;;
             *)
               echo "::error::unsupported event: $EVENT_NAME"
               exit 1
               ;;
           esac
+          # Sanitize untrusted API strings (run name/path) right after
+          # reading: strip newlines and "::" sequences — log/summary
+          # injection hardening and cosmetic cleanup of command markers;
+          # every downstream echo/summary use sees the clean values.
+          RUN_NAME=${RUN_NAME//$'\n'/ }
+          RUN_NAME=${RUN_NAME//::/ }
+          RUN_PATH=${RUN_PATH//$'\n'/ }
+          RUN_PATH=${RUN_PATH//::/ }
           # Self-guard: if this workflow is ever renamed to "CI", its own
           # workflow_run completions would match TARGET_WORKFLOW_NAME and
           # recurse; never retry our own runs.
@@ -109,8 +123,11 @@ jobs:
 
           # --- Step 2: inspect the latest attempt of the run. ---
           API="repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID"
-          ATTEMPT=$(gh api "$API" --jq '.run_attempt')
-          RUN_URL=$(gh api "$API" --jq '.html_url')
+          # One API call for both fields (TSV split) — identical values,
+          # half the requests. Two-step read keeps the substitution's
+          # exit status fail-closed under set -e.
+          RUN_META=$(gh api "$API" --jq '[.run_attempt,.html_url]|@tsv')
+          IFS=$'\t' read -r ATTEMPT RUN_URL <<<"$RUN_META"
           JOBS_URL="$API/attempts/$ATTEMPT/jobs?per_page=$JOBS_PER_PAGE"
           JOBS_JSON=$(gh api "$JOBS_URL")
           # Never retry an attempt with a real failure: a cancelled job can
@@ -127,11 +144,12 @@ jobs:
             echo "SKIP: attempt $ATTEMPT has failure/timed_out jobs"
             exit 0
           fi
-          # Capacity candidate filter. Review pass 2 (blue-2): the
-          # .completed_at != null pre-filter keeps jq graceful if a dispatch
-          # catches an in-progress job (fromdateiso8601 on null would
-          # hard-error). Real cancelled jobs always carry completed_at, so
-          # for genuine candidates this pre-filter is a no-op.
+          # Capacity candidate filter. Invariant: the
+          # .completed_at != null pre-filter keeps jq graceful when a
+          # dispatch catches an in-progress job (fromdateiso8601 on null
+          # would hard-error). Real cancelled jobs always carry
+          # completed_at, so for genuine candidates the pre-filter is a
+          # no-op.
           CANDIDATES=$(jq -c '.jobs[]
             | select(.completed_at != null)
             | select(.conclusion == "cancelled"
@@ -161,6 +179,19 @@ jobs:
               echo "### Escalation: attempt cap reached"
               echo "candidates pending retry: $CANDIDATE_COUNT"
               echo "manual intervention required (fails even in dry-run)"
+              # Escalation must name every pending candidate (job/wait/url)
+              # — same detail level as the dry-run report below; run,
+              # attempt and cap are in the report header above.
+              while IFS= read -r candidate; do
+                JOB_ID=$(jq -r '.id' <<<"$candidate")
+                JOB_NAME=$(jq -r '.name' <<<"$candidate")
+                JOB_NAME=${JOB_NAME//$'\n'/ }
+                JOB_NAME=${JOB_NAME//::/ }
+                JOB_URL=$(jq -r '.html_url' <<<"$candidate")
+                JOB_WAIT=$(jq -r '.wait' <<<"$candidate")
+                echo "job: $JOB_NAME (id $JOB_ID)" \
+                  "wait: ${JOB_WAIT}s url: $JOB_URL"
+              done <<<"$CANDIDATES"
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::error::attempt cap reached: $ATTEMPT >= $MAX_RUN_ATTEMPTS"
             exit 1
@@ -173,21 +204,21 @@ jobs:
             echo "nothing to retry"
             exit 0
           fi
+          # Empirically exactly one candidate per event (TSV evidence),
+          # so the loop rarely iterates: with several candidates, sequential
+          # gh run rerun --job calls on one run could each partially fail
+          # under set -e — fail-closed and loud, by design.
           while IFS= read -r candidate; do
             JOB_ID=$(jq -r '.id' <<<"$candidate")
             JOB_NAME=$(jq -r '.name' <<<"$candidate")
+            JOB_NAME=${JOB_NAME//$'\n'/ }
+            JOB_NAME=${JOB_NAME//::/ }
             JOB_URL=$(jq -r '.html_url' <<<"$candidate")
             JOB_WAIT=$(jq -r '.wait' <<<"$candidate")
-            if [ "$DRY_RUN" = "true" ]; then
-              echo "would rerun: job='$JOB_NAME' id=$JOB_ID" \
-                "wait=${JOB_WAIT}s url=$JOB_URL"
-              {
-                echo "### Would rerun (dry-run)"
-                echo "job: $JOB_NAME (id $JOB_ID)"
-                echo "queue wait: ${JOB_WAIT}s (min $MIN_QUEUE_WAIT_SECONDS)"
-                echo "url: $JOB_URL"
-              } >> "$GITHUB_STEP_SUMMARY"
-            else
+            # Fail-safe: live rerun ONLY on an explicit "false"; any other
+            # value (true, empty, unexpected) reports without mutating.
+            # Identical outcome to the previous order for valid inputs.
+            if [ "$DRY_RUN" = "false" ]; then
               # .id is the job databaseId; the number from the browser URL
               # would 404 (gh run rerun --job docs).
               gh run rerun "$RUN_ID" --job "$JOB_ID" --repo "$GITHUB_REPOSITORY"
@@ -195,6 +226,15 @@ jobs:
               {
                 echo "### Rerun requested"
                 echo "job: $JOB_NAME (id $JOB_ID)"
+                echo "url: $JOB_URL"
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "would rerun: job='$JOB_NAME' id=$JOB_ID" \
+                "wait=${JOB_WAIT}s url=$JOB_URL"
+              {
+                echo "### Would rerun (dry-run)"
+                echo "job: $JOB_NAME (id $JOB_ID)"
+                echo "queue wait: ${JOB_WAIT}s (min $MIN_QUEUE_WAIT_SECONDS)"
                 echo "url: $JOB_URL"
               } >> "$GITHUB_STEP_SUMMARY"
             fi
