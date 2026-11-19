@@ -1,0 +1,45 @@
+# Baseline for the pinned zizmor audit job (T-0207).
+#
+# Every ignore below is a triaged, accepted risk: rule / severity class is never
+# disabled, each entry is pinned to file:line:column and cross-referenced from
+# the accepted-risks registry (docs/security-accepted-risks.md). A finding that
+# moves or newly appears is NOT covered here and fails CI on purpose.
+#
+# ci-retry.yml entries (a): workflow_run + actions:write is deliberate
+#   functionality (T-0202); PR code is never executed there. Drift of that
+#   privileged workflow is caught by the auditor persona (excessive-permissions
+#   High/High is only visible there) plus this registry entry.
+#   dangerous-triggers ci-retry.yml:14:3      - registry (a), T-0202
+#   excessive-permissions ci-retry.yml:31:3   - registry (a), T-0202
+#   undocumented-permissions ci-retry.yml:31:3,50:7 - explicit permissions,
+#     duplication is deliberate; registry (a), T-0202
+#   concurrency-limits ci-retry.yml:13:1      - ci-retry starts per CI run;
+#     a concurrency cap would break the retry function (registry (a))
+# ci.yml entries (c):
+#   concurrency-limits ci.yml:5:1 - a workflow-level concurrency group would
+#     cancel pending jobs with an empty runner_name and break capacity-cancel
+#     triage (T-0196/T-0203); fail-fast:false is kept. Registry (c).
+#   cache-poisoning ci.yml:46:9,114:9,151:9 - fork PRs cannot poison the base
+#     branch cache (read-only token); artifacts are this repo's own sources;
+#     cache:false would rebuild the toolchain every run (confidence Low).
+#     Registry (c).
+rules:
+  dangerous-triggers:
+    ignore:
+      - ci-retry.yml:14:3
+  excessive-permissions:
+    ignore:
+      - ci-retry.yml:31:3
+  undocumented-permissions:
+    ignore:
+      - ci-retry.yml:31:3
+      - ci-retry.yml:50:7
+  concurrency-limits:
+    ignore:
+      - ci-retry.yml:13:1
+      - ci.yml:5:1
+  cache-poisoning:
+    ignore:
+      - ci.yml:46:9
+      - ci.yml:114:9
+      - ci.yml:151:9

@@ -20,6 +20,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # zizmor artipacked: the lint job needs no git credentials after
+          # checkout; never persist the token into the local git config.
+          persist-credentials: false
 
       # tickets/ is local-only by design (.gitignore:2): the ticket tree is a
       # per-machine source of truth and must never reach a clone. A force-added
@@ -117,6 +121,10 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      # zizmor template-injection: matrix values are interpolated once into a
+      # plain env var instead of directly into run-block expressions.
+      BIN: ${{ matrix.bin }}
     strategy:
       # Matrix legs (per-OS build/test) must not cancel each other: with
       # fail-fast, one failing OS cancels the legs that have not reported
@@ -136,6 +144,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          # zizmor artipacked: version stamping reads tags, not credentials.
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
@@ -150,7 +160,7 @@ jobs:
         run: |
           VER=$(git describe --tags --always 2>/dev/null | sed 's/^v//')
           VER=${VER:-dev}
-          go build -ldflags "-X ticket/internal/cli.version=$VER" -o "${{ matrix.bin }}" ./cmd/ticket
+          go build -ldflags "-X ticket/internal/cli.version=$VER" -o "$BIN" ./cmd/ticket
 
       # coreutils checksum format (<hash>  <filename>, two spaces) so that
       # `sha256sum -c SHA256SUMS.txt` works on any OS. macOS runners ship no
@@ -170,7 +180,7 @@ jobs:
       - name: Generate SHA256SUMS (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Get-FileHash .\${{ matrix.bin }} -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  ${{ matrix.bin }}`n" } | Out-File -Encoding ascii -NoNewline SHA256SUMS.txt
+        run: Get-FileHash .\$env:BIN -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $env:BIN`n" } | Out-File -Encoding ascii -NoNewline SHA256SUMS.txt
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -180,3 +190,82 @@ jobs:
             ${{ matrix.bin }}
             SHA256SUMS.txt
           if-no-files-found: error
+
+  # Security audit (T-0207): static analysis of both workflows with zizmor,
+  # pinned and integrity-checked. This job is deliberately isolated: it runs
+  # no PR-code build steps, shares no caches or artifacts, has no secrets
+  # (the automatic GITHUB_TOKEN is never exported into the environment and
+  # is explicitly unset for every tool invocation), and its only network
+  # access is the pinned asset download below. New findings break CI; the
+  # accepted-risks baseline lives in .github/zizmor.yml with per-entry
+  # triage comments and the registry docs/security-accepted-risks.md.
+  security:
+    name: Security audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    env:
+      ZIZMOR_PERSONA: auditor
+      ZIZMOR_CONFIG: .github/zizmor.yml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Pinning variant (b): the release asset of an exact version plus its
+      # SHA-256 (equal to the GitHub API digest at pin time) plus an OFFLINE
+      # Sigstore attestation check against vendored bundle/root files.
+      # Upstream publishes no SHA256SUMS/signatures; the mutable ghcr image
+      # was rejected because it carries no attestation. Never "latest",
+      # never "curl | sh".
+      - name: Download zizmor (pinned v1.32.0)
+        run: |
+          curl -fsSL --proto '=https' --tlsv1.2 -o zizmor.tar.gz \
+            https://github.com/zizmorcore/zizmor/releases/download/v1.32.0/zizmor-x86_64-unknown-linux-gnu.tar.gz
+
+      # Integrity by digest, not by tag name: a re-uploaded asset under the
+      # same tag fails this check.
+      - name: Verify asset SHA-256
+        run: |
+          printf '%s  %s\n' \
+            'bb110cc765eca9cd7efb2e284a956be5974c60027b0970f16397d86208a9957b' \
+            zizmor.tar.gz | sha256sum -c -
+
+      # Vendored attestation material must itself be intact before use.
+      - name: Verify vendored attestation files
+        run: |
+          printf '%s  %s\n' \
+            '5cf002bf186fe502ec7d0e1f134a625d0bebd13078019704d3be93bbb97b25ef' \
+            .github/zizmor/bundle.json \
+            '65ca537f6ed8a47fd0e560c421baa1f6c1efb8b25fc200d8c5c02c0e92eb2b9c' \
+            .github/zizmor/trusted_root.jsonl | sha256sum -c -
+
+      # Offline verification (SLSA provenance/v1 bundle): binds the asset
+      # bytes to the release-binaries.yml build at refs/tags/v1.32.0 without
+      # any API access, so no token is needed and none may leak.
+      - name: Verify provenance (offline attestation)
+        run: |
+          env -u GH_TOKEN -u GITHUB_TOKEN gh attestation verify zizmor.tar.gz \
+            --bundle .github/zizmor/bundle.json \
+            --custom-trusted-root .github/zizmor/trusted_root.jsonl \
+            --repo zizmorcore/zizmor \
+            --signer-workflow zizmorcore/zizmor/.github/workflows/release-binaries.yml \
+            --source-ref refs/tags/v1.32.0
+
+      - name: Extract zizmor
+        run: tar -xzf zizmor.tar.gz
+
+      # Forced offline: no online lookups, credentials explicitly removed.
+      # Any finding outside the documented baseline fails the job on
+      # purpose; triage procedure: docs/ci-triage.md.
+      - name: Audit workflows
+        run: |
+          if ! env -u GH_TOKEN -u GITHUB_TOKEN ./zizmor \
+            --persona "$ZIZMOR_PERSONA" --offline \
+            .github/workflows/ci.yml .github/workflows/ci-retry.yml; then
+            echo "::error::zizmor audit failed: new finding or audit error." \
+              "Triage and baseline review: docs/ci-triage.md"
+            exit 1
+          fi
