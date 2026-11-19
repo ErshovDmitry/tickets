@@ -14,3 +14,6 @@
 
 # Кэш mutation-раннера (scripts/mutation.sh: лок-файл + GOBIN)
 /.cache/
+
+# pi-lens probe logs (third-party tool residue): keep out of git status and commits
+**/.pi-lens-probe-home/

@@ -48,6 +48,18 @@ gofmt -l . && go vet ./...      # обязательно чисто перед �
 go test ./...                   # обязательно зелёное перед отметкой done
 ```
 
+## Worktree'ы агентов
+
+Worktree'ы агентов живут вне `$TMPDIR` и вне дерева репозитория; на дев-машине принято `/nob/dmitry/.wt/<ticket>` (id тикета в нижнем регистре, например `/nob/dmitry/.wt/t0200`), создаётся из корня репозитория:
+
+```bash
+git worktree add /nob/dmitry/.wt/<ticket> -b <branch> origin/main
+```
+
+Причина — pi-lens 4.5.0: функция `computeProbeHomeDir()` из этого пакета создаёт каталог `.pi-lens-probe-home/` с логами проб прямо в worktree — в текущий каталог, если тот внутри `os.tmpdir()`, или в корень `.claude/worktrees/<x>/` для такой раскладки — поэтому worktree, созданный в `/tmp`, собирает мусор (936K на worktree, по сообщению в тикете), который засоряет `git status` и может быть захвачен в коммит через `git add -A`.
+
+Эшелонированная защита: в `.gitignore` добавлен шаблон `**/.pi-lens-probe-home/` (в этом же PR), поэтому мусор не попадает в `git status` и не может быть добавлен в индекс при любой раскладке worktree'ов.
+
 ## Markdown lint
 
 Документация проверяется линтером [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2); конфигурация — в `.markdownlint-cli2.jsonc`.

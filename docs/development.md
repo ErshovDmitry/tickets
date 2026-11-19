@@ -48,6 +48,18 @@ gofmt -l . && go vet ./...      # must be clean before commit
 go test ./...                   # must be green before marking done
 ```
 
+## Agent worktrees
+
+Agent worktrees live outside `$TMPDIR` and outside the repository tree; on the dev machine the convention is `/nob/dmitry/.wt/<ticket>` (lowercase ticket id, e.g. `/nob/dmitry/.wt/t0200`), created from the repository root:
+
+```bash
+git worktree add /nob/dmitry/.wt/<ticket> -b <branch> origin/main
+```
+
+The reason is pi-lens 4.5.0: `computeProbeHomeDir()` in that package drops a `.pi-lens-probe-home/` directory of probe logs into the worktree — into the current directory when it is inside `os.tmpdir()`, or into the `.claude/worktrees/<x>/` root for that layout — so a worktree created under `/tmp` collects the residue (936K per worktree, as reported in the ticket), which pollutes `git status` and can be swept into a commit by `git add -A`.
+
+Defense in depth: `.gitignore` carries the pattern `**/.pi-lens-probe-home/` (added in the same pull request), so the residue never shows up in `git status` and can never be staged, whatever the worktree layout is.
+
 ## Markdown lint
 
 Documentation is linted with [markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2); the config lives in `.markdownlint-cli2.jsonc`.
