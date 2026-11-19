@@ -130,6 +130,18 @@ jobs:
           IFS=$'\t' read -r ATTEMPT RUN_URL <<<"$RUN_META"
           JOBS_URL="$API/attempts/$ATTEMPT/jobs?per_page=$JOBS_PER_PAGE"
           JOBS_JSON=$(gh api "$JOBS_URL")
+          # Fail closed: jobs past page 1 are invisible to both consumers (T-0204).
+          # Malformed JSON must not abort under set -e; the jq -e guard
+          # below reports ::error::. Tolerate a bad total_count here.
+          JOBS_TOTAL=$(jq -r '.total_count // empty' \
+            <<<"$JOBS_JSON" 2>/dev/null || true)
+          if ! jq -e --argjson page_size "$JOBS_PER_PAGE" \
+            '.total_count as $t | ($t|type) == "number" and $t <= $page_size' \
+            <<<"$JOBS_JSON" >/dev/null; then
+            echo "::error::jobs pagination incomplete or invalid:" \
+              "total_count=${JOBS_TOTAL:-missing} JOBS_PER_PAGE=$JOBS_PER_PAGE"
+            exit 1
+          fi
           # Never retry an attempt with a real failure: a cancelled job can
           # be a fail-fast cascade sibling. Checked on the RAW payload of ALL
           # jobs BEFORE any capacity filtering.
