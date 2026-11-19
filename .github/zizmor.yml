@@ -4,11 +4,14 @@
 # disabled, each entry is pinned to file:line:column and cross-referenced from
 # the accepted-risks registry (docs/security-accepted-risks.md). A finding that
 # moves or newly appears is NOT covered here and fails CI on purpose.
+# Recompute ignore positions via a --no-config run after any workflow edit
+# (line shifts turn CI red by design).
 #
 # ci-retry.yml entries (a): workflow_run + actions:write is deliberate
 #   functionality (T-0202); PR code is never executed there. Drift of that
 #   privileged workflow is caught by the auditor persona (excessive-permissions
-#   High/High is only visible there) plus this registry entry.
+#   High/High is not visible under the default regular persona) plus this
+#   registry entry.
 #   dangerous-triggers ci-retry.yml:14:3      - registry (a), T-0202
 #   excessive-permissions ci-retry.yml:31:3   - registry (a), T-0202
 #   undocumented-permissions ci-retry.yml:31:3,50:7 - explicit permissions,

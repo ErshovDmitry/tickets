@@ -74,7 +74,7 @@ The script keeps them as named constants: CANCEL_MIN=3, RERUN_PCT=10, MACOS_P95_
 
 ## Scheduling and cron honesty
 
-The scheduled workflow is possible only after zizmor is connected (T-0207 is still open). Until then the weekly run is manual, and it follows this procedure:
+The scheduled workflow is possible only after zizmor is connected (T-0207 merged; cron gated on T-0208). Until then the weekly run is manual, and it follows this procedure:
 
 ```bash
 bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics

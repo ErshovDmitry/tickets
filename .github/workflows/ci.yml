@@ -195,10 +195,10 @@ jobs:
   # pinned and integrity-checked. This job is deliberately isolated: it runs
   # no PR-code build steps, shares no caches or artifacts, has no secrets
   # (the automatic GITHUB_TOKEN is never exported into the environment and
-  # is explicitly unset for every tool invocation), and its only network
-  # access is the pinned asset download below. New findings break CI; the
-  # accepted-risks baseline lives in .github/zizmor.yml with per-entry
-  # triage comments and the registry docs/security-accepted-risks.md.
+  # is explicitly unset for every token-consuming invocation), and its
+  # only network access is the pinned asset download below. New findings
+  # break CI; the accepted-risks baseline lives in .github/zizmor.yml with
+  # per-entry triage comments and the registry docs/security-accepted-risks.md.
   security:
     name: Security audit
     runs-on: ubuntu-latest

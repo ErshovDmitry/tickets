@@ -1,7 +1,7 @@
 # Security accepted risks
 
 Registry of accepted security risks for the CI/CD surface, mirrored in
-[docs/ru/security-accepted-risks.md](../ru/security-accepted-risks.md). Each
+[docs/ru/security-accepted-risks.md](ru/security-accepted-risks.md). Each
 entry records the risk, the attack scenario, the control that keeps it
 acceptable, and the exact suppression in
 [.github/zizmor.yml](../.github/zizmor.yml) (narrow `file:line:column`
@@ -20,8 +20,9 @@ baseline review procedure is in [docs/ci-triage.md](ci-triage.md).
   a `workflow_run` metadata change that reruns more than intended.
 - **Control:** the change is a one-step, fail-closed design documented at
   T-0202; the zizmor auditor persona surfaces any drift of this privileged
-  workflow (excessive-permissions High/High is visible only under
-  `auditor`); this registry entry makes the acceptance explicit. The file
+  workflow (excessive-permissions High/High is not visible under the
+  default regular persona); this registry entry makes the acceptance
+  explicit. The file
   itself is out of scope for the T-0207 PR and must not be edited to silence
   findings.
 - **Suppression (this finding only):**
@@ -65,6 +66,10 @@ baseline review procedure is in [docs/ci-triage.md](ci-triage.md).
   empty `runner_name` and break capacity-cancel triage (T-0196/T-0203).
 - **Control:** `cache:false` would rebuild the toolchain on every run and is
   rejected (finding confidence Low); `fail-fast: false` is kept deliberately.
+- **Design limitation:** on `pull_request` the audit job checks out PR
+  content, so a PR can edit the audited workflows/config to pass its own
+  audit; the fail-closed guarantee holds on push to main (trusted base).
+  Job isolation (no secrets/caches/artifacts) compensates.
 - **Suppression (this finding only):**
   `cache-poisoning ci.yml:46:9,114:9,151:9`,
   `concurrency-limits ci.yml:5:1`.
@@ -73,7 +78,7 @@ baseline review procedure is in [docs/ci-triage.md](ci-triage.md).
 
 | Date | zizmor | Repo commit | Vendored bundle SHA-256 | Vendored root SHA-256 | Audit result | Next review |
 |------|--------|-------------|-------------------------|-----------------------|--------------|-------------|
-| 2026-11-19 | v1.32.0 | b56993f (base; audit added by the T-0207 PR) | `5cf002bf…b97b25ef` | `65ca537f…2eb2b9c` | auditor: 0 visible findings, 9 ignored (baseline above); without config: 9 findings | 2027-02-17 |
+| 2026-11-19 | v1.32.0 | 6ad2f0b (PR #36; base b56993f) | `5cf002bf…b97b25ef` | `65ca537f…2eb2b9c` | auditor: 0 visible findings, 9 ignored (baseline above); without config: 9 findings | 2027-02-17 |
 
 Policy: re-audit on every zizmor version/digest bump, every workflow change,
 every new privileged CI contour, or after 90 days — whichever comes first.
