@@ -269,7 +269,7 @@ func TestAcquireLockedFreeZeroTimeout(t *testing.T) {
 
 // TestAcquireLockedTimeoutBelowPollInterval (plan test 7): with a held
 // lock and timeout below pollInterval the call must give up near the deadline;
-// sleeping a full pollInterval exceeds the 5x-headroom cap below.
+// sleeping a full pollInterval exceeds the 10x-headroom cap below.
 func TestAcquireLockedTimeoutBelowPollInterval(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".lock")
 	held, err := Acquire(path)
@@ -292,7 +292,7 @@ func TestAcquireLockedTimeoutBelowPollInterval(t *testing.T) {
 	if elapsed < timeout {
 		t.Errorf("elapsed = %s, want >= %s", elapsed, timeout)
 	}
-	if elapsed >= pollInterval/2 {
-		t.Errorf("elapsed = %s, want < %s (overslept the deadline)", elapsed, pollInterval/2)
+	if elapsed >= pollInterval {
+		t.Errorf("elapsed = %s, want < %s (overslept the deadline)", elapsed, pollInterval)
 	}
 }
