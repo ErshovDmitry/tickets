@@ -74,7 +74,7 @@ bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics
 
 ## Планирование и честность про cron
 
-Scheduled workflow возможен только после подключения zizmor (T-0207 ещё открыт). До тех пор еженедельный запуск ручной, и он выполняется по этой процедуре:
+Scheduled workflow возможен только после подключения zizmor (T-0207 смержен; cron блокирован T-0208). До тех пор еженедельный запуск ручной, и он выполняется по этой процедуре:
 
 ```bash
 bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics
