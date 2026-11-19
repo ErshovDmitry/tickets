@@ -182,7 +182,7 @@ jobs:
               # Escalation must name every pending candidate (job/wait/url)
               # — same detail level as the dry-run report below; run,
               # attempt and cap are in the report header above.
-              while IFS= read -r candidate; do
+              while IFS= read -r candidate && [ -n "$candidate" ]; do
                 JOB_ID=$(jq -r '.id' <<<"$candidate")
                 JOB_NAME=$(jq -r '.name' <<<"$candidate")
                 JOB_NAME=${JOB_NAME//$'\n'/ }
