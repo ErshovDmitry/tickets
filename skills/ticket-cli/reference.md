@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.11"
+version: "1.12"
 created: 2026-09-04
-modified: 2026-11-16
+modified: 2026-11-21
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-16 (T-0189 W3 added the `list` `deleted` mode and the `deleted/` notes to `show`/`set`/`edit`/`archive`/`recover`/`normalize`, T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block, T-0187 added the `ticket edit` block to the command list); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-21 (T-0215 documented the `set` comment source rules in the `set` block: a single comment argument is a source (`-` — stdin, `@<file>` — file content, `@@имя` — file named "@имя"), two or more arguments are joined with a space and used literally, the content is copied byte for byte and a CR/LF in it is refused, and the lone-marker trade-off is stated); the previous re-sync was on 2026-11-16 (T-0189 W3 added the `list` `deleted` mode and the `deleted/` notes to `show`/`set`/`edit`/`archive`/`recover`/`normalize`, T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block, T-0187 added the `ticket edit` block to the command list); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -43,6 +43,12 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       сменить статус (сам переименует файл и допишет строку в журнал тикета);
       повторный set в тот же статус с комментарием допишет журнал
       (статус и имя файла не меняются), без комментария — ошибка;
+      комментарий можно дать ОДНИМ аргументом: - — stdin, @<файл> — содержимое файла, @@имя — файл с именем "@имя";
+      @ без пути как ОДИН аргумент комментария — ошибка (код 1), так же ошибка при отсутствующем файле и сбое чтения stdin — имя тикета, его байты и журнал не меняются;
+      содержимое переносится байт в байт; CR или LF в нём отклоняются (код 1) — ничего не пишется;
+      два или больше аргументов комментария соединяются пробелом и берутся буквально — ни файл, ни stdin не читаются;
+      компромисс: одиночный "-" или "@..." никогда не будет буквальным комментарием, а два аргумента — не побайтовый выход (пробел вставляется);
+      "-" читает stdin до конца ввода; на терминале ждёт EOF (Ctrl-D)
       перевод архивного тикета в open/wip возвращает его из архива в работу;
       deleted этим путём не назначается: явное имя статуса или тикет, чей файл лежит в deleted/, отклоняются — код 1, файл не меняется
   ticket edit <номер> [--title "<кратко>"] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--project <проект>]
@@ -119,3 +125,4 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-11-16 | T-0188: the `list` `--type`/`--priority` filters were missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (list syntax line and the `--type`/`--priority` block) | 1.9 |
 | 2026-11-16 | T-0187: `ticket edit` was missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (edit block) | 1.9 |
 | 2026-11-16 | Merge of T-0188 and T-0187 | Rebase resolution: help text keeps both the `list` filters and the `edit` block; version bumped past both parents | 1.10 |
+| 2026-11-21 | T-0215 (GitHub #35): the `set` comment source rules (single-argument `-`/`@file`/`@@name`, multi-argument literal join, CR/LF refusal) were missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (set block: one comment argument = a source, two or more = literal space-join, byte-exact copy, CR/LF refusal without mutation) | 1.12 |

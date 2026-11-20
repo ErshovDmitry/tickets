@@ -85,6 +85,18 @@ Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_
 - An empty file or empty stdin — an empty `Details` value; the command succeeds and the created ticket shows the Details format block (the same as with `-d ""`).
 - A missing file or a failed stdin read — an error: the message is localized (the file error names the path) and no ticket is created.
 
+### Comment input (`set`)
+
+`ticket set <number> <status> ["comment"]` takes the comment from the arguments after the status:
+
+- ONE comment argument — it is a source, not a literal: `-` is stdin, `@<file>` is the content of that file, `@@name` is the file named `@name` (exactly one `@` is stripped, `@@` is not an escape). Any other single argument is used literally.
+- `@` alone as the ONE comment argument — an error (exit 1): the path after `@` is required. The diagnostics reuse the `-d` wording (they say "file details"), the same messages as for `new -d`.
+- The content is copied byte for byte; a CR or LF inside it is refused (exit 1) — the ticket name, its bytes and the journal stay unchanged.
+- An empty file or empty stdin — an empty comment: a status change still works, but a same-status `set` fails as it does without a comment (exit 1).
+- ZERO comment arguments — the comment is empty (a same-status `set` without a comment is an error, as before).
+- TWO or more comment arguments — they are joined with a single space and used literally: no file is read and stdin is not touched, so a flag-like word (`-x`) stays literal.
+- Trade-off: a lone `-` or `@...` argument is never a literal comment, and two arguments are not a byte-exact escape (the join inserts a space). `-` on a terminal reads stdin until EOF (Ctrl-D).
+
 ### List filters (`--type`, `--priority`)
 
 `--type` and `--priority` narrow the selection and combine with the status and `-P` filters by AND:
@@ -152,6 +164,12 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       change the status (renames the file itself and appends a line to the ticket journal);
       re-setting the same status with a comment appends a journal entry
       (status and file name unchanged), without a comment it is an error;
+      the comment may be given as ONE argument: - — stdin, @<file> — file content, @@name — file named "@name";
+      a bare @ as the ONE comment argument (no path) is an error (exit 1), a missing file and a failed stdin read are errors too — the ticket name, its bytes and the journal stay unchanged;
+      the content is copied byte for byte; a CR or LF in it is refused (exit 1) — nothing is written;
+      two or more comment arguments are joined with a space and used literally — no file and no stdin is read;
+      trade-off: a lone "-" or "@..." argument is never a literal comment, and two arguments are not a byte-exact escape (the join inserts a space);
+      "-" reads stdin to the end of the input; on a terminal it waits for EOF (Ctrl-D)
       moving an archived ticket back to open/wip restores it from the archive into work;
       set never assigns deleted: naming it, or a ticket whose file lives in deleted/, is refused — exit 1, the file is unchanged
   ticket edit <number> [--title "<brief>"] [--type BUG|OPS|TD|ENH] [--priority low|normal|high] [--project <project>]

@@ -1,8 +1,8 @@
 ---
 name: ticket-cli
-version: "1.17"
+version: "1.18"
 created: 2026-09-04
-modified: 2026-11-16
+modified: 2026-11-21
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/archive/recover/delete/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`."
@@ -80,6 +80,8 @@ ticket set <number> <status> ["comment"]
 ```
 
 Renames the file and appends a journal line. Re-setting the SAME status WITH a comment appends a journal entry only (no rename); the same status WITHOUT a comment is an error. Moving an archived ticket to `open`/`wip` returns it from the archive into work.
+
+The comment may be a SOURCE, but only when it is ONE argument: `-` is stdin, `@<file>` is the content of that file, `@@name` is the file named `@name` (exactly one `@` is stripped, `@@` is not an escape); any other single argument is used literally. `@` alone as that ONE argument is an error (exit 1). The content is copied byte for byte — a CR or LF inside it is refused (exit 1) and nothing is written, so the ticket name, its bytes and the journal stay unchanged. An empty source yields an empty comment (a same-status `set` then fails as it does without a comment). TWO or more comment arguments are joined with a single space and used literally (no file, no stdin — a flag-like `-x` stays literal). Trade-off: a lone `-` or `@...` argument is never a literal comment, and two arguments are not a byte-exact escape (the join inserts a space); `-` on a terminal reads stdin until EOF (Ctrl-D).
 
 `deleted` is terminal and read-only, and `set` NEVER assigns it: naming that status, or addressing a ticket whose file lives in `tickets/deleted/`, is refused (exit 1, file unchanged). There is no undelete — a reopen to `open`/`wip` is not supported for a deleted ticket.
 
@@ -264,3 +266,4 @@ Tickets directory layout: `tickets/` (main) + `tickets/archive/` (closed) + `tic
 | 2026-11-16 | T-0187 (GitHub #20): `ticket edit` was a non-goal and undocumented | Added the `edit` section (long-only split-form flags, per-field journal order title→type→priority→project, whole-operation no-op on explicitly unchanged values, silent success, archive edited in place, `--project` is metadata-only) and the edit exit-code notes | 1.15 |
 | 2026-11-16 | Merge of PR #23 (list filters, T-0188) and PR #24 (`ticket edit`, T-0187) | Rebase resolution: both features kept — `list --type`/`--priority` and the `edit` section coexist; version bumped past both parents | 1.16 |
 | 2026-11-16 | T-0189 W3 (GitHub #22): `ticket delete`, the `list deleted` mode and the `deleted/` integration were undocumented | Added the `delete` section (soft-delete into `tickets/deleted/`, `--yes`/`--force` guards, exit 0/1/2, repeat = exit 1), the `deleted` list mode and the hiding rule (`all` stays main-only), the `deleted/` notes for `show`/`set`/`edit`/`archive`/`recover`/`normalize`, the `deleted` lifecycle row, pitfalls 9-10 and the tickets-dir layout; version bumped to 1.17 | 1.17 |
+| 2026-11-21 | T-0215 (GitHub #35): the `set` comment source rules (single-argument `-`/`@file`/`@@name`, multi-argument literal join, CR/LF refusal) were undocumented | Documented the comment-source contract in the `set` section and the workflow reference: one argument = a source, two or more = literal space-join, byte-exact copy, CR/LF refusal without mutation, and the trade-off (a lone `-`/`@...` is never literal); version bumped to 1.18 | 1.18 |

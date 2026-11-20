@@ -5,6 +5,14 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+### Added
+
+- `ticket set` reads the comment from a file or stdin when the comment is given as ONE argument: `-` is stdin, `@<file>` is the content of that file, `@@name` is the file named `@name` (exactly one `@` is stripped). The content is copied byte for byte; a bare `@` as that ONE argument is refused, and a CR or LF inside the content is refused before anything is written — the ticket name, its bytes and the journal stay unchanged (T-0215).
+
+### Changed
+
+- `ticket set` with ONE comment argument: that argument is now a SOURCE, so a comment that is exactly `-` or that starts with `@` is no longer written literally — this is the breaking part of T-0215. A failed read (a bare `@` as that ONE argument, a missing file, a failed stdin read) is an error: the command exits 1 and the ticket name, its bytes and the journal stay unchanged. TWO or more comment arguments are unchanged: they are joined with a single space and used literally, no file and no stdin are read (T-0215).
+
 ## [1.2.6] - 2026-11-16
 
 ### Changed
