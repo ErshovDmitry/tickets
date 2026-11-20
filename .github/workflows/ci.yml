@@ -264,7 +264,8 @@ jobs:
         run: |
           if ! env -u GH_TOKEN -u GITHUB_TOKEN ./zizmor \
             --persona "$ZIZMOR_PERSONA" --offline \
-            .github/workflows/ci.yml .github/workflows/ci-retry.yml; then
+            .github/workflows/ci.yml .github/workflows/ci-retry.yml \
+            .github/workflows/ci-metrics.yml; then
             echo "::error::zizmor audit failed: new finding or audit error." \
               "Triage and baseline review: docs/ci-triage.md"
             exit 1
