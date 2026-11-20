@@ -191,7 +191,7 @@ jobs:
             SHA256SUMS.txt
           if-no-files-found: error
 
-  # Security audit (T-0207): static analysis of both workflows with zizmor,
+  # Security audit (T-0207): static analysis of all three workflows with zizmor,
   # pinned and integrity-checked. This job is deliberately isolated: it runs
   # no PR-code build steps, shares no caches or artifacts, has no secrets
   # (the automatic GITHUB_TOKEN is never exported into the environment and
