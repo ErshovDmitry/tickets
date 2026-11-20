@@ -86,7 +86,7 @@ bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics
 
 ## Security audit: обновление zizmor и пересмотр baseline
 
-Джоба `security` в `.github/workflows/ci.yml` аудирует оба workflow
+Джоба `security` в `.github/workflows/ci.yml` аудирует все три workflow
 закреплённым zizmor. Красный прогон Security audit означает НОВЫЙ finding
 (всё из задокументированного baseline игнорируется и остаётся зелёным).
 Порядок триажа:
@@ -115,9 +115,10 @@ bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics
    --source-ref refs/tags/vX.Y.Z`.
    Ожидание: exit 0 для подлинного ассета, 1 для подпорченного, 1 для
    bundle от другого подписанта — проверить все три.
-5. **ДО.** Прогнать аудит на обоих workflow с ТЕКУЩИМ конфигом и зафиксировать
+5. **ДО.** Прогнать аудит на всех трёх workflow с ТЕКУЩИМ конфигом и зафиксировать
    числа (`ZIZMOR_CONFIG=.github/zizmor.yml ./zizmor --persona auditor
-   --offline .github/workflows/ci.yml .github/workflows/ci-retry.yml`, плюс
+   --offline .github/workflows/ci.yml .github/workflows/ci-retry.yml
+   .github/workflows/ci-metrics.yml`, плюс
    прогон без конфига).
 6. **Закрепка одним commit.** Обновить URL+SHA-256 ассета в `ci.yml`, хэши
    вендоренных файлов в `ci.yml`, ignore-записи (позиции ПЕРЕИЗМЕРИТЬ, не
