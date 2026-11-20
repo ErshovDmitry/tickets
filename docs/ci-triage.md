@@ -86,7 +86,7 @@ After ci-retry stage 2 is enabled, the `rerun%` metric will also count the autom
 
 ## Security audit: updating zizmor and reviewing the baseline
 
-The `security` job in `.github/workflows/ci.yml` audits both workflows with
+The `security` job in `.github/workflows/ci.yml` audits all three workflows with
 a pinned zizmor. A red Security audit run means a NEW finding (anything in
 the documented baseline is ignored and stays green). Triage procedure:
 
@@ -114,10 +114,11 @@ the documented baseline is ignored and stays green). Triage procedure:
    --source-ref refs/tags/vX.Y.Z`.
    Expect exit 0 for the genuine asset, 1 for a tampered one, 1 for a
    bundle from a different signer — probe all three.
-5. **Baseline BEFORE.** Run the audit on both workflows with the CURRENT
+5. **Baseline BEFORE.** Run the audit on all three workflows with the CURRENT
    config and record the numbers (`ZIZMOR_CONFIG=.github/zizmor.yml
    ./zizmor --persona auditor --offline .github/workflows/ci.yml
-   .github/workflows/ci-retry.yml`, plus a no-config run).
+   .github/workflows/ci-retry.yml
+   .github/workflows/ci-metrics.yml`, plus a no-config run).
 6. **Pin in one commit.** Update the asset URL + SHA-256 in `ci.yml`, the
    vendored file hashes in `ci.yml`, the ignores (re-measured positions —
    never copied) in `.github/zizmor.yml`, and the audit-log row in
