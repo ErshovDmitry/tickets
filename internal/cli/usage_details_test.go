@@ -25,6 +25,12 @@ import (
 //   - "-" — stdin,
 //   - byte-for-byte copy (no trimming, no size limit),
 //   - the numbered-list format of the Details section.
+//
+// T-0215 extends the same table with the `set` comment fragments: the
+// single-argument source forms, the multi-argument literal join, the
+// CR/LF refusal and the lone-marker trade-off. The fragments are matched
+// against the whole usage text, so they pin the wording of the `set`
+// block in both languages.
 var usageDetailsDoc = []struct {
 	name    string
 	fixture []byte
@@ -43,6 +49,11 @@ var usageDetailsDoc = []struct {
 			"байт в байт",
 			"нумерованный список",
 			"N. <что> — <файл:строка>; <решение>",
+			"комментарий можно дать ОДНИМ аргументом",
+			"@ без пути как ОДИН аргумент комментария — ошибка (код 1)",
+			"CR или LF в нём отклоняются (код 1)",
+			"два или больше аргументов комментария соединяются пробелом и берутся буквально",
+			"одиночный \"-\" или \"@...\" никогда не будет буквальным комментарием",
 		},
 	},
 	{
@@ -57,6 +68,11 @@ var usageDetailsDoc = []struct {
 			"byte for byte",
 			"numbered list",
 			"N. <what> — <file:line>; <fix>",
+			"the comment may be given as ONE argument",
+			"a bare @ as the ONE comment argument (no path) is an error (exit 1)",
+			"a CR or LF in it is refused (exit 1)",
+			"two or more comment arguments are joined with a space and used literally",
+			"a lone \"-\" or \"@...\" argument is never a literal comment",
 		},
 	},
 }
