@@ -74,7 +74,7 @@ The script keeps them as named constants: CANCEL_MIN=3, RERUN_PCT=10, MACOS_P95_
 
 ## Scheduling and cron honesty
 
-The scheduled workflow is possible only after zizmor is connected (T-0207 merged; cron gated on T-0208). Until then the weekly run is manual, and it follows this procedure:
+CI metrics run on a schedule: `.github/workflows/ci-metrics.yml` fires every Monday at 03:00 UTC (cron `0 3 * * 1`) and calls the same script with `--days 30`; the report lands in the job summary of the run. The notification channel is GitHub's own default for a failed run — the red-run email (delivery of that email depends on the repository owner's GitHub notification settings, Settings → Notifications); there is no Telegram/Gotify/webhook integration, no `issues: write`, and no webhook secret exists. An ALARM is not wrapped into a green run: the script exits 1 and the run is red on purpose (T-0209; accepted risk — registry entry (d)). Repository default workflow permissions are read-only (T-0211), so the workflow declares `contents: read` and `actions: read` explicitly. A schedule event fires only from the default branch, may be delayed at the top of the hour, and scheduled workflows are disabled after 60 days without repository activity. The first scheduled run is expected to be red: infrastructure-cancels are above the alarm threshold (T-0203 constants are unchanged). The manual run stays available and follows this procedure:
 
 ```bash
 bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics

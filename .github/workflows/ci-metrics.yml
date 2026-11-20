@@ -1,0 +1,49 @@
+# Weekly CI metrics report (30d window) for workflows/ci.yml.
+# Thresholds are owned by scripts/ci-metrics.sh (T-0203); triage guide:
+# docs/ci-triage.md. ALARM means exit 1, i.e. a red run and the standard
+# GitHub notification email (channel T-0208/T-0209) — not a workflow bug.
+name: CI metrics
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Monday 03:00 UTC, default branch
+  workflow_dispatch: # post-merge control run; resolves the file from the default branch
+
+permissions:
+  contents: read # checkout of the default branch for scripts/ci-metrics.sh
+  actions: read # gh api reads run/job data for the metrics report
+
+concurrency:
+  group: ci-metrics
+  cancel-in-progress: false
+
+jobs:
+  metrics:
+    name: CI metrics report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Default bash runs with -eo pipefail, so capture the rc first (set +e)
+      # and exit explicitly after the summary is written.
+      - name: Weekly CI metrics (30d window)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          report=$(bash scripts/ci-metrics.sh --days 30 --repo "$GITHUB_REPOSITORY" 2>&1)
+          rc=$?
+          printf '%s\n' "$report"
+          {
+            printf '%s\n' '## CI metrics (last 30 days)'
+            printf '%s\n' ''
+            printf '%s\n' '```text'
+            printf '%s\n' "$report"
+            printf '%s\n' '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc

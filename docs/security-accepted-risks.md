@@ -74,11 +74,21 @@ baseline review procedure is in [docs/ci-triage.md](ci-triage.md).
   `cache-poisoning ci.yml:46:9,114:9,151:9`,
   `concurrency-limits ci.yml:5:1`.
 
+## (d) ci-metrics.yml: schedule + actions:read (T-0209)
+
+- **Risk:** `.github/workflows/ci-metrics.yml` runs repository code (`scripts/ci-metrics.sh`, default branch) on a timer and holds `actions: read` to read run/job data.
+- **Scenario:** a future edit adds a third-party action or PR-controlled execution to this scheduled job, or the read scope is silently widened to `actions: write` in a workflow nobody reviews PR-wise. The data itself is aggregate-only: no secrets in the report, the token is never printed.
+- **Control:** explicit workflow-level permissions (`contents: read`, `actions: read`, nothing else); the only action is a SHA-pinned `actions/checkout` with `persist-credentials: false`; no cache, no artifacts, no `GITHUB_ENV`/`GITHUB_OUTPUT` writes, no `${{ }}` interpolation inside `run:`; the script is fail-closed (any non-OK verdict = exit 1 = red run). Drift is caught by the pinned zizmor auditor persona, currently through a local re-audit: the CI `security` job audits `ci.yml` + `ci-retry.yml` only (ci.yml:263-267), and T-0212 tracks adding the new file.
+- **Design limitation:** `GITHUB_TOKEN` cannot read the organization audit log (admin/org scope) — that check stays manual and owner-run; the workflow does not automate it.
+- **Suppression:** none. No baseline entry is added for this file; findings are prevented by design. Weakening `.github/zizmor.yml` is out of scope for the 5-file change.
+- **Links:** T-0209, T-0212, T-0207, T-0211.
+
 ## Audit log
 
 | Date | zizmor | Repo commit | Vendored bundle SHA-256 | Vendored root SHA-256 | Audit result | Next review |
 |------|--------|-------------|-------------------------|-----------------------|--------------|-------------|
 | 2026-11-19 | v1.32.0 | 6ad2f0b (PR #36; base b56993f) | `5cf002bf…b97b25ef` | `65ca537f…2eb2b9c` | auditor: 0 visible findings, 9 ignored (baseline above); without config: 9 findings | 2027-02-17 |
+| 2026-11-20 | v1.32.0 | 9289645 (base; tip at audit) + t-0209 worktree changes | `5cf002bf…b97b25ef` | `65ca537f…2eb2b9c` | auditor: 0 visible findings, 9 ignored (baseline ci.yml+ci-retry.yml; 3 workflows audited); --no-ignores: 9 findings (4 low, 5 high), none in ci-metrics.yml | 2027-02-18 |
 
 Policy: re-audit on every zizmor version/digest bump, every workflow change,
 every new privileged CI contour, or after 90 days — whichever comes first.
