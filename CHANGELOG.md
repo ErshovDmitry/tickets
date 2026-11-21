@@ -5,13 +5,31 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-21
+
 ### Added
 
+- `ticket list --type BUG|OPS|TD|ENH` and `ticket list --priority low|normal|high`: exact, case-sensitive filters that combine with the status and `-P` filters by AND. Each flag takes the next token as its value, a repeated flag keeps the last value, and an invalid value is exit 1 (`ticket: type must be one of: BUG OPS TD ENH`); no match is not an error (exit 0, `[]` with `--json`). The filters apply to `archive` and to the new `deleted` mode as well (T-0188).
+- `ticket edit <number> [--title <text>] [--type T] [--priority P] [--project <name>]`: in-place metadata edit. Only split long-flag pairs are accepted, values are validated before any write, and each changed field appends its own `<field>: old → new` journal line under one timestamp. An explicitly unchanged value rejects the whole edit (exit 1), and an archived ticket is edited in place without a reopen. Success is silent (T-0187).
+- `ticket delete <number|filename> [--yes] [--force]`: soft delete into `tickets/deleted/`, preserving the body, metadata and journal and appending exactly one transition journal line. Without `--force` only an open ticket in the main directory is deletable; without `--yes` a terminal confirmation is required, and a non-TTY run refuses without changing anything. The single ref (a number or an exact base name) resolves across main, archive and deleted: an ambiguous ref is exit 2 with every conflicting path, while a repeat delete, a collision, a not-found ref or an already deleted file is exit 1 (T-0189).
+- The `deleted` status and the `tickets/deleted/` directory: `ticket init` creates it, `ticket list deleted` is the only mode that shows such tickets (every other mode, `all` included, hides them), `ticket show` searches it, `ticket recover` resolves crash pairs involving it, `ticket normalize` rewrites deleted files in place, and the first-use project warning counts projects seen only in `tickets/deleted/` (T-0189).
+- `deleted` is terminal and read-only: `ticket set` (a reopen included) and `ticket edit` refuse a ticket whose file lives in `tickets/deleted/` before any write, with a localized message and exit 1; a number carried by both a deleted and a live file gets the ambiguity report (exit 2); `ticket archive` neither moves nor restores deleted tickets. There is no undelete (T-0189).
 - `ticket set` reads the comment from a file or stdin when the comment is given as ONE argument: `-` is stdin, `@<file>` is the content of that file, `@@name` is the file named `@name` (exactly one `@` is stripped). The content is copied byte for byte; a bare `@` as that ONE argument is refused, and a CR or LF inside the content is refused before anything is written — the ticket name, its bytes and the journal stay unchanged (T-0215).
+- CI: a weekly CI metrics workflow (Monday 03:00 UTC) runs `scripts/ci-metrics.sh --days 30` and reports queue and cancellation metrics in the job summary, with an ALARM as a red run; the triage procedure lives in `docs/ci-triage.md` (T-0203, T-0209).
+- CI: a `ci-retry` workflow re-runs CI jobs cancelled by hosted-runner capacity before any runner was acquired. Its job listing is fail-closed: a non-numeric, missing or over-one-page `total_count` fails the step instead of silently ignoring jobs (T-0202, T-0204, T-0206).
+- CI: a dedicated `Security audit` job runs zizmor v1.32.0 pinned by release-asset SHA-256 with offline Sigstore attestation verification and audits all workflows; accepted findings are recorded in `docs/security-accepted-risks.md` with narrow inline ignores, and no rule or severity class is disabled (T-0207, T-0212).
 
 ### Changed
 
-- `ticket set` with ONE comment argument: that argument is now a SOURCE, so a comment that is exactly `-` or that starts with `@` is no longer written literally — this is the breaking part of T-0215. A failed read (a bare `@` as that ONE argument, a missing file, a failed stdin read) is an error: the command exits 1 and the ticket name, its bytes and the journal stay unchanged. TWO or more comment arguments are unchanged: they are joined with a single space and used literally, no file and no stdin are read (T-0215).
+- BREAKING: `ticket set` with ONE comment argument treats that argument as a SOURCE, so a comment that is exactly `-` or that starts with `@` is no longer written literally (T-0215). A failed read — a bare `@` as that ONE argument, a missing file, a failed stdin read — is an error: the command exits 1 and the ticket name, its bytes and the journal stay unchanged. TWO or more comment arguments are unchanged: they are joined with a single space and used literally, and neither a file nor stdin is read (T-0215).
+- The read-only ticket store refusal is localized: every mutating command now prints the translated message instead of the double-prefixed `ticket: store: read-only` line (T-0192).
+- CI build matrix legs no longer cancel each other: `strategy.fail-fast` is disabled, so one failing platform does not discard the results of the other legs in the same cycle (T-0196).
+- Agent worktrees are documented outside `$TMPDIR` (convention `/nob/dmitry/.wt/<ticket>`), and `.gitignore` ignores `**/.pi-lens-probe-home/` so third-party probe logs cannot pollute `git status` or a commit (T-0200).
+
+### Fixed
+
+- `ticket recover` no longer answers a flag in the `<number>`/`<new-file>` slot with the `set`-specific "unknown flag for set command" text; it uses the command-agnostic message (T-0191).
+- The RU `ticket edit` "value is already set" message no longer wraps the value in guillemets on top of `%q` (T-0190).
 
 ## [1.2.6] - 2026-11-16
 
