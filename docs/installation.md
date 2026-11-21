@@ -37,7 +37,7 @@ From the project root:
 ticket init
 ```
 
-This creates `tickets/` and `tickets/archive/`. The command is idempotent. It does **not** install the binary — keep one `ticket` on your `PATH`.
+This creates `tickets/`, `tickets/archive/` and `tickets/deleted/`. The command is idempotent and honors the global target selection: `ticket -C <path> init` or `TICKETS_DIR=<path> ticket init` creates the structure at `<path>` instead of `<current directory>/tickets`. It does **not** install the binary — keep one `ticket` on your `PATH`.
 
 ## One binary, many projects
 

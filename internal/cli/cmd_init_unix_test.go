@@ -207,3 +207,79 @@ func TestInitProjectSymlinkToDirTickets(t *testing.T) {
 		t.Errorf("archive/ not created in target: %v", err)
 	}
 }
+
+// TestInitExplicitSymlinkToDir verifies the explicit tier keeps the T-0062
+// symlink semantics (plan D3): a -C target that is a symlink to a real
+// directory proceeds — archive/ is created in the real target and stdout
+// carries the Abs of the link path itself (no EvalSymlinks resolution).
+func TestInitExplicitSymlinkToDir(t *testing.T) {
+	root := t.TempDir()
+	work := t.TempDir()
+	real := filepath.Join(root, "real")
+	if err := os.MkdirAll(real, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	link := filepath.Join(root, "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatalf("Symlink: %v", err)
+	}
+	t.Chdir(work)
+	code, out, errb := runCLI(t, []string{"-C", link, "init"}, nil)
+	if code != 0 || errb != "" {
+		t.Fatalf("Run(-C link) = %d, stderr: %q; want 0", code, errb)
+	}
+	if want := "Инициализировано: " + link + "\n"; out != want {
+		t.Errorf("stdout = %q, want %q (no symlink resolution)", out, want)
+	}
+	if _, err := os.Stat(filepath.Join(real, "archive")); err != nil {
+		t.Errorf("archive/ not created in link target: %v", err)
+	}
+}
+
+// TestInitExplicitConflictSubdir verifies the explicit tier probes
+// <target>/archive and <target>/deleted (T-0082/T-0189 logic, reached via
+// -C): a regular file or a broken symlink there is a conflict — exit 1
+// with the exact conflict line and no partial side effects.
+func TestInitExplicitConflictSubdir(t *testing.T) {
+	for _, tc := range []struct {
+		name, sub string
+		symlink   bool
+	}{
+		{"archive file", "archive", false},
+		{"deleted file", "deleted", false},
+		{"archive broken symlink", "archive", true},
+		{"deleted broken symlink", "deleted", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			work := t.TempDir()
+			target := filepath.Join(root, "t")
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				t.Fatalf("MkdirAll: %v", err)
+			}
+			sub := filepath.Join(target, tc.sub)
+			if tc.symlink {
+				if err := os.Symlink(filepath.Join(root, "nonexistent-target"), sub); err != nil {
+					t.Fatalf("Symlink: %v", err)
+				}
+			} else if err := os.WriteFile(sub, []byte("planted"), 0o644); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+			t.Chdir(work)
+			code, out, errb := runCLI(t, []string{"-C", target, "init"}, nil)
+			if code != 1 || out != "" {
+				t.Fatalf("Run = %d stdout=%q, want 1 with empty stdout", code, out)
+			}
+			if want := "ticket: Конфликт: " + sub + "\n"; errb != want {
+				t.Errorf("stderr = %q, want %q", errb, want)
+			}
+			other := "archive"
+			if tc.sub == "archive" {
+				other = "deleted"
+			}
+			if _, err := os.Lstat(filepath.Join(target, other)); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("%s/ created despite %s conflict: %v", other, tc.sub, err)
+			}
+		})
+	}
+}
