@@ -148,7 +148,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 			printUsage(stdout, stderr, lang)
 			return exitError
 		}
-		return cmdInit(lang, stdout, stderr)
+		return cmdInit(env, flagDir, lang, stdout, stderr)
 	case "update-check":
 		// T-0173: explicit release check. Routed here, NOT via runLogged/
 		// dispatch: those resolve a tickets dir and open a store, while

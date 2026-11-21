@@ -140,7 +140,7 @@ Help text (`TICKET_LANG=en`), byte-identical to the embedded template `internal/
 ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
 
   ticket init
-      create the tickets structure in the current directory: tickets/, tickets/archive/ and tickets/deleted/ (idempotent)
+      create the tickets structure: tickets/, tickets/archive/ and tickets/deleted/ (idempotent); honors -C/--tickets-dir and $TICKETS_DIR (default: <current directory>/tickets)
   ticket new "<brief>" [-t BUG|OPS|TD|ENH] [-p low|normal|high] [-d "<details>"] [-w who] [-P <project>]
       create a ticket (status open), prints the file path;
       -P overrides the project (default = basename of tickets/ parent);
@@ -213,15 +213,15 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
   ticket update-check
       newer release on GitHub? (explicit; never automatic); per-user cache (24 h), 1 h backoff; offline-safe: failure never blocks other commands
 
-Global flag (before the command, every command except init):
+Global flag (before the command, every command):
   -C <path>, --tickets-dir <path>
       path to the tickets directory itself (not the project root); works from any current directory
   --verbose
       debug log to stderr; TICKET_LOG=<path> also enables logging and sends the records to that file (the file wins over the flag);
       accepted only BEFORE the command name; after help/version it is ignored; the glued form --verbose=x is not recognised;
-      stdout is never used for log records
+      stdout is never used for log records; init ignores --verbose (no logger is built for init)
 
-Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → upward scan for tickets/ from the current directory.
+Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → upward scan for tickets/ from the current directory. Exception: init uses <cwd>/tickets without an upward scan.
 
 Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set, edit and archive.
 
