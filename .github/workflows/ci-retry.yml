@@ -4,9 +4,9 @@
 # fail-fast: false, PR #30). No checkout, no third-party actions: the PR
 # code is never executed here; only gh api + jq against trusted API data.
 #
-# Rollout: stage 1 = DRY_RUN_DEFAULT "true" (report only), verified after
-# merge via manual dispatch (workflow_run/dispatch files only live on the
-# default branch); stage 2 flips it to "false" in a separate commit.
+# Rollout: stage 1 = DRY_RUN_DEFAULT "true" (report only) — DONE, landed
+# and verified live on the default branch via workflow_run + manual dispatch
+# (T-0205). Stage 2 = this separate commit: flips it to "false" (live rerun).
 # Rollback: git revert or gh workflow disable ci-retry.yml.
 name: CI auto-retry
 
@@ -35,7 +35,7 @@ env:
   TARGET_WORKFLOW_PATH: ".github/workflows/ci.yml"
   MAX_RUN_ATTEMPTS: "3"
   MIN_QUEUE_WAIT_SECONDS: "870"
-  DRY_RUN_DEFAULT: "true"
+  DRY_RUN_DEFAULT: "false"
   JOBS_PER_PAGE: "100"
 
 jobs:
