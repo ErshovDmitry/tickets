@@ -12,8 +12,9 @@ import (
 
 // cmdSet implements `set <номер> <статус> ["комментарий"]`. The comment is
 // built by setComment: with exactly one trailing token it is resolved as a
-// details source (`-` stdin, `@file` file contents, else literal); any other
-// arity whitespace-joins the trailing arguments.
+// details source (`-` stdin, `@file` file contents, else literal) and one
+// trailing LF/CRLF is stripped (T-0225, issue #50); any other arity
+// whitespace-joins the trailing arguments.
 // A same-status set with a non-empty comment appends a journal-only
 // entry (status and file name unchanged); without one it exits 1.
 // lang selects the usage text language for argument errors.
@@ -101,13 +102,25 @@ func cmdSet(st *store.Store, args []string, who, _ string, lang domain.Lang, std
 // rules, bytes and localized messages as `new -d`. Zero or two-plus
 // tokens keep the legacy space-join: multi-arg and flag-like literals
 // such as "-x" stay literal, and stdin is never read twice.
+// T-0225 (github.com/ErshovDmitry/tickets/issues/50): a resolved source
+// usually ends with exactly one newline written by echo or an editor, so
+// ONE trailing LF is stripped here — together with the CR of a CRLF pair.
+// The remaining text is still subject to the CR/LF guard below, so
+// "x\n\n", "x\r" and multi-line payloads keep failing unchanged.
 // ok is false after the localized read message was printed to stderr;
 // the caller then exits 1 without touching the store.
 func setComment(args []string, lang domain.Lang, stderr io.Writer) (string, bool) {
 	if len(args) != 3 {
 		return strings.Join(args[2:], " "), true
 	}
-	return resolveDetails(args[2], lang, stderr)
+	comment, ok := resolveDetails(args[2], lang, stderr)
+	if !ok {
+		return "", false
+	}
+	if strings.HasSuffix(comment, "\n") {
+		comment = strings.TrimSuffix(comment[:len(comment)-1], "\r")
+	}
+	return comment, true
 }
 
 // setError maps a failed store lookup (Find) or SetStatus to the
