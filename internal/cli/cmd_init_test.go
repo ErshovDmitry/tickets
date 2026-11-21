@@ -232,10 +232,10 @@ func TestInitResolvesTarget(t *testing.T) {
 		repeat                      bool
 	}{
 		{"flag -C", "-C", "t", "", true},
-		{"env TICKETS_DIR", "", "", "e", false},
+		{"env TICKETS_DIR", "", "", "e", true},
 		{"flag beats env", "-C", "f", "e", false},
 		{"nested nonexistent", "-C", "a/b/tickets", "", false},
-		{"long --tickets-dir", "--tickets-dir", "l", "", false},
+		{"long --tickets-dir", "--tickets-dir", "l", "", true},
 		{"relative -C", "-C", "rel", "", false},
 	}
 	for _, tc := range cases {
@@ -256,8 +256,8 @@ func TestInitResolvesTarget(t *testing.T) {
 			}
 			if tc.repeat {
 				t.Chdir(work)
-				code, out, errb := runCLI(t, args, nil)
-				want := "Инициализировано: " + filepath.Join(work, tc.flagSeg) + "\n"
+				code, out, errb := runCLI(t, args, env)
+				want := "Инициализировано: " + filepath.Join(work, seg) + "\n"
 				if code != 0 || errb != "" || out != want {
 					t.Fatalf("repeat Run = %d, stdout=%q stderr=%q; want 0 with stdout %q", code, out, errb, want)
 				}

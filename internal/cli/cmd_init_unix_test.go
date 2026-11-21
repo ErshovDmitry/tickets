@@ -246,6 +246,7 @@ func TestInitExplicitConflictSubdir(t *testing.T) {
 		symlink   bool
 	}{
 		{"archive file", "archive", false},
+		{"deleted file", "deleted", false},
 		{"archive broken symlink", "archive", true},
 		{"deleted broken symlink", "deleted", true},
 	} {
