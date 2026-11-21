@@ -39,8 +39,11 @@ func TestSetCommentTrailingNewline(t *testing.T) {
 		{"trailing CR stdin", "x\r", false, ""},
 		{"CR before CRLF stdin", "x\r\r\n", false, ""},
 		{"inner LF file", "a\nb\n", true, ""},
+		{"inner CR file", "a\rb", true, ""},
+		{"inner CRLF file", "a\r\nb\n", true, ""},
 		{"double LF file", "x\n\n", true, ""},
 		{"trailing CR file", "x\r", true, ""},
+		{"CR before CRLF file", "x\r\r\n", true, ""},
 	}
 	for _, lang := range []domain.Lang{domain.LangRU, domain.LangEN} {
 		for _, tc := range cases {
@@ -74,35 +77,48 @@ func TestSetCommentTrailingNewline(t *testing.T) {
 	}
 }
 
-// TestSetCommentNewlineOnlySource pins the T-0225 boundary: after the one
-// stripped newline the source is EMPTY, which follows the existing
-// empty-source rules — same-status keeps the pinned AlreadyStatus error
-// with an untouched sandbox, a real status change succeeds with NO
-// journal line.
+// TestSetCommentNewlineOnlySource pins the T-0225 boundary for both source
+// kinds (stdin and @file): after the one stripped newline the source is
+// EMPTY, which follows the existing empty-source rules — same-status keeps
+// the pinned AlreadyStatus error with an untouched sandbox, a real status
+// change succeeds with NO journal line.
 func TestSetCommentNewlineOnlySource(t *testing.T) {
 	for _, payload := range []string{"\n", "\r\n"} {
-		for _, lang := range []domain.Lang{domain.LangRU, domain.LangEN} {
-			t.Run(string(lang)+" "+strings.ReplaceAll(payload, "\r", "CR"), func(t *testing.T) {
-				st, dir, _ := setFixture(t)
-				withStdin(t, strings.NewReader(payload))
-				before := sandboxState(t, dir)
-				_, stderr, rc := runSetCmd(st, lang, "1", "open", "-")
-				if rc != 1 || stderr != domain.ErrTicketAlreadyStatus(lang, 1, "open")+"\n" {
-					t.Fatalf("same-status: cmdSet = %d, stderr %q; want 1 with AlreadyStatus", rc, stderr)
+		for _, file := range []bool{false, true} {
+			for _, lang := range []domain.Lang{domain.LangRU, domain.LangEN} {
+				src := " stdin"
+				if file {
+					src = " file"
 				}
-				if after := sandboxState(t, dir); after != before {
-					t.Fatalf("sandbox changed on rejected same-status set:\nbefore=%s\nafter=%s", before, after)
-				}
-				withStdin(t, strings.NewReader(payload))
-				stdout, stderr, rc := runSetCmd(st, lang, "1", "wip", "-")
-				if rc != 0 || stderr != "" {
-					t.Fatalf("status change: cmdSet = %d, stderr %q; want 0 and empty stderr", rc, stderr)
-				}
-				body := readTicket(t, strings.TrimSpace(stdout))
-				if journal := body[strings.Index(body, "## Journal"):]; strings.Contains(journal, "· ") {
-					t.Fatalf("journal line leaked from newline-only payload:\n%s", body)
-				}
-			})
+				t.Run(string(lang)+" "+strings.ReplaceAll(payload, "\r", "CR")+src, func(t *testing.T) {
+					st, dir, _ := setFixture(t)
+					token, stdin := "-", payload
+					if file {
+						token, stdin = commentFile(t, payload), ""
+					} else {
+						withStdin(t, strings.NewReader(stdin))
+					}
+					before := sandboxState(t, dir)
+					_, stderr, rc := runSetCmd(st, lang, "1", "open", token)
+					if rc != 1 || stderr != domain.ErrTicketAlreadyStatus(lang, 1, "open")+"\n" {
+						t.Fatalf("same-status: cmdSet = %d, stderr %q; want 1 with AlreadyStatus", rc, stderr)
+					}
+					if after := sandboxState(t, dir); after != before {
+						t.Fatalf("sandbox changed on rejected same-status set:\nbefore=%s\nafter=%s", before, after)
+					}
+					if !file {
+						withStdin(t, strings.NewReader(payload))
+					}
+					stdout, stderr, rc := runSetCmd(st, lang, "1", "wip", token)
+					if rc != 0 || stderr != "" {
+						t.Fatalf("status change: cmdSet = %d, stderr %q; want 0 and empty stderr", rc, stderr)
+					}
+					body := readTicket(t, strings.TrimSpace(stdout))
+					if journal := body[strings.Index(body, "## Journal"):]; strings.Contains(journal, "· ") {
+						t.Fatalf("journal line leaked from newline-only payload:\n%s", body)
+					}
+				})
+			}
 		}
 	}
 }

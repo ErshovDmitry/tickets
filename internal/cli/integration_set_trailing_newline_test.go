@@ -39,8 +39,11 @@ func TestSetCommentTrailingNewlineIntegration(t *testing.T) {
 		{"trailing CR stdin", "x\r", false, ""},
 		{"CR before CRLF stdin", "x\r\r\n", false, ""},
 		{"inner LF file", "a\nb\n", true, ""},
+		{"inner CR file", "a\rb", true, ""},
+		{"inner CRLF file", "a\r\nb\n", true, ""},
 		{"double LF file", "x\n\n", true, ""},
 		{"trailing CR file", "x\r", true, ""},
+		{"CR before CRLF file", "x\r\r\n", true, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -71,31 +74,42 @@ func TestSetCommentTrailingNewlineIntegration(t *testing.T) {
 }
 
 // TestSetCommentNewlineOnlySourceIntegration pins the T-0225 boundary end
-// to end: a newline-only source becomes an empty comment — same-status
-// keeps the pinned AlreadyStatus rejection with an untouched sandbox, a
-// real status change succeeds with NO journal line.
+// to end for both source kinds (stdin and @file): a newline-only source
+// becomes an empty comment — same-status keeps the pinned AlreadyStatus
+// rejection with an untouched sandbox, a real status change succeeds with
+// NO journal line.
 func TestSetCommentNewlineOnlySourceIntegration(t *testing.T) {
 	requireBin(t)
 	for _, payload := range []string{"\n", "\r\n"} {
-		t.Run(strings.ReplaceAll(payload, "\r", "CR"), func(t *testing.T) {
-			tickets, cwd, _ := setSandbox(t)
-			before := setSandboxState(t, tickets)
-			out, stderr, code := runBinWithStdin(t, ticketBin, cwd, tickets, payload, "set", "1", "open", "-")
-			if code != 1 || out != "" || stderr != domain.ErrTicketAlreadyStatus(domain.LangEN, 1, "open")+"\n" {
-				t.Fatalf("same-status: code=%d stdout=%q stderr=%q; want 1 with AlreadyStatus", code, out, stderr)
+		for _, file := range []bool{false, true} {
+			src := " stdin"
+			if file {
+				src = " file"
 			}
-			if after := setSandboxState(t, tickets); after != before {
-				t.Fatalf("sandbox changed on rejected same-status set:\nbefore=%s\nafter=%s", before, after)
-			}
-			out, stderr, code = runBinWithStdin(t, ticketBin, cwd, tickets, payload, "set", "1", "wip", "-")
-			if code != 0 || stderr != "" {
-				t.Fatalf("status change: code=%d stderr=%q; want 0 and empty stderr", code, stderr)
-			}
-			body := string(readCreatedTicket(t, out))
-			if journal := body[strings.Index(body, "## Journal"):]; strings.Contains(journal, "· ") {
-				t.Fatalf("journal line leaked from newline-only payload:\n%s", body)
-			}
-		})
+			t.Run(strings.ReplaceAll(payload, "\r", "CR")+src, func(t *testing.T) {
+				tickets, cwd, _ := setSandbox(t)
+				token, in := "-", payload
+				if file {
+					token, in = "@"+writeCommentFile(t, payload), ""
+				}
+				before := setSandboxState(t, tickets)
+				out, stderr, code := runBinWithStdin(t, ticketBin, cwd, tickets, in, "set", "1", "open", token)
+				if code != 1 || out != "" || stderr != domain.ErrTicketAlreadyStatus(domain.LangEN, 1, "open")+"\n" {
+					t.Fatalf("same-status: code=%d stdout=%q stderr=%q; want 1 with AlreadyStatus", code, out, stderr)
+				}
+				if after := setSandboxState(t, tickets); after != before {
+					t.Fatalf("sandbox changed on rejected same-status set:\nbefore=%s\nafter=%s", before, after)
+				}
+				out, stderr, code = runBinWithStdin(t, ticketBin, cwd, tickets, in, "set", "1", "wip", token)
+				if code != 0 || stderr != "" {
+					t.Fatalf("status change: code=%d stderr=%q; want 0 and empty stderr", code, stderr)
+				}
+				body := string(readCreatedTicket(t, out))
+				if journal := body[strings.Index(body, "## Journal"):]; strings.Contains(journal, "· ") {
+					t.Fatalf("journal line leaked from newline-only payload:\n%s", body)
+				}
+			})
+		}
 	}
 }
 
