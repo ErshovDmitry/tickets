@@ -181,10 +181,10 @@ func validateEditTitle(v *string) (string, error) {
 	return *v, nil
 }
 
-// validateEditProject checks an explicitly passed project value. Unlike
-// title and who, clearing the project metadata is done with EditOptions
-// Project == nil; an explicitly passed value must be non-empty, and a
-// line break would escape the single-line meta row.
+// validateEditProject checks an explicitly passed project value. A nil
+// value leaves the project unchanged; Edit does not support clearing the
+// project field. A non-nil value must be non-empty and must not carry a
+// line break, which would escape the single-line meta row.
 func validateEditProject(v *string) (string, error) {
 	if v == nil {
 		return "", nil
