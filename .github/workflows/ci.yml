@@ -10,12 +10,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# T-0205 B2 temporary: reproduce a superseding-commit cancel of the previous
-# pull_request run (do not merge).
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
@@ -276,3 +270,9 @@ jobs:
               "Triage and baseline review: docs/ci-triage.md"
             exit 1
           fi
+
+# T-0205 B2 temporary: reproduce a superseding-commit cancel of the previous
+# pull_request run (do not merge).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
