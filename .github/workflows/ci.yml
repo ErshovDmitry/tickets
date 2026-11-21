@@ -276,3 +276,5 @@ jobs:
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# T-0205 B2: trivial nudge commit to supersede the previous run (do not merge).
