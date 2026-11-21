@@ -12,15 +12,34 @@ import (
 	"ticket/internal/paths"
 )
 
-func cmdInit(lang domain.Lang, stdout, stderr io.Writer) int {
+// cmdInit initializes the tickets store at the target resolved from the
+// global -C/--tickets-dir flag, then $TICKETS_DIR, then <cwd>/tickets
+// (T-0223, GitHub issue #49). Init stays outside runLogged: no logger.
+func cmdInit(env map[string]string, flagDir string, lang domain.Lang, stdout, stderr io.Writer) int {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return initError(lang, stderr, err)
 	}
-	return initProject(cwd, lang, stdout, stderr)
+	target, err := paths.ResolveInitTarget(env, cwd, flagDir)
+	if err != nil {
+		return initError(lang, stderr, err)
+	}
+	return initStore(target, lang, stdout, stderr)
 }
+
+// initProject is the scan-tier wrapper kept for the existing white-box
+// tests: initialize <cwd>/tickets. cmdInit resolves the real target via
+// paths.ResolveInitTarget and calls initStore directly.
 func initProject(cwd string, lang domain.Lang, stdout, stderr io.Writer) int {
-	tickets := filepath.Join(cwd, "tickets")
+	return initStore(filepath.Join(cwd, "tickets"), lang, stdout, stderr)
+}
+
+// initStore creates archive/ and deleted/ inside ticketsDir — the FINAL
+// store directory. The conflict/symlink probing below is tier-agnostic
+// (T-0062/T-0082/T-0189): it must behave identically for a scan-tier
+// <cwd>/tickets and an explicit -C/$TICKETS_DIR target.
+func initStore(ticketsDir string, lang domain.Lang, stdout, stderr io.Writer) int {
+	tickets := ticketsDir
 	if li, err := os.Lstat(tickets); err == nil {
 		if li.Mode()&os.ModeSymlink != 0 {
 			// Symlink: follow once. Broken link, unresolvable target (ELOOP)

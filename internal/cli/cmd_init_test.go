@@ -203,3 +203,98 @@ func TestInitProjectPreservesExistingTickets(t *testing.T) {
 		t.Errorf("archive/ not added by init (err=%v)", err)
 	}
 }
+
+// runInitIn runs Run init from work: exit 0, exact stdout (Abs target,
+// no symlink resolution), target/{archive,deleted} created, cwd clean.
+func runInitIn(t *testing.T, work string, args []string, env map[string]string, target string) {
+	t.Helper()
+	t.Chdir(work)
+	code, out, errb := runCLI(t, args, env)
+	if want := "Инициализировано: " + target + "\n"; code != 0 || errb != "" || out != want {
+		t.Fatalf("Run(%v) = %d, stdout=%q stderr=%q; want 0 with empty stderr and stdout %q", args, code, out, errb, want)
+	}
+	for _, sub := range []string{"archive", "deleted"} {
+		if info, err := os.Stat(filepath.Join(target, sub)); err != nil || !info.IsDir() {
+			t.Errorf("target/%s missing or not a dir: %v", sub, err)
+		}
+	}
+	if _, err := os.Lstat(filepath.Join(work, "tickets")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("stray tickets/ in cwd: %v", err)
+	}
+}
+
+// TestInitResolvesTarget covers plan matrix items 1-5, 7-8 via Run: -C,
+// $TICKETS_DIR, flag>env priority, nested target, --tickets-dir long form,
+// relative -C, repeat-run idempotency.
+func TestInitResolvesTarget(t *testing.T) {
+	cases := []struct {
+		name, flag, flagSeg, envSeg string
+		repeat                      bool
+	}{
+		{"flag -C", "-C", "t", "", true},
+		{"env TICKETS_DIR", "", "", "e", false},
+		{"flag beats env", "-C", "f", "e", false},
+		{"nested nonexistent", "-C", "a/b/tickets", "", false},
+		{"long --tickets-dir", "--tickets-dir", "l", "", false},
+		{"relative -C", "-C", "rel", "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			work := t.TempDir()
+			args := []string{"init"}
+			if tc.flag != "" {
+				args = []string{tc.flag, tc.flagSeg, "init"}
+			}
+			env := map[string]string{"TICKETS_DIR": filepath.Join(work, tc.envSeg)}
+			seg := tc.flagSeg
+			if seg == "" {
+				seg = tc.envSeg
+			}
+			runInitIn(t, work, args, env, filepath.Join(work, seg))
+			if _, err := os.Lstat(filepath.Join(work, tc.envSeg)); tc.envSeg != "" && tc.flag != "" && !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("env target created despite flag priority: %v", err)
+			}
+			if tc.repeat {
+				t.Chdir(work)
+				code, out, errb := runCLI(t, args, nil)
+				want := "Инициализировано: " + filepath.Join(work, tc.flagSeg) + "\n"
+				if code != 0 || errb != "" || out != want {
+					t.Fatalf("repeat Run = %d, stdout=%q stderr=%q; want 0 with stdout %q", code, out, errb, want)
+				}
+			}
+		})
+	}
+}
+
+// TestInitConflictExplicitFile covers plan matrix item 6: an explicit
+// target that is a regular file (via -C and via $TICKETS_DIR) is a
+// conflict: exit 1, exact conflict line, empty stdout, clean cwd.
+func TestInitConflictExplicitFile(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		useEnv bool
+	}{
+		{"flag", false},
+		{"env", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			work := t.TempDir()
+			target := filepath.Join(work, "blocker")
+			if err := os.WriteFile(target, []byte("blocker"), 0o644); err != nil {
+				t.Fatalf("WriteFile: %v", err)
+			}
+			t.Chdir(work)
+			args, env := []string{"-C", target, "init"}, map[string]string(nil)
+			if tc.useEnv {
+				args, env = []string{"init"}, map[string]string{"TICKETS_DIR": target}
+			}
+			code, out, errb := runCLI(t, args, env)
+			if want := "ticket: Конфликт: " + target + "\n"; code != 1 || out != "" || errb != want {
+				t.Fatalf("Run = %d stdout=%q stderr=%q, want 1 with empty stdout and conflict line %q", code, out, errb, want)
+			}
+			if _, err := os.Lstat(filepath.Join(work, "tickets")); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("stray tickets/ in cwd: %v", err)
+			}
+		})
+	}
+}

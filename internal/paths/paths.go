@@ -85,6 +85,25 @@ func Source(env map[string]string, flagDir string) string {
 	return sourceTier(env, flagDir).label
 }
 
+// ResolveInitTarget picks the directory `init` must create. The
+// explicit tiers (--tickets-dir/-C, then $TICKETS_DIR) win; the value is
+// made absolute but NOT symlink-resolved and NOT existence-checked —
+// init is exactly the command that creates a missing target, and a
+// symlinked target must keep its Lstat semantics (T-0062). Without an
+// explicit tier the target is filepath.Join(cwd, "tickets") — byte-equal
+// to the historical scan behavior. An Abs failure is the only error.
+func ResolveInitTarget(env map[string]string, cwd, flagDir string) (string, error) {
+	t := sourceTier(env, flagDir)
+	if t.value == "" {
+		return filepath.Join(cwd, dirName), nil
+	}
+	abs, err := filepath.Abs(t.value)
+	if err != nil {
+		return "", fmt.Errorf("abs %s: %w", t.value, err)
+	}
+	return abs, nil
+}
+
 func Resolve(env map[string]string, cwd, flagDir string) (string, error) {
 	t := sourceTier(env, flagDir)
 	// A tier with a nonempty value is an explicit tier (flag or env); the
