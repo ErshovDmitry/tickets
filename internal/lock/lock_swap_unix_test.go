@@ -44,7 +44,7 @@ func TestAcquireSwapRetriesGivesUpAfterMaxSwapRetries(t *testing.T) {
 		return f, nil
 	}
 
-	lk, err := acquireVia(path, open)
+	lk, err := acquireVia(path, open, true)
 
 	if lk != nil {
 		t.Errorf("acquireVia returned Locker %v, want nil", lk)

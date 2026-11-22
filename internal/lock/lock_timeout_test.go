@@ -13,15 +13,17 @@ import (
 // unbounded spin must fail the test well before CI timeouts.
 const watchdog = 5 * time.Second
 
-// TestAcquireTimeoutLocked (plan test 1): while the lock is held,
-// AcquireTimeout spins until the deadline and fails with ErrLocked, and
-// no earlier than the requested timeout.
+// TestAcquireTimeoutLocked (plan test 1): while the lock is held by a
+// NON-heartbeating holder (raw flock below: a stalled or pre-T-0226
+// holder — a heartbeating one would extend the waiter to the 12x cap),
+// AcquireTimeout spins until the deadline and fails with ErrLocked no
+// earlier than the requested timeout.
 func TestAcquireTimeoutLocked(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".lock")
 
-	release, err := Acquire(path)
+	release, err := AcquireNoHeartbeat(path)
 	if err != nil {
-		t.Fatalf("holder Acquire: %v", err)
+		t.Fatalf("holder AcquireNoHeartbeat: %v", err)
 	}
 	defer release()
 

@@ -16,11 +16,23 @@ package lock
 import (
 	"errors"
 	"os"
+	"sync/atomic"
 	"time"
 )
 
 // progressInterval is how often a holder refreshes the lock file mtime.
-const progressInterval = 250 * time.Millisecond
+// It is a var (not a const) so tests can shorten the heartbeat; only
+// sequential tests may override it (never under t.Parallel).
+var progressInterval = 250 * time.Millisecond
+
+// chtimesFailures counts heartbeat stamp failures since process start.
+// Stamping is best-effort and fail-safe: a failure (permissions, a
+// filesystem that will not update mtimes, a Windows sharing violation)
+// silently degrades that one beat, so the waiter sees no progress and
+// reverts to the plain configured timeout. The counter keeps the
+// degradation observable for tests and future debug hooks without
+// polluting the CLI (the lock package has no logger).
+var chtimesFailures atomic.Int64
 
 // progressCapFactor bounds a waiter's total patience at
 // progressCapFactor × timeout: beyond that, a holder that keeps
@@ -34,8 +46,10 @@ type progressMark struct {
 	mtime time.Time
 }
 
-// statProgress reads the lock file's mark. A missing file is not an
-// error: it yields a nil mark and the acquire attempt reports the swap.
+// statProgress reads the lock file's mark. Any stat error (a missing
+// file included) is returned: the caller skips progress tracking for
+// that attempt, and tryAcquire reports a replacement file as a swap
+// (T-0073) or recreates the file.
 func statProgress(path string) (*progressMark, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -45,7 +59,13 @@ func statProgress(path string) (*progressMark, error) {
 }
 
 // progressed reports whether cur proves a living holder: the same file
-// as before (T-0073: a replacement is never progress) with a newer mtime.
+// as before (T-0073: a replacement is never progress) with a mtime
+// strictly newer than the previous observation. Equal mtimes do NOT
+// count: on filesystems with coarse mtime granularity (FAT 2s, HFS+
+// 1s) several heartbeats can land in one granularity window, so
+// progress is observed at most once per granularity unit. Configure
+// TICKET_LOCK_TIMEOUT above the filesystem granularity (and above the
+// ~250ms holder-refresh interval).
 func (cur *progressMark) progressed(prev *progressMark) bool {
 	return cur.mtime.After(prev.mtime) && os.SameFile(cur.fi, prev.fi)
 }
@@ -65,10 +85,19 @@ func newLocked(f *os.File, path string) *Locker {
 func (l *Locker) startProgress() {
 	l.progressStartOnce.Do(func() {
 		l.progressStop = make(chan struct{})
+		l.progressDone = make(chan struct{})
 		now := time.Now()
-		_ = os.Chtimes(l.path, now, now)
+		if err := os.Chtimes(l.path, now, now); err != nil {
+			chtimesFailures.Add(1)
+		}
+		// Read the interval once, before the goroutine: a test may swap
+		// the package var while a previous holder's heartbeat is still
+		// running (sequential tests, joined stops make this the only
+		// reader).
+		interval := progressInterval
 		go func() {
-			ticker := time.NewTicker(progressInterval)
+			defer close(l.progressDone)
+			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
 			for {
 				select {
@@ -76,18 +105,39 @@ func (l *Locker) startProgress() {
 					return
 				case <-ticker.C:
 					now := time.Now()
-					_ = os.Chtimes(l.path, now, now)
+					if err := os.Chtimes(l.path, now, now); err != nil {
+						chtimesFailures.Add(1)
+					}
 				}
 			}
 		}()
 	})
 }
 
-// stopProgress halts the heartbeat. Safe to call when it never started.
-func (l *Locker) stopProgress() {
-	if l.progressStop != nil {
-		close(l.progressStop)
+// AcquireNoHeartbeat is Acquire for a holder that will never report
+// progress: it starts no mtime heartbeat, so a competing AcquireLocked
+// waiter's deadline is never extended past the configured timeout. It
+// models a stalled holder or a pre-T-0226 binary; it exists for tests
+// and diagnostics, not for normal ticket commands.
+func AcquireNoHeartbeat(path string) (release func() error, err error) {
+	lk, err := acquireVia(path, openLockFile, false)
+	if err != nil {
+		return nil, err
 	}
+	return lk.OnceRelease, nil
+}
+
+// stopProgress halts the heartbeat and joins it: the goroutine has
+// exited (no Chtimes in flight) before this returns, so Release can
+// drop the lock without a stray stamp landing on a competitor's file.
+// Idempotent; safe to call when the heartbeat never started.
+func (l *Locker) stopProgress() {
+	l.progressStopOnce.Do(func() {
+		if l.progressStop != nil {
+			close(l.progressStop)
+			<-l.progressDone
+		}
+	})
 }
 
 // AcquireLocked is the Locker-returning form of AcquireTimeout: it spins
@@ -114,8 +164,9 @@ func AcquireLocked(path string, timeout time.Duration) (*Locker, error) {
 		}
 		return nil, err
 	}
-	deadline := time.Now().Add(timeout)
-	patienceCap := time.Now().Add(progressCapFactor * timeout)
+	now := time.Now()
+	deadline := now.Add(timeout)
+	patienceCap := now.Add(progressCapFactor * timeout)
 	var last *progressMark
 	for attempt := 0; ; attempt++ {
 		if attempt > 0 {

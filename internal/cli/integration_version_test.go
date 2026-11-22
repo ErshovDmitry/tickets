@@ -7,7 +7,6 @@ package cli_test
 
 import (
 	"bytes"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -87,11 +86,9 @@ func TestVersionLdflagsInjection(t *testing.T) {
 		err := cmd.Run()
 		code := 0
 		if err != nil {
-			var ee *exec.ExitError
-			if !errors.As(err, &ee) {
+			if code = exitCode(err); code < 0 {
 				t.Fatalf("run %v: %v", args, err)
 			}
-			code = ee.ExitCode()
 		}
 		if code != 0 {
 			t.Fatalf("%v: code=%d stderr=%q", args, code, stderr.String())

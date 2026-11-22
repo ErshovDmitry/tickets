@@ -4,10 +4,12 @@ package lock
 // failure they pin (CI run 44942515928): on an oversubscribed
 // windows-latest runner a healthy holder kept the lock past a waiter's
 // wall-clock budget and `ticket new` died with "still held by another
-// process after 5s". These tests exercise the mechanism with injected
-// slowness only — no scheduler dependence: timeouts are hundreds of
-// milliseconds, holds are seconds, and the patience cap is an order of
-// magnitude above both.
+// process after 5s". These tests shorten the holder heartbeat to 10ms
+// so a waiter's progress-observation window (timeout − heartbeat
+// interval) stays an order of magnitude above the 50ms poll interval:
+// cancelling an extension takes a scheduler stall longer than the whole
+// window, not jitter of one poll. The tests never run in parallel, so
+// overriding the package var is race-free.
 
 import (
 	"errors"
@@ -17,10 +19,20 @@ import (
 	"time"
 )
 
-// progressTestPath returns a fresh .lock path inside a temp dir.
-func progressTestPath(t *testing.T) string {
+// shortHeartbeat bounds how long these tests hold real time: the
+// heartbeat is 40x faster than in production, so a healthy-holder wait
+// of seconds and a patience-cap wait of 3.6s still exercise many
+// heartbeat/poll interactions instead of a handful.
+const shortHeartbeat = 10 * time.Millisecond
+
+// shortenHeartbeat replaces the holder-refresh interval for one test
+// and restores it afterwards. Must not be used under t.Parallel: the
+// interval is a package var.
+func shortenHeartbeat(t *testing.T) {
 	t.Helper()
-	return filepath.Join(t.TempDir(), ".lock")
+	prev := progressInterval
+	progressInterval = shortHeartbeat
+	t.Cleanup(func() { progressInterval = prev })
 }
 
 // TestAcquireLockedExtendsOnHolderProgress is the T-0226 regression: a
@@ -30,7 +42,8 @@ func progressTestPath(t *testing.T) string {
 // ErrLocked after 500ms; the fixed code extends the deadline on every
 // observed heartbeat and is still waiting when the holder releases.
 func TestAcquireLockedExtendsOnHolderProgress(t *testing.T) {
-	path := progressTestPath(t)
+	shortenHeartbeat(t)
+	path := filepath.Join(t.TempDir(), ".lock")
 	release, err := Acquire(path)
 	if err != nil {
 		t.Fatalf("acquire holder: %v", err)
@@ -58,7 +71,7 @@ func TestAcquireLockedExtendsOnHolderProgress(t *testing.T) {
 // one stuck before its heartbeat starts — still fails the waiter on the
 // plain timeout. The raw flock below bypasses the heartbeat on purpose.
 func TestAcquireLockedTimesOutWithoutProgress(t *testing.T) {
-	path := progressTestPath(t)
+	path := filepath.Join(t.TempDir(), ".lock")
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		t.Fatalf("open lock file: %v", err)
@@ -88,13 +101,14 @@ func TestAcquireLockedTimesOutWithoutProgress(t *testing.T) {
 // intervals or the first progress evidence lands after the plain
 // deadline (small timeouts keep the pre-fix behavior).
 func TestAcquireLockedProgressPatienceCap(t *testing.T) {
-	path := progressTestPath(t)
+	shortenHeartbeat(t)
+	path := filepath.Join(t.TempDir(), ".lock")
 	release, err := Acquire(path)
 	if err != nil {
 		t.Fatalf("acquire holder: %v", err)
 	}
-	const timeout = 400 * time.Millisecond
-	const hold = 6 * time.Second // > cap 12×400ms = 4.8s
+	const timeout = 300 * time.Millisecond
+	const hold = 4 * time.Second // > cap 12×300ms = 3.6s
 	go func() {
 		time.Sleep(hold)
 		_ = release()

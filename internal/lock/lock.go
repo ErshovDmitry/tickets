@@ -64,10 +64,14 @@ type Locker struct {
 	// silently dropping a real I/O error.
 	err error
 	// progressStop terminates the holder-progress heartbeat (started by
-	// newLocked, stopped by Release); progressStartOnce makes the start
-	// idempotent. T-0226.
+	// newLocked, stopped by Release); progressDone is closed by the
+	// heartbeat goroutine on exit so stopProgress can join it before the
+	// lock is dropped. The two Once guards make start/stop idempotent.
+	// T-0226.
 	progressStop      chan struct{}
+	progressDone      chan struct{}
 	progressStartOnce sync.Once
+	progressStopOnce  sync.Once
 }
 
 // openLockFile opens (creating if needed) the lock file at path,
@@ -85,7 +89,7 @@ func openLockFile(path string) (*os.File, error) {
 // when invoked. The closure is nil iff err is non-nil. Open and lock
 // failures are wrapped with path context; match them with errors.Is.
 func Acquire(path string) (release func() error, err error) {
-	lk, err := acquireVia(path, openLockFile)
+	lk, err := acquireVia(path, openLockFile, true)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +108,7 @@ func Acquire(path string) (release func() error, err error) {
 // whatever is at path now and retries, up to maxSwapRetries times;
 // a stat failure of path other than "does not exist" is returned as a
 // hard error instead.
-func acquireVia(path string, open func(string) (*os.File, error)) (*Locker, error) {
+func acquireVia(path string, open func(string) (*os.File, error), progress bool) (*Locker, error) {
 	f, err := open(path)
 	if err != nil {
 		return nil, err
@@ -121,7 +125,10 @@ func acquireVia(path string, open func(string) (*os.File, error)) (*Locker, erro
 			return nil, fmt.Errorf("lock: check %s: %w", path, checkErr)
 		}
 		if !swapped {
-			return newLocked(f, path), nil
+			if progress {
+				return newLocked(f, path), nil
+			}
+			return &Locker{f: f, path: path}, nil
 		}
 		// Stale inode: drop the useless flock and retry on the file
 		// that is at path now (fail-closed).
@@ -211,9 +218,11 @@ func checkCurrent(f *os.File, path string) (swapped bool, err error) {
 }
 
 // stillHeld builds the deadline-expiry error for AcquireLocked. It wraps
-// ErrLocked so callers can keep matching with errors.Is.
+// ErrLocked so callers can keep matching with errors.Is. The duration is
+// the stall budget: with a livelocking holder the waiter may actually
+// have waited up to progressCapFactor × timeout.
 func stillHeld(path string, timeout time.Duration) error {
-	return fmt.Errorf("lock: %s: still held by another process after %s (another ticket command may be running?): %w", path, timeout, ErrLocked)
+	return fmt.Errorf("lock: %s: still held by another process after %s without holder progress (another ticket command may be running?): %w", path, timeout, ErrLocked)
 }
 
 // AcquireTimeout blocks until the exclusive lock at path is granted or

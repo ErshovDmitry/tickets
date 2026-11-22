@@ -5,6 +5,10 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+### Fixed
+
+- `TICKET_LOCK_TIMEOUT` is now a holder-stall budget instead of a wall-clock wait: while the holder keeps making progress (it refreshes the lock file), the waiter's deadline is extended on every observed progress, capped at 12× the configured timeout, so `ticket` no longer fails spuriously with "still held by another process" on slow or oversubscribed machines when the peer is healthy (T-0226).
+
 ## [2.0.0] - 2026-11-21
 
 ### Added
