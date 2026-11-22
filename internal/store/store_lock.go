@@ -67,7 +67,11 @@ func (s *Store) withLock(fn func() error) (err error) {
 		return fmt.Errorf("store: lock: %w", err)
 	}
 	log.Debug("store.lock.acquired", "path", path)
+	t0226Start := time.Now() // T-0226 TEMPORARY probe instrumentation
 	defer func() {
+		if d := time.Since(t0226Start); d > time.Second { // T-0226 TEMPORARY
+			fmt.Fprintf(os.Stderr, "T0226-PROBE critical-section path=%s dur=%s\n", path, d)
+		}
 		rerr := lk.Release()
 		if rerr != nil {
 			log.Error("store.lock.error", "path", path, "reason", "error")

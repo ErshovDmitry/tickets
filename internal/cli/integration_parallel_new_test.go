@@ -68,6 +68,11 @@ func TestParallelNewSetNoDuplicates(t *testing.T) {
 		for range cmds {
 			r := <-results
 			if r.err != nil {
+				for i := range errs { // T-0226 TEMPORARY probe: dump all stderr
+					if s := errs[i].String(); s != "" {
+						t.Logf("round %d process %d stderr: %q", round, i, s)
+					}
+				}
 				t.Fatalf("round %d process %d: %v (exit=%d, stdout=%q, stderr=%q)",
 					round, r.i, r.err, exitCode(r.err), bufs[r.i].String(), errs[r.i].String())
 			}

@@ -219,19 +219,30 @@ func stillHeld(path string, timeout time.Duration) error {
 // other errors are wrapped with path context.
 func AcquireLocked(path string, timeout time.Duration) (*Locker, error) {
 	deadline := time.Now().Add(timeout)
+	started := time.Now()     // T-0226 TEMPORARY probe instrumentation
+	attempts := 0             // T-0226 TEMPORARY
+	slept := time.Duration(0) // T-0226 TEMPORARY intended sleep sum
 	for attempt := 0; ; attempt++ {
+		attempts++ // T-0226 TEMPORARY
 		if attempt > 0 {
 			d := time.Until(deadline)
 			if d <= 0 {
+				fmt.Fprintf(os.Stderr, "T0226-PROBE lock-timeout path=%s attempts=%d intendedSleep=%s wall=%s timeout=%s\n",
+					path, attempts, slept, time.Since(started), timeout) // T-0226 TEMPORARY
 				return nil, stillHeld(path, timeout)
 			}
 			if d > pollInterval {
 				d = pollInterval
 			}
+			slept += d // T-0226 TEMPORARY
 			time.Sleep(d)
 		}
 		lk, err := tryAcquire(path)
 		if err == nil {
+			if w := time.Since(started); w > 2*time.Second { // T-0226 TEMPORARY
+				fmt.Fprintf(os.Stderr, "T0226-PROBE slow-acquire path=%s attempts=%d intendedSleep=%s wall=%s\n",
+					path, attempts, slept, w) // T-0226 TEMPORARY
+			}
 			return lk, nil
 		}
 		if !errors.Is(err, ErrLocked) {
