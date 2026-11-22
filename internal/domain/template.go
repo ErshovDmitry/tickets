@@ -49,11 +49,15 @@ type newTicketData struct {
 // newData assembles newTicketData for t from its language dictionary.
 // Details is normalized on a copy (T-0131): the caller's Ticket stays
 // untouched, and the template's empty-Details branch then covers both an
-// empty and an LF-only payload.
+// empty and an LF-only payload. Nonempty Details then get the new-only
+// MD022/MD032 blank-line spacing (T-0230, GitHub #56); regular Render does not.
 func newData(t *Ticket) newTicketData {
 	d := getDict(t.Lang)
 	normalized := *t
 	normalized.Details = normalizeDetails(t.Details)
+	if normalized.Details != "" {
+		normalized.Details = spaceDetailBlocks(normalized.Details)
+	}
 	return newTicketData{
 		Ticket:             normalized,
 		Number:             fmt.Sprintf("%04d", t.Number),

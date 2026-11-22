@@ -35,6 +35,8 @@ ticket normalize --dry-run                              # list legacy ticket fil
 ticket normalize                                        # re-render them in place (name untouched; body status reconciled to it, no journal line)
 ```
 
+`ticket new` writes the part of the file it owns so that it passes MD022/MD032 for the shapes it supports — ATX headings (1–6 `#`, up to three leading spaces) and column-0 list blocks (a `-`, `+`, `*`, `N.` or `N)` marker followed by a space or tab): with a non-empty `Details` it inserts only the missing blank lines around them inside the payload. Only those shapes pass; other shapes and adjacency cases (nested items, indented markers, thematic breaks, non-column-0 blocks, a heading immediately followed by an indented block or a comment) are deliberately left unchanged and carry no promise — this is not a universal lint-clean guarantee. The insertion is whitespace-only — every non-whitespace byte of the resolved payload is written unchanged. Existing files are not migrated: `ticket normalize` (and `--dry-run`) still copies the body verbatim and has no `--prose` pass.
+
 `deleted` is a terminal, read-only status: `ticket delete` moves the file into `tickets/deleted/` (body, metadata and journal preserved), `list deleted` is the only mode that shows such tickets — `active`/`open`/`wip`/`done`/`closed`/`archive`/`all` hide them, and there is no undelete. Numbers are never reused.
 
 ## Exit codes

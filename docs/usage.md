@@ -84,6 +84,7 @@ Environment variables (`TICKETS_DIR`, `TICKET_WHO`, `TICKET_LANG`, `TICKET_LOCK_
 - `-` — the content of stdin.
 - An empty file or empty stdin — an empty `Details` value; the command succeeds and the created ticket shows the Details format block (the same as with `-d ""`).
 - A missing file or a failed stdin read — an error: the message is localized (the file error names the path) and no ticket is created.
+- Spacing in the created file — with a non-empty `Details`, `ticket new` also inserts the missing blank lines around supported ATX headings (1–6 `#`, up to three leading spaces) and supported list blocks: a `-`, `+`, `*`, `1.` or `1)` marker in column 0 followed by a space or a tab. Only those shapes are handled — other indentation and list shapes (nested items, indented markers, thematic breaks, non-column-0 blocks) are deliberately left alone and carry no promise. For the supported shapes that part passes MD022/MD032; this is not a claim about other markdownlint rules. The byte-for-byte promise above is about input resolution: no non-whitespace byte of the resolved payload is changed (no trimming, no reflow, no text edit). This is a `new`-only pass: `ticket normalize` and `ticket normalize --dry-run` never reformat body prose, existing hand-written files are not migrated and there is no `--prose` flag.
 
 ### Comment input (`set`)
 
@@ -305,6 +306,8 @@ ticket normalize                # rewrite them in place
 - `-P <project>` limits the run to one project (exact, case-sensitive). Duplicate numbers are reported like `list` does, both files are migrated and the exit code stays 0 — `normalize` never returns 2.
 - Deleted tickets are normalised in place as well: the walk order is main → archive → deleted, an unreadable or invalid deleted file is skipped with the same warning an archived one gets, and the file name stays authoritative. `--dry-run` writes nothing, deleted files included.
 - `--dry-run` takes no lock and no write probe, so it also works on a read-only `tickets/` directory.
+
+The body payload is still copied verbatim: `normalize` adds no markdown spacing inside `Details` (there is no `--prose` pass), so a hand-written list or `##` sub-heading keeps its MD032/MD022 findings; in a file whose layout is already canonical, `--dry-run` reports nothing to do. Block spacing inside the payload is written by `ticket new` only, at creation time.
 
 🔴 `normalize` rewrites files in place: run it on a copy first — `rm -rf /tmp/corpus && cp -r tickets /tmp/corpus && ticket -C /tmp/corpus normalize --dry-run`.
 
