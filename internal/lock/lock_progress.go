@@ -37,8 +37,10 @@ var chtimesFailures atomic.Int64
 // progressCapFactor bounds a waiter's total patience at
 // progressCapFactor × timeout: beyond that, a holder that keeps
 // heartbeating without finishing is treated as livelocked and the waiter
-// fails exactly as it would have without progress tracking.
-const progressCapFactor = 12
+// fails exactly as it would have without progress tracking. It is a var
+// (not a const) so tests can shrink the cap; only sequential tests may
+// override it (never under t.Parallel).
+var progressCapFactor int64 = 12
 
 // progressMark is one observation of the lock file's identity and mtime.
 type progressMark struct {
@@ -166,7 +168,7 @@ func AcquireLocked(path string, timeout time.Duration) (*Locker, error) {
 	}
 	now := time.Now()
 	deadline := now.Add(timeout)
-	patienceCap := now.Add(progressCapFactor * timeout)
+	patienceCap := now.Add(time.Duration(progressCapFactor) * timeout)
 	var last *progressMark
 	for attempt := 0; ; attempt++ {
 		if attempt > 0 {

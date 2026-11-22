@@ -6,10 +6,12 @@ package lock
 // wall-clock budget and `ticket new` died with "still held by another
 // process after 5s". These tests shorten the holder heartbeat to 10ms
 // so a waiter's progress-observation window (timeout − heartbeat
-// interval) stays an order of magnitude above the 50ms poll interval:
-// cancelling an extension takes a scheduler stall longer than the whole
-// window, not jitter of one poll. The tests never run in parallel, so
-// overriding the package var is race-free.
+// interval) is ~2s — an order of magnitude above the 50ms poll interval
+// and above whole-process scheduling stalls on shared 4-vCPU runners
+// (a stall longer than the window cancels an extension: while frozen,
+// no heartbeat can run, so the holder is genuinely stalled from any
+// observable standpoint). The tests never run in parallel, so
+// overriding the package vars is race-free.
 
 import (
 	"errors"
@@ -21,7 +23,7 @@ import (
 
 // shortHeartbeat bounds how long these tests hold real time: the
 // heartbeat is 40x faster than in production, so a healthy-holder wait
-// of seconds and a patience-cap wait of 3.6s still exercise many
+// of seconds and a patience-cap wait of 8s still exercise many
 // heartbeat/poll interactions instead of a handful.
 const shortHeartbeat = 10 * time.Millisecond
 
@@ -35,11 +37,23 @@ func shortenHeartbeat(t *testing.T) {
 	t.Cleanup(func() { progressInterval = prev })
 }
 
+// shrinkCap replaces the patience-cap factor for one test and restores
+// it afterwards, so the cap can be reached with a stall-resistant
+// multi-second timeout without a multi-minute test. The mechanism under
+// test is the cap itself, not the literal 12. Same no-Parallel rule as
+// shortenHeartbeat.
+func shrinkCap(t *testing.T, factor int64) {
+	t.Helper()
+	prev := progressCapFactor
+	progressCapFactor = factor
+	t.Cleanup(func() { progressCapFactor = prev })
+}
+
 // TestAcquireLockedExtendsOnHolderProgress is the T-0226 regression: a
 // holder that keeps making progress (the heartbeat every
 // progressInterval) must not fail a waiter whose plain wall-clock budget
 // expires mid-hold. On the pre-fix code the waiter errored with
-// ErrLocked after 500ms; the fixed code extends the deadline on every
+// ErrLocked after 2s; the fixed code extends the deadline on every
 // observed heartbeat and is still waiting when the holder releases.
 func TestAcquireLockedExtendsOnHolderProgress(t *testing.T) {
 	shortenHeartbeat(t)
@@ -55,10 +69,7 @@ func TestAcquireLockedExtendsOnHolderProgress(t *testing.T) {
 	}()
 
 	start := time.Now()
-	// Budget 1s against a 10ms heartbeat: the progress-observation window
-	// (~990ms) must stay far above whole-process scheduling stalls on
-	// shared 4-vCPU runners — the noise class this ticket targets.
-	lk, err := AcquireLocked(path, time.Second)
+	lk, err := AcquireLocked(path, 2*time.Second)
 	if err != nil {
 		t.Fatalf("waiter: healthy holder must not fail: %v", err)
 	}
@@ -105,13 +116,17 @@ func TestAcquireLockedTimesOutWithoutProgress(t *testing.T) {
 // deadline (small timeouts keep the pre-fix behavior).
 func TestAcquireLockedProgressPatienceCap(t *testing.T) {
 	shortenHeartbeat(t)
+	// Timeout 2s keeps the observation window (~2s) above whole-process
+	// stalls; the cap factor shrinks to 4 so the cap (8s) is reached
+	// within a short test.
+	shrinkCap(t, 4)
 	path := filepath.Join(t.TempDir(), ".lock")
 	release, err := Acquire(path)
 	if err != nil {
 		t.Fatalf("acquire holder: %v", err)
 	}
-	const timeout = 500 * time.Millisecond
-	const hold = 7 * time.Second // > cap 12×500ms = 6s
+	const timeout = 2 * time.Second
+	const hold = 9 * time.Second // > cap 4×2s = 8s
 	released := make(chan struct{})
 	go func() {
 		defer close(released)
@@ -124,7 +139,7 @@ func TestAcquireLockedProgressPatienceCap(t *testing.T) {
 	if !errors.Is(err, ErrLocked) {
 		t.Fatalf("livelocked holder: want ErrLocked, got %v (locker=%v)", err, lk)
 	}
-	if d := time.Since(start); d < progressCapFactor*timeout {
+	if d := time.Since(start); d < time.Duration(progressCapFactor)*timeout {
 		t.Fatalf("patience cap ignored: failed after only %s", d)
 	}
 	// The holder outlives the failed waiter: join its release so the
