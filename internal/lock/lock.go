@@ -226,10 +226,12 @@ func stillHeld(path string, timeout time.Duration) error {
 }
 
 // AcquireTimeout blocks until the exclusive lock at path is granted or
-// timeout elapses; timeout <= 0 means exactly one attempt. On deadline
-// expiry it returns an error wrapping ErrLocked so callers can detect
-// the contention case with errors.Is. The release closure is nil iff
-// err is non-nil.
+// the holder makes no progress for timeout; while the holder keeps
+// progressing, the wait may stretch up to progressCapFactor × timeout in
+// total. timeout <= 0 means exactly one attempt. On deadline expiry it
+// returns an error wrapping ErrLocked so callers can detect the
+// contention case with errors.Is. The release closure is nil iff err is
+// non-nil.
 func AcquireTimeout(path string, timeout time.Duration) (release func() error, err error) {
 	lk, err := AcquireLocked(path, timeout)
 	if err != nil {
