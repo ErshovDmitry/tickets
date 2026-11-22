@@ -91,8 +91,7 @@ func TestParallelNewSetNoDuplicates(t *testing.T) {
 // the process did not exit normally (start failure, signal) — the
 // (*exec.ExitError).ExitCode contract (os/exec).
 func exitCode(err error) int {
-	var ee *exec.ExitError
-	if errors.As(err, &ee) {
+	if ee, ok := errors.AsType[*exec.ExitError](err); ok {
 		return ee.ExitCode()
 	}
 	return -1
