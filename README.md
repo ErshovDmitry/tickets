@@ -63,6 +63,21 @@ ticket normalize                                        # re-render them in plac
 
 - bash original: [init-tickets.md](https://gitlab.com/ai-dmitry/promts/-/blob/main/init-tickets.md)
 
+## OpenPGP key
+
+The project's OpenPGP (GPG) key is published on the keyserver `hkps://keys.openpgp.org`.
+
+- Fingerprint: `0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9`
+- Keyserver: `hkps://keys.openpgp.org`
+- User ID: `dmitry.linux <dmitry.linux@mail.ru>`
+
+```bash
+gpg --keyserver hkps://keys.openpgp.org --recv-keys 0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9
+gpg --fingerprint 0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9
+```
+
+The hex digits printed by the second command must be identical to the fingerprint above — `gpg` prints them in space-separated groups, so compare the digits themselves. This OpenPGP key signs the release tag and the detached signature of the release checksum file (release runbook: `docs/releasing.md`), while COMMITS are signed with a different key — an SSH key (`gpg.format = ssh`, `~/.ssh/id_ed25519-ai-base`) — so the OpenPGP key is never used for commit signatures.
+
 ## Status
 
 **v1 done.**
