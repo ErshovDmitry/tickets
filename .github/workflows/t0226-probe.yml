@@ -46,25 +46,28 @@ jobs:
           VER=${VER:-dev}
           go build -ldflags "-X ticket/internal/cli.version=$VER" \
             -o ticket.exe ./cmd/ticket
-      - name: Stress target test (40 iterations)
+      - name: Stress target test (3 concurrent instances x 15 rounds)
         shell: bash
         run: |
           mkdir -p probe-logs
-          fails=0
-          for k in $(seq 1 40); do
-            echo "=== iteration $k ==="
-            TICKET_TEST_BIN="$PWD/ticket.exe" ./cli.test.exe \
-              -test.run=TestParallelNewSetNoDuplicates \
-              -test.v -test.count=1 \
-              > "probe-logs/iter-$k.log" 2>&1
-            code=$?
-            tail -2 "probe-logs/iter-$k.log"
-            if [ $code -ne 0 ]; then
-              echo "iteration $k FAILED code=$code"
-              fails=$((fails+1))
-            fi
-          done
-          echo "TOTAL FAILURES: $fails"
+          run_instance() {
+            inst=$1
+            for k in $(seq 1 15); do
+              TICKET_TEST_BIN="$PWD/ticket.exe" ./cli.test.exe \
+                -test.run=TestParallelNewSetNoDuplicates \
+                -test.v -test.count=1 \
+                > "probe-logs/inst-$inst-iter-$k.log" 2>&1
+              code=$?
+              tail -1 "probe-logs/inst-$inst-iter-$k.log"
+              if [ $code -ne 0 ]; then
+                echo "instance $inst iteration $k FAILED code=$code"
+              fi
+            done
+          }
+          run_instance 1 & run_instance 2 & run_instance 3 &
+          wait
+          echo "ALL INSTANCES DONE"
+          grep -l -- '--- FAIL' probe-logs/inst-*.log || true
       - name: Upload probe logs
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
