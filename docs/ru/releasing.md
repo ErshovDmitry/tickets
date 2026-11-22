@@ -118,6 +118,8 @@ git push origin v2.0.1
 
 `gh release create --verify-tag` прерывается, если тега ещё нет в удалённом репозитории, поэтому push — обязательное предварительное условие.
 
+Push по HTTPS аутентифицируется через credential-helper `gh` (`gh auth git-credential`), уже настроенный на ПК разработки; ни токен, ни пароль не фигурируют в команде и в этом runbook. Если на машине без helper push запрашивает учётные данные, один раз выполните `gh auth setup-git` (хост должен быть уже аутентифицирован через `gh auth login`) и повторите push.
+
 ## Публикация релиза
 
 Сначала подготовьте файл notes. Он должен содержать английский раздел changelog `[2.0.1]` с датой релиза и только реально вошедшими изменениями (из `git log v2.0.0..HEAD` и diffs, а не из пустого Unreleased), полный отпечаток ключа `0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9` и команды проверки (`gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt`, `sha256sum -c SHA256SUMS.txt`) — образец: раздел Assets в опубликованных notes v2.0.0.
@@ -152,6 +154,7 @@ gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
 go version -m ticket-linux-amd64 | grep -E 'vcs\.|cli.version'
 chmod +x ticket-linux-amd64      # скачанные ассеты теряют executable-бит
 ./ticket-linux-amd64 --version   # ticket version 2.0.1
+cd ..                            # возврат в корень репозитория для Windows-smoke ниже
 ```
 
 `sha256sum -c` должен показать `OK` для каждого файла, а `gpg` — действительную подпись от `0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9`. Buildinfo снова должен показывать `vcs.revision`, равный коммиту тега, и `vcs.modified=false`.
@@ -162,7 +165,7 @@ chmod +x ticket-linux-amd64      # скачанные ассеты теряют 
 
 SSH-доступ к dser97 уже настроен: ключ ai-base живёт в TPM2-backed ssh-agent на ПК разработки, поэтому `ssh dser97.home` / `scp` работают как есть — ключ не запрашивать (см. `DEPLOY.md`).
 
-Скопируйте релизный бинарник и smoke-скрипт в домашний каталог SSH, затем проверьте версию и запустите smoke оттуда:
+Из корня репозитория (блок свежего скачивания выше возвращает туда) скопируйте релизный бинарник и smoke-скрипт в домашний каталог SSH, затем проверьте версию и запустите smoke оттуда:
 
 ```bash
 scp dist/ticket-windows-amd64.exe scripts/smoke-windows.ps1 dser97.home:

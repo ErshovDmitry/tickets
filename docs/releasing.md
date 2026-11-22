@@ -118,6 +118,8 @@ git push origin v2.0.1
 
 `gh release create --verify-tag` aborts when the tag does not already exist in the remote repository, so the push is a hard prerequisite.
 
+The push over HTTPS authenticates through the `gh` credential helper (`gh auth git-credential`), already configured on the development PC; no token or password appears in the command or in this runbook. If a push on a machine without the helper prompts for credentials, run `gh auth setup-git` once (the host must already be authenticated via `gh auth login`) and retry the push.
+
 ## Publish the release
 
 Prepare the notes file first. It must contain the English `[2.0.1]` changelog section with the release date and only the changes actually shipped (from `git log v2.0.0..HEAD` and the diffs, not from an empty Unreleased section), the full key fingerprint `0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9`, and the verify commands (`gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt`, `sha256sum -c SHA256SUMS.txt`) — model it on the Assets section of the published v2.0.0 notes.
@@ -152,6 +154,7 @@ gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
 go version -m ticket-linux-amd64 | grep -E 'vcs\.|cli.version'
 chmod +x ticket-linux-amd64      # downloaded assets lose the executable bit
 ./ticket-linux-amd64 --version   # ticket version 2.0.1
+cd ..                            # return to the repo root for the Windows smoke below
 ```
 
 `sha256sum -c` must report every file as `OK`, and `gpg` must report a good signature from `0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9`. The buildinfo must again show `vcs.revision` equal to the tagged commit and `vcs.modified=false`.
@@ -162,7 +165,7 @@ When comparing against the previous release (v2.0.0), use `gh release view` / a 
 
 SSH access to dser97 is already configured: the ai-base key lives in the TPM2-backed ssh-agent on the development PC, so `ssh dser97.home` / `scp` work as-is — do not ask for the key (see `DEPLOY.md`).
 
-Copy the release binary and the smoke script into the SSH home directory, then check the version and run the smoke from there:
+From the repo root (the fresh-download block above returns there), copy the release binary and the smoke script into the SSH home directory, then check the version and run the smoke from there:
 
 ```bash
 scp dist/ticket-windows-amd64.exe scripts/smoke-windows.ps1 dser97.home:
