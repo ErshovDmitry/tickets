@@ -5,9 +5,17 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-22
+
+### Changed
+
+- The English and Russian release runbooks (`docs/releasing.md`, `docs/ru/releasing.md`) are restored with the full signed-release flow: annotated GPG-signed release tag, six cross-platform `CGO_ENABLED=0` assets, `SHA256SUMS.txt` with a detached armored signature, and a fresh-download verification procedure (T-0227).
+
 ### Fixed
 
-- `TICKET_LOCK_TIMEOUT` is now a holder-stall budget instead of a wall-clock wait: while the holder keeps making progress (it refreshes the lock file), the waiter's deadline is extended on every observed progress, capped at 12× the configured timeout, so `ticket` no longer fails spuriously with "still held by another process" on slow or oversubscribed machines when the peer is healthy (T-0226).
+- `ticket init` now honors the global `-C`/`--tickets-dir` flag and the `TICKETS_DIR` environment variable: it initializes the explicitly selected tickets directory instead of always creating `<current directory>/tickets`, and `ticket help` documents the new behavior (T-0223).
+- `ticket set` comment sources (`@file`, stdin `-`) now accept exactly one trailing LF or CRLF — the newline an editor or `echo` typically appends — and strip it; embedded or multiple newlines (for example `x\n\n`), a lone trailing CR and other multi-line payloads are still rejected unchanged (a clarification of the T-0215 source rules) (T-0225).
+- `TICKET_LOCK_TIMEOUT` is now a holder-stall budget instead of a wall-clock wait: while the holder keeps making progress (it refreshes the lock file), the waiter's deadline is extended on every observed progress, capped at 12× the configured timeout, so `ticket` no longer fails spuriously with "still held by another process" on slow or oversubscribed machines when the peer is healthy (T-0226). This also fixes the parallel `ticket new`/`ticket set` runs on Windows shared runners (T-0226).
 
 ## [2.0.0] - 2026-11-21
 
