@@ -1,0 +1,73 @@
+# TEMPORARY probe workflow for T-0226 (never merge to main).
+# Repeats TestParallelNewSetNoDuplicates on windows-latest to capture the
+# rare CI failure WITH the per-process stderr the strengthened harness
+# now records. Lives only on probe branches.
+name: T-0226 Windows repro probe
+on:
+  push:
+    branches: ['probe/t-0226-windows-repro']
+permissions:
+  contents: read
+jobs:
+  probe:
+    name: Probe (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      # A/B half of the T-0226 fix: same exclusion as ci.yml, so the
+      # probe run isolates the fix on the exact failing environment.
+      - name: Exclude test sandbox from Defender RT scanning
+        shell: pwsh
+        env:
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          Add-MpPreference -ExclusionPath $env:TEMP
+          Add-MpPreference -ExclusionPath $env:WORKSPACE
+          $excl = (Get-MpPreference).ExclusionPath
+          $haveTemp = $excl | Where-Object {
+            $_.TrimEnd('\') -eq $env:TEMP.TrimEnd('\') }
+          if (-not $haveTemp) {
+            throw "Defender exclusion for TEMP not in effect: $excl"
+          }
+          Write-Output "Defender RT exclusions active: $excl"
+      - name: Build binaries
+        shell: bash
+        run: |
+          go test -c -o cli.test.exe ./internal/cli
+          VER=$(git describe --tags --always 2>/dev/null | sed 's/^v//')
+          VER=${VER:-dev}
+          go build -ldflags "-X ticket/internal/cli.version=$VER" \
+            -o ticket.exe ./cmd/ticket
+      - name: Stress target test (40 iterations)
+        shell: bash
+        run: |
+          mkdir -p probe-logs
+          fails=0
+          for k in $(seq 1 40); do
+            echo "=== iteration $k ==="
+            TICKET_TEST_BIN="$PWD/ticket.exe" ./cli.test.exe \
+              -test.run=TestParallelNewSetNoDuplicates \
+              -test.v -test.count=1 \
+              > "probe-logs/iter-$k.log" 2>&1
+            code=$?
+            tail -2 "probe-logs/iter-$k.log"
+            if [ $code -ne 0 ]; then
+              echo "iteration $k FAILED code=$code"
+              fails=$((fails+1))
+            fi
+          done
+          echo "TOTAL FAILURES: $fails"
+      - name: Upload probe logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: t0226-probe-logs
+          path: probe-logs
