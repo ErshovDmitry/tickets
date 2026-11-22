@@ -152,6 +152,36 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # T-0226: Windows Defender real-time scanning of the integration
+      # test sandbox (thousands of short-lived files under %TEMP%) slowed
+      # serialized store-lock holders past the default 5s
+      # TICKET_LOCK_TIMEOUT budget, failing
+      # TestParallelNewSetNoDuplicates on windows-latest with "still held
+      # by another process after 5s" (run 44942515928; root cause
+      # reproduced with the exact stderr in run 44983487666). Same
+      # interference class as T-0122. The runner VM is ephemeral, so
+      # excluding the sandbox temp dir and the workspace from RT scanning
+      # is standard Windows CI hygiene; product semantics are unchanged.
+      # The gate below is the regression check for this fix: it fails the
+      # job deterministically when the exclusion is not in effect.
+      - name: Exclude test sandbox from Defender RT scanning (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          # zizmor template-injection: the workspace path is interpolated
+          # once into a plain env var, not into the run script.
+          WORKSPACE: ${{ github.workspace }}
+        run: |
+          Add-MpPreference -ExclusionPath $env:TEMP
+          Add-MpPreference -ExclusionPath $env:WORKSPACE
+          $excl = (Get-MpPreference).ExclusionPath
+          $haveTemp = $excl | Where-Object {
+            $_.TrimEnd('\') -eq $env:TEMP.TrimEnd('\') }
+          if (-not $haveTemp) {
+            throw "Defender exclusion for TEMP not in effect: $excl"
+          }
+          Write-Output "Defender RT exclusions active: $excl"
+
       - name: Test
         run: go test ./...
 
