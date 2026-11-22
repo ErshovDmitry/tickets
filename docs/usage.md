@@ -223,7 +223,7 @@ Global flag (before the command, every command):
 
 Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → upward scan for tickets/ from the current directory. Exception: init uses <cwd>/tickets without an upward scan.
 
-Lock timeout: TICKET_LOCK_TIMEOUT sets how long ticket waits to acquire .lock before returning an error; the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set, edit and archive.
+Lock timeout: TICKET_LOCK_TIMEOUT sets how long the .lock may remain without holder progress before ticket returns an error (while the holder keeps working, the wait is extended up to 12× the configured value); the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set, edit and archive.
 
 Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover, delete): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check). Duplicate numbers inside `tickets/deleted/` follow the same rules: `list` (any mode) warns and exits 0, `show` exits 2 with every conflicting path, and `set`/`edit` refuse a deleted ticket with exit 1.
 

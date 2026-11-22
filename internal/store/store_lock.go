@@ -39,9 +39,11 @@ func parseLockTimeout() time.Duration {
 	return d
 }
 
-// withLock acquires the per-store advisory lock — waiting up to
-// parseLockTimeout() for it, with deadline expiry reported as
-// lock.ErrLocked — runs fn, then releases. A release error is joined
+// withLock acquires the per-store advisory lock — waiting until the
+// holder makes no progress for parseLockTimeout(), with the wait
+// stretching up to progressCapFactor × that timeout while the holder
+// keeps progressing — with deadline expiry reported as lock.ErrLocked —
+// runs fn, then releases. A release error is joined
 // with fn's error (errors.Join discards nils), so neither is lost; the
 // signature and callers are unchanged.
 // Read-only Stores (NewReadOnly) are rejected before the lock is taken,

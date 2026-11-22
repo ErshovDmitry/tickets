@@ -40,6 +40,7 @@ func TestParallelNewSetNoDuplicates(t *testing.T) {
 	for round := 0; round < parallelNewRounds; round++ {
 		cmds := make([]*exec.Cmd, parallelNewProcs)
 		bufs := make([]bytes.Buffer, parallelNewProcs)
+		errs := make([]bytes.Buffer, parallelNewProcs)
 		for i := range cmds {
 			cmds[i] = exec.Command(ticketBin, "-C", tickets, "new", fmt.Sprintf("гонка %d/%d", round, i))
 			cmds[i].Dir = cwd
@@ -47,6 +48,7 @@ func TestParallelNewSetNoDuplicates(t *testing.T) {
 			// no TICKET_LOCK_TIMEOUT override — a lock timeout must fail.
 			cmds[i].Env = childEnv()
 			cmds[i].Stdout = &bufs[i]
+			cmds[i].Stderr = &errs[i]
 			if err := cmds[i].Start(); err != nil {
 				t.Fatalf("round %d: start process %d: %v", round, i, err)
 			}
@@ -66,7 +68,8 @@ func TestParallelNewSetNoDuplicates(t *testing.T) {
 		for range cmds {
 			r := <-results
 			if r.err != nil {
-				t.Fatalf("round %d process %d: %v (stdout=%q)", round, r.i, r.err, bufs[r.i].String())
+				t.Fatalf("round %d process %d: %v (exit=%d, stdout=%q, stderr=%q)",
+					round, r.i, r.err, exitCode(r.err), bufs[r.i].String(), errs[r.i].String())
 			}
 			n := parseCreatedNumber(t, round, r.i, bufs[r.i].String())
 			if prev, dup := seen[n]; dup {
@@ -82,6 +85,16 @@ func TestParallelNewSetNoDuplicates(t *testing.T) {
 		t.Fatalf("created %d unique numbers, want %d", len(seen), total)
 	}
 	assertNoDuplicateFiles(t, tickets, total)
+}
+
+// exitCode extracts the process exit code from a Wait error, or -1 when
+// the process did not exit normally (start failure, signal) — the
+// (*exec.ExitError).ExitCode contract (os/exec).
+func exitCode(err error) int {
+	if ee, ok := errors.AsType[*exec.ExitError](err); ok {
+		return ee.ExitCode()
+	}
+	return -1
 }
 
 // childEnv returns the hermetic child environment: only the temp-dir pins

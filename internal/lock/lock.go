@@ -63,6 +63,15 @@ type Locker struct {
 	// subsequent (idempotent) calls return the same value instead of
 	// silently dropping a real I/O error.
 	err error
+	// progressStop terminates the holder-progress heartbeat (started by
+	// newLocked, stopped by Release); progressDone is closed by the
+	// heartbeat goroutine on exit so stopProgress can join it before the
+	// lock is dropped. The two Once guards make start/stop idempotent.
+	// T-0226.
+	progressStop      chan struct{}
+	progressDone      chan struct{}
+	progressStartOnce sync.Once
+	progressStopOnce  sync.Once
 }
 
 // openLockFile opens (creating if needed) the lock file at path,
@@ -80,7 +89,7 @@ func openLockFile(path string) (*os.File, error) {
 // when invoked. The closure is nil iff err is non-nil. Open and lock
 // failures are wrapped with path context; match them with errors.Is.
 func Acquire(path string) (release func() error, err error) {
-	lk, err := acquireVia(path, openLockFile)
+	lk, err := acquireVia(path, openLockFile, true)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +108,7 @@ func Acquire(path string) (release func() error, err error) {
 // whatever is at path now and retries, up to maxSwapRetries times;
 // a stat failure of path other than "does not exist" is returned as a
 // hard error instead.
-func acquireVia(path string, open func(string) (*os.File, error)) (*Locker, error) {
+func acquireVia(path string, open func(string) (*os.File, error), progress bool) (*Locker, error) {
 	f, err := open(path)
 	if err != nil {
 		return nil, err
@@ -116,6 +125,9 @@ func acquireVia(path string, open func(string) (*os.File, error)) (*Locker, erro
 			return nil, fmt.Errorf("lock: check %s: %w", path, checkErr)
 		}
 		if !swapped {
+			if progress {
+				return newLocked(f, path), nil
+			}
 			return &Locker{f: f, path: path}, nil
 		}
 		// Stale inode: drop the useless flock and retry on the file
@@ -158,7 +170,7 @@ func tryAcquireFile(f *os.File, path string) (*Locker, error) {
 		_ = f.Close()
 		return nil, ErrLocked
 	}
-	return &Locker{f: f, path: path}, nil
+	return newLocked(f, path), nil
 }
 
 // tryAcquire performs one non-blocking acquire attempt at path.
@@ -206,49 +218,20 @@ func checkCurrent(f *os.File, path string) (swapped bool, err error) {
 }
 
 // stillHeld builds the deadline-expiry error for AcquireLocked. It wraps
-// ErrLocked so callers can keep matching with errors.Is.
+// ErrLocked so callers can keep matching with errors.Is. The duration is
+// the stall budget: with a livelocking holder the waiter may actually
+// have waited up to progressCapFactor × timeout.
 func stillHeld(path string, timeout time.Duration) error {
-	return fmt.Errorf("lock: %s: still held by another process after %s (another ticket command may be running?): %w", path, timeout, ErrLocked)
-}
-
-// AcquireLocked is the Locker-returning form of AcquireTimeout: it spins
-// on non-blocking attempts until the lock is granted or the deadline
-// (now + timeout) passes, sleeping at most pollInterval between
-// attempts. The first attempt never sleeps; timeout <= 0 means exactly
-// one attempt. Deadline expiry wraps ErrLocked (match with errors.Is);
-// other errors are wrapped with path context.
-func AcquireLocked(path string, timeout time.Duration) (*Locker, error) {
-	deadline := time.Now().Add(timeout)
-	for attempt := 0; ; attempt++ {
-		if attempt > 0 {
-			d := time.Until(deadline)
-			if d <= 0 {
-				return nil, stillHeld(path, timeout)
-			}
-			if d > pollInterval {
-				d = pollInterval
-			}
-			time.Sleep(d)
-		}
-		lk, err := tryAcquire(path)
-		if err == nil {
-			return lk, nil
-		}
-		if !errors.Is(err, ErrLocked) {
-			return nil, err
-		}
-		if timeout <= 0 {
-			// Single-attempt mode: never sleep, never retry.
-			return nil, stillHeld(path, timeout)
-		}
-	}
+	return fmt.Errorf("lock: %s: still held by another process after %s without holder progress (another ticket command may be running?): %w", path, timeout, ErrLocked)
 }
 
 // AcquireTimeout blocks until the exclusive lock at path is granted or
-// timeout elapses; timeout <= 0 means exactly one attempt. On deadline
-// expiry it returns an error wrapping ErrLocked so callers can detect
-// the contention case with errors.Is. The release closure is nil iff
-// err is non-nil.
+// the holder makes no progress for timeout; while the holder keeps
+// progressing, the wait may stretch up to progressCapFactor × timeout in
+// total. timeout <= 0 means exactly one attempt. On deadline expiry it
+// returns an error wrapping ErrLocked so callers can detect the
+// contention case with errors.Is. The release closure is nil iff err is
+// non-nil.
 func AcquireTimeout(path string, timeout time.Duration) (release func() error, err error) {
 	lk, err := AcquireLocked(path, timeout)
 	if err != nil {
@@ -265,6 +248,9 @@ func (l *Locker) Release() error {
 		return nil
 	}
 	l.once.Do(func() {
+		// The heartbeat must stop before the lock is dropped: afterwards
+		// the lock file may belong to a competitor (T-0226).
+		l.stopProgress()
 		l.err = errors.Join(unlock(l.f), l.f.Close())
 	})
 	return l.err

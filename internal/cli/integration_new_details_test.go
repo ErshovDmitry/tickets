@@ -7,7 +7,6 @@ package cli_test
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -42,11 +41,9 @@ func runBinWithStdin(t *testing.T, bin, dir, ticketsDir, stdinBytes string, args
 	err := cmd.Run()
 	code := 0
 	if err != nil {
-		var ee *exec.ExitError
-		if !errors.As(err, &ee) {
+		if code = exitCode(err); code < 0 {
 			t.Fatalf("run %v: %v", args, err)
 		}
-		code = ee.ExitCode()
 	}
 	return stdout.String(), stderr.String(), code
 }

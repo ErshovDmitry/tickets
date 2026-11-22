@@ -39,8 +39,10 @@ func TestParseLockTimeout(t *testing.T) {
 }
 
 // TestWithLockTimeoutEnv (plan test 7): with TICKET_LOCK_TIMEOUT set,
-// Create against a lock held in-process (the way a competing CLI would
-// hold it) fails with lock.ErrLocked after ~the configured timeout.
+// Create against a lock held in-process by a NON-heartbeating holder
+// (the way a stalled competing CLI would hold it) fails with
+// lock.ErrLocked after ~the configured timeout. A heartbeating holder
+// would extend the waiter to the 12x patience cap instead.
 func TestWithLockTimeoutEnv(t *testing.T) {
 	dir := t.TempDir()
 	s, err := New(dir)
@@ -49,9 +51,9 @@ func TestWithLockTimeoutEnv(t *testing.T) {
 	}
 	t.Setenv("TICKET_LOCK_TIMEOUT", "300ms")
 
-	release, err := lock.Acquire(filepath.Join(dir, ".lock"))
+	release, err := lock.AcquireNoHeartbeat(filepath.Join(dir, ".lock"))
 	if err != nil {
-		t.Fatalf("holder Acquire: %v", err)
+		t.Fatalf("holder AcquireNoHeartbeat: %v", err)
 	}
 	defer release()
 
