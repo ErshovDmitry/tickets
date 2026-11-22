@@ -55,7 +55,10 @@ func TestAcquireLockedExtendsOnHolderProgress(t *testing.T) {
 	}()
 
 	start := time.Now()
-	lk, err := AcquireLocked(path, 500*time.Millisecond)
+	// Budget 1s against a 10ms heartbeat: the progress-observation window
+	// (~990ms) must stay far above whole-process scheduling stalls on
+	// shared 4-vCPU runners — the noise class this ticket targets.
+	lk, err := AcquireLocked(path, time.Second)
 	if err != nil {
 		t.Fatalf("waiter: healthy holder must not fail: %v", err)
 	}
@@ -107,9 +110,11 @@ func TestAcquireLockedProgressPatienceCap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("acquire holder: %v", err)
 	}
-	const timeout = 300 * time.Millisecond
-	const hold = 4 * time.Second // > cap 12×300ms = 3.6s
+	const timeout = 500 * time.Millisecond
+	const hold = 7 * time.Second // > cap 12×500ms = 6s
+	released := make(chan struct{})
 	go func() {
+		defer close(released)
 		time.Sleep(hold)
 		_ = release()
 	}()
@@ -122,4 +127,8 @@ func TestAcquireLockedProgressPatienceCap(t *testing.T) {
 	if d := time.Since(start); d < progressCapFactor*timeout {
 		t.Fatalf("patience cap ignored: failed after only %s", d)
 	}
+	// The holder outlives the failed waiter: join its release so the
+	// lock file is closed before t.TempDir cleanup (Windows refuses to
+	// delete an open file).
+	<-released
 }
