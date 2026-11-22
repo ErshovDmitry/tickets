@@ -61,6 +61,21 @@ ticket normalize                                        # переписать �
 
 - bash-оригинал: [init-tickets.md](https://gitlab.com/ai-dmitry/promts/-/blob/main/init-tickets.md)
 
+## Ключ OpenPGP
+
+Ключ OpenPGP (GPG) проекта опубликован на сервере ключей `hkps://keys.openpgp.org`.
+
+- Отпечаток: `0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9`
+- Сервер ключей: `hkps://keys.openpgp.org`
+- User ID: `dmitry.linux <dmitry.linux@mail.ru>`
+
+```bash
+gpg --keyserver hkps://keys.openpgp.org --recv-keys 0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9
+gpg --fingerprint 0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9
+```
+
+Hex-цифры, выведенные второй командой, должны полностью совпадать с отпечатком выше — `gpg` выводит их группами через пробел, поэтому сравнивайте сами цифры. Этот OpenPGP-ключ подписывает тег релиза и создаёт отсоединённую подпись файла с контрольной суммой релиза (руководство по релизу: `docs/ru/releasing.md`), тогда как КОММИТЫ подписываются другим ключом — SSH-ключом (`gpg.format = ssh`, `~/.ssh/id_ed25519-ai-base`) — поэтому OpenPGP-ключ никогда не используется для подписей коммитов.
+
 ## Статус
 
 **v1 done.**
