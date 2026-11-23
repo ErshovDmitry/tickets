@@ -5,6 +5,17 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-11-23
+
+### Changed
+
+- The README files (English and Russian) publish the release OpenPGP key: fingerprint `0CAF1003F44DD0E4990F4EFF6AB4D0E6AA282FC9`, keyserver `hkps://keys.openpgp.org`, the user ID and the `gpg --recv-keys` / `gpg --fingerprint` verification commands, stating that this key signs the release tag and the detached `SHA256SUMS.txt` signature while commits stay SSH-signed with a different key (T-0229).
+- The CI triage docs (English and Russian) describe `ci-retry` stage 2 as already enabled instead of planned: capacity-cancelled jobs of the `CI` workflow are rerun automatically on the `workflow_run` event (`DRY_RUN_DEFAULT="false"`), a manual `workflow_dispatch` run is a dry-run report unless `dry_run=false` is passed explicitly, and jobs with conclusion `failure` or `timed_out` are never retried; the `rerun%` caveat is reworded to match (T-0228).
+
+### Fixed
+
+- `ticket new` now inserts the missing MD022/MD032 blank lines around the supported block shapes inside a non-empty `Details` payload: ATX headings (1–6 `#`, up to three leading spaces) and column-0 list blocks (a `-`, `+`, `*`, `N.` or `N)` marker followed by a space or tab). The pass is whitespace-only and idempotent — every non-whitespace byte of the resolved payload is written unchanged — while other shapes and adjacency cases (nested items, indented markers, thematic breaks, non-column-0 blocks) are deliberately left alone and carry no promise. Existing files are not migrated: `ticket normalize` still copies the body verbatim and has no `--prose` pass (T-0230, GitHub #56).
+
 ## [2.0.1] - 2026-11-22
 
 ### Changed
