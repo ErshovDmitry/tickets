@@ -14,7 +14,7 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ### Fixed
 
-- `ticket new` now inserts the missing MD022/MD032 blank lines around the supported block shapes inside a non-empty `Details` payload: ATX headings (1–6 `#`, up to three leading spaces) and column-0 list blocks (a `-`, `+`, `*`, `N.` or `N)` marker followed by a space or tab). The pass is whitespace-only and idempotent — every non-whitespace byte of the resolved payload is written unchanged — while other shapes and adjacency cases (nested items, indented markers, thematic breaks, non-column-0 blocks) are deliberately left alone and carry no promise. Existing files are not migrated: `ticket normalize` still copies the body verbatim and has no `--prose` pass (T-0230, GitHub #56).
+- `ticket new` now inserts the missing MD022/MD032 blank lines around the supported block shapes inside a non-empty `Details` payload: ATX headings (1–6 `#`, up to three leading spaces) and column-0 list blocks (a `-`, `+`, `*`, `N.` or `N)` marker followed by a space or tab). The pass is whitespace-only and idempotent — every non-whitespace byte of the resolved payload is written unchanged — while other shapes and adjacency cases (nested items, indented markers, thematic breaks, non-column-0 blocks) are deliberately left alone and carry no promise. Existing files are not migrated: `ticket normalize` still copies the body verbatim and has no `--prose` pass. The same change documents the pass in the English and Russian READMEs and in `docs/usage.md`, including the supported-shape limits and the no-migration rule (T-0230, issue #56, PR #59).
 
 ## [2.0.1] - 2026-11-22
 
