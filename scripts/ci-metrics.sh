@@ -294,7 +294,7 @@ else:
     if no_data:
         lines.append("NO_DATA: no jobs in the window")
     lines += ["verdict: %s" % verdict,
-              "note: after ci-retry stage 2, rerun% will also count auto-reruns."]
+              "note: ci-retry stage 2 is live (PR #47), so rerun% counts auto-reruns as well as manual ones."]
     print("\n".join(lines))
 sys.exit(0 if verdict == "OK" else 1)
 PY
