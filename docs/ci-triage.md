@@ -38,7 +38,7 @@ Rerun only the failed jobs of the affected run:
 gh run rerun <run-id> --failed
 ```
 
-The standard path is planned to be ci-retry.yml stage 2 (T-0202); today only stage 1 exists, and it is a dry run.
+The standard path is ci-retry.yml stage 2, and stage 2 is already enabled: PR #47, merge commit 7d99c84 from 2026-11-21, `DRY_RUN_DEFAULT="false"` (`.github/workflows/ci-retry.yml:38`). Stage 1 (dry run, report only, `DRY_RUN_DEFAULT="true"`) was completed and accepted (T-0205). On the automatic `workflow_run` event fired when CI finishes, `DRY_RUN` equals `DRY_RUN_DEFAULT`, i.e. `"false"`, so capacity-cancelled jobs are really rerun (`gh run rerun --job`, guarded by the strict `[ "$DRY_RUN" = "false" ]` check, ci-retry.yml:233). A manual `workflow_dispatch` run is a dry-run report by default (input `dry_run`, `default: true`, ci-retry.yml:25-28) and mutates nothing; a live rerun happens only when `dry_run=false` is passed explicitly (ci-retry.yml:87). Real failures are never retried: if any job of the attempt has conclusion `failure` or `timed_out`, the whole attempt is skipped (ci-retry.yml:148-158), and a job counts as a capacity cancellation only when it has `conclusion=cancelled`, an empty `runner_name`, zero steps and a queue wait of at least 870 s (ci-retry.yml:165-172). Only the `CI` workflow (`.github/workflows/ci.yml`) is processed — any other workflow is skipped (ci-retry.yml:111-113) — and at `attempt >= 3` (`MAX_RUN_ATTEMPTS`) the workflow escalates with an error and exit 1, even in dry-run mode (ci-retry.yml:189-209).
 
 ## Weekly procedure
 
@@ -82,7 +82,7 @@ bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics
 
 ## Stage-2 caveat
 
-After ci-retry stage 2 is enabled, the `rerun%` metric will also count the automatic reruns, not only the manual ones. The script prints this caveat in its output.
+Ci-retry stage 2 is already enabled (PR #47), so the `rerun%` metric already counts the automatic reruns, not only the manual ones. The script prints this caveat in its output.
 
 ## Security audit: updating zizmor and reviewing the baseline
 

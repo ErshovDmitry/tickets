@@ -38,7 +38,7 @@ Job отменён платформой, а не тестовым набором
 gh run rerun <run-id> --failed
 ```
 
-Штатным путём в будущем станет ci-retry.yml stage 2 (T-0202); сегодня существует только stage 1, и он работает в режиме dry run.
+Штатный путь — ci-retry.yml stage 2, и он уже включён: stage 1 (dry-run, только отчёт, `DRY_RUN_DEFAULT="true"`) завершён и принят (T-0205), а stage 2 (live) пришёл в PR #47 (merge-коммит 7d99c84 от 2026-11-21) с `DRY_RUN_DEFAULT="false"` (`.github/workflows/ci-retry.yml:38`). На автоматическом событии `workflow_run` по завершении CI `DRY_RUN` = `DRY_RUN_DEFAULT` = "false", поэтому capacity-отменённые job реально перезапускаются (`gh run rerun --job`, условие строго `[ "$DRY_RUN" = "false" ]`, ci-retry.yml:233). Ручной запуск (`workflow_dispatch`) по умолчанию — dry-run отчёт (input `dry_run`, `default: true`, ci-retry.yml:25-28) без мутаций; live rerun только при явном `dry_run=false` (ci-retry.yml:87). Реальные падения НИКОГДА не перезапускаются: если в attempt есть job с conclusion `failure`/`timed_out` — attempt пропускается целиком (ci-retry.yml:148-158), а кандидатом capacity-отмены считается только job с `conclusion=cancelled`, пустым `runner_name`, нулём steps и ожиданием в очереди ≥ 870 с (ci-retry.yml:165-172). Обрабатывается только workflow «CI» (`.github/workflows/ci.yml`), иначе — skip (ci-retry.yml:111-113); при `attempt >= 3` (`MAX_RUN_ATTEMPTS`) — эскалация с ошибкой и exit 1, даже в dry-run (ci-retry.yml:189-209).
 
 ## Еженедельная процедура
 
@@ -82,7 +82,7 @@ bash scripts/ci-metrics.sh --days 30 --cache ~/.cache/ticket-ci-metrics
 
 ## Оговорка про stage 2
 
-После включения ci-retry stage 2 метрика `rerun%` начнёт считать и автоматические rerun'ы, а не только ручные. Скрипт печатает эту оговорку в своём выводе.
+ci-retry stage 2 уже включён (PR #47), поэтому метрика `rerun%` уже считает и автоматические rerun'ы, а не только ручные. Скрипт печатает эту оговорку в своём выводе.
 
 ## Security audit: обновление zizmor и пересмотр baseline
 
