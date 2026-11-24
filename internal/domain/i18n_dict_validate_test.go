@@ -102,11 +102,21 @@ func stringFieldSetters(dj *dictJSON) map[string]*string {
 		"errShowExtraArgsModes":       &dj.ErrShowExtraArgsModes,
 		"errJSONEncodeShow":           &dj.ErrJSONEncodeShow,
 		"errJSONShortWriteShow":       &dj.ErrJSONShortWriteShow,
+		"errWriteOneSource":           &dj.ErrWriteOneSource,
+		"errWriteSchemaConflict":      &dj.ErrWriteSchemaConflict,
+		"errWriteUnknownFlag":         &dj.ErrWriteUnknownFlag,
+		"errWriteFileRead":            &dj.ErrWriteFileRead,
+		"errWriteStdinRead":           &dj.ErrWriteStdinRead,
+		"errWriteJSONInvalid":         &dj.ErrWriteJSONInvalid,
+		"errWriteJSONUnknownFields":   &dj.ErrWriteJSONUnknownFields,
+		"errWriteEmptyComment":        &dj.ErrWriteEmptyComment,
+		"errWritePayloadHeading":      &dj.ErrWritePayloadHeading,
+		"errWriteSectionNotEditable":  &dj.ErrWriteSectionNotEditable,
 	}
 }
 
 // TestValidateDictStringFieldsCovered guards the setter table: dictJSON must
-// have exactly 74 string fields, every one covered by stringFieldSetters,
+// have exactly 84 string fields, every one covered by stringFieldSetters,
 // and each setter must point at the struct field carrying the same json tag.
 // A newly added string field without a test case fails here.
 func TestValidateDictStringFieldsCovered(t *testing.T) {
@@ -136,8 +146,8 @@ func TestValidateDictStringFieldsCovered(t *testing.T) {
 		}
 		*sp = ""
 	}
-	if stringFields != 74 {
-		t.Errorf("dictJSON: expected 74 string fields, got %d", stringFields)
+	if stringFields != 84 {
+		t.Errorf("dictJSON: expected 84 string fields, got %d", stringFields)
 	}
 	if len(setters) != stringFields {
 		t.Errorf("setter table: expected %d entries, got %d", stringFields, len(setters))
@@ -199,8 +209,8 @@ func TestValidateDictHeaders(t *testing.T) {
 // expects the "<jsonKey>: empty" error for it.
 func TestValidateDictEmptyFields(t *testing.T) {
 	probe := stringFieldSetters(&dictJSON{})
-	if len(probe) != 74 {
-		t.Fatalf("setter table: expected 74 entries, got %d", len(probe))
+	if len(probe) != 84 {
+		t.Fatalf("setter table: expected 84 entries, got %d", len(probe))
 	}
 	for key := range probe {
 		t.Run(key, func(t *testing.T) {

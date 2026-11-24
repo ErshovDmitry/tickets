@@ -139,6 +139,20 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 	}
 
 	lang := langFromFn(env)
+	// T-0240: comment --schema is a standalone mode — it prints the JSON
+	// Schema with no tickets dir, store or lookup, so it is routed here before
+	// dispatch (the update-check precedent). A payload source alongside
+	// --schema is a conflict (exit 1).
+	if cmd == "comment" {
+		if schema, hasSource := detectCommentSchema(args[1:]); schema {
+			if hasSource {
+				fmt.Fprintln(stderr, domain.ErrWriteSchemaConflict(lang))
+				return exitError
+			}
+			printWriteSchema(stdout)
+			return exitOK
+		}
+	}
 	switch cmd {
 	case "init":
 		if len(args) > 1 {
@@ -163,7 +177,7 @@ func Run(args []string, env map[string]string, stdout, stderr io.Writer) int {
 			return exitError
 		}
 		return cmdUpdateCheck(lang, version, stdout, stderr)
-	case "new", "list", "show", "set", "archive", "recover", "delete", "normalize", "edit":
+	case "new", "list", "show", "set", "archive", "recover", "delete", "normalize", "edit", "comment", "section":
 		// Subcommand help interception (T-0041): -h/--help as the FIRST
 		// argument is never a valid positional (new: title; show/set/archive/
 		// recover/delete: ticket ref; list: filter), so print usage and exit 0. Only
@@ -231,7 +245,7 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 	// Only mutating commands open the Store writable (write probe); list/show
 	// and normalize --dry-run use NewReadOnly.
 	var st *store.Store
-	if cmd == "new" || cmd == "set" || cmd == "archive" || cmd == "recover" || cmd == "delete" || cmd == "edit" || cmd == "normalize" && !nf.dryRun {
+	if cmd == "new" || cmd == "set" || cmd == "archive" || cmd == "recover" || cmd == "delete" || cmd == "edit" || cmd == "comment" || cmd == "section" || cmd == "normalize" && !nf.dryRun {
 		st, err = store.New(dir, store.WithLogger(lg))
 	} else { // list, show, normalize --dry-run
 		st, err = store.NewReadOnly(dir, store.WithLogger(lg))
@@ -271,6 +285,10 @@ func dispatch(cmd string, args []string, env map[string]string, lang domain.Lang
 		code = cmdDelete(st, args, who, project, lang, stdout, stderr)
 	case "edit":
 		code = cmdEdit(st, args, who, project, lang, stdout, stderr)
+	case "comment":
+		code = cmdComment(st, args, who, project, lang, stdout, stderr)
+	case "section":
+		code = cmdSection(st, args, who, project, lang, stdout, stderr)
 	case "normalize":
 		code = cmdNormalize(st, nf, lang, stdout, stderr)
 	default: // "archive"

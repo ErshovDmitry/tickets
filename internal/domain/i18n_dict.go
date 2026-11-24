@@ -99,6 +99,19 @@ type dictJSON struct {
 	ErrShowExtraArgsModes  string `json:"errShowExtraArgsModes"`
 	ErrJSONEncodeShow      string `json:"errJSONEncodeShow"`
 	ErrJSONShortWriteShow  string `json:"errJSONShortWriteShow"`
+
+	// T-0240 A2: text write path (comment / section set) messages. Same
+	// pipeline as the show keys; runtime access lives in i18n_write_messages.go.
+	ErrWriteOneSource          string `json:"errWriteOneSource"`
+	ErrWriteSchemaConflict     string `json:"errWriteSchemaConflict"`
+	ErrWriteUnknownFlag        string `json:"errWriteUnknownFlag"`
+	ErrWriteFileRead           string `json:"errWriteFileRead"`
+	ErrWriteStdinRead          string `json:"errWriteStdinRead"`
+	ErrWriteJSONInvalid        string `json:"errWriteJSONInvalid"`
+	ErrWriteJSONUnknownFields  string `json:"errWriteJSONUnknownFields"`
+	ErrWriteEmptyComment       string `json:"errWriteEmptyComment"`
+	ErrWritePayloadHeading     string `json:"errWritePayloadHeading"`
+	ErrWriteSectionNotEditable string `json:"errWriteSectionNotEditable"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -189,5 +202,15 @@ func loadDict(data []byte) (*dict, error) {
 		errShowExtraArgsModes:       dj.ErrShowExtraArgsModes,
 		errJSONEncodeShow:           dj.ErrJSONEncodeShow,
 		errJSONShortWriteShow:       dj.ErrJSONShortWriteShow,
+		errWriteOneSource:           dj.ErrWriteOneSource,
+		errWriteSchemaConflict:      dj.ErrWriteSchemaConflict,
+		errWriteUnknownFlag:         dj.ErrWriteUnknownFlag,
+		errWriteFileRead:            dj.ErrWriteFileRead,
+		errWriteStdinRead:           dj.ErrWriteStdinRead,
+		errWriteJSONInvalid:         dj.ErrWriteJSONInvalid,
+		errWriteJSONUnknownFields:   dj.ErrWriteJSONUnknownFields,
+		errWriteEmptyComment:        dj.ErrWriteEmptyComment,
+		errWritePayloadHeading:      dj.ErrWritePayloadHeading,
+		errWriteSectionNotEditable:  dj.ErrWriteSectionNotEditable,
 	}, nil
 }

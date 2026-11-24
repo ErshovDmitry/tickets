@@ -132,8 +132,10 @@ var (
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
 // The entry order mirrors the original if-chain exactly: precedence of error
-// reports depends on it, so do not group or reorder entries by field.
-var dictValidationRules = []dictRule{
+// reports depends on it, so do not group or reorder entries by field. The
+// T-0240 write-key block (writeDictRules, i18n_write_messages.go) is appended
+// after the existing entries, preserving their order.
+var dictValidationRules = append([]dictRule{
 	nonEmpty("statusFmt", getStatusFmt),
 	nonEmpty("priorityFmt", getPriorityFmt),
 	nonEmpty("projectFmt", getProjectFmt),
@@ -293,4 +295,4 @@ var dictValidationRules = []dictRule{
 	count("errJSONEncodeShow", "v", 1, getErrJSONEncodeShow),
 	nonEmpty("errJSONShortWriteShow", getErrJSONShortWriteShow),
 	count("errJSONShortWriteShow", "d", 2, getErrJSONShortWriteShow),
-}
+}, writeDictRules...)
