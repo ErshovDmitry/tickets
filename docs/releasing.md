@@ -176,7 +176,21 @@ scp dist/ticket-windows-amd64.exe scripts/smoke-windows.ps1 dser97.home:
 powershell -ExecutionPolicy Bypass -File .\smoke-windows.ps1 -TicketExe .\ticket-windows-amd64.exe
 ```
 
-The smoke script runs entirely inside a temp sandbox (the repo and user data are untouched) and covers eight steps: `new`, `list`, `show`, `set`, the global `-C`/`--tickets-dir` flag from a foreign CWD, the `TICKETS_DIR` override, five parallel `new` calls, and `init`. Exit code 0 means all steps passed, 1 means at least one failed. For readable UTF-8 output over SSH, run the commands through `powershell -NoProfile -Command "[Console]::OutputEncoding=[Text.Encoding]::UTF8; ..."`.
+The smoke script runs entirely inside a temp sandbox (the repo and user data are untouched). It reports 11 PASS checks grouped into eight logical steps — several steps contribute more than one check. In the order in which the script runs them, the checks are:
+
+1. `new` — `T-0001-open.md` is created and the printed path matches it.
+2. `list` — the new ticket is listed as `open`.
+3. `show` — the ticket body contains its title.
+4. `set` — the ticket is renamed to `T-0001-wip.md`, with the status line and the journal updated.
+5. foreign CWD — `-C` and `--tickets-dir=` both resolve the tickets directory when the command runs from a foreign working directory.
+6. `TICKETS_DIR` — a new ticket is created in the override directory.
+7. flag over env — `-C` wins over `TICKETS_DIR`.
+8. five parallel `new` calls — all five exit 0, yield five unique ticket numbers, and their files exist.
+9. `init` in a clean directory — `tickets/` and `archive/` are created, and `new`/`list` see `T-0001`.
+10. `init` repeated — a no-op that still exits 0.
+11. `init` blocked by a file named `tickets` — exits 1, prints the conflict label on stderr, and leaves the file untouched.
+
+Exit code 0 means all steps passed, 1 means at least one failed. For readable UTF-8 output over SSH, run the commands through `powershell -NoProfile -Command "[Console]::OutputEncoding=[Text.Encoding]::UTF8; ..."`.
 
 ## Immutable release
 
