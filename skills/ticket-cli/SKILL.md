@@ -1,6 +1,7 @@
 ---
 name: ticket-cli
-version: "1.19"
+version: "1.21"
+verified_with_cli: "2.0.0-8-g07701fe"
 created: 2026-09-04
 modified: 2026-11-24
 type: guide
@@ -17,9 +18,43 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 - Tickets are plain files `tickets/T-NNNN-<status>.md`; files are the single source of truth; there is NO database.
 - The CLI is `ticket` on your `PATH` (`~/bin/ticket`; `%USERPROFILE%\bin\ticket.exe` on Windows); `-P <project>` flag: see README.
 - Numbers are issued atomically via OS locks and are never reused — a soft-deleted ticket keeps its number, too. Status lives in the file name — NEVER rename ticket files manually.
-- Ticket directory discovery, first match wins: `-C`/`--tickets-dir` → `$TICKETS_DIR` → upward scan from cwd for `tickets/` (see README Installation). `init` is the exception: it honours `-C`/`$TICKETS_DIR` but never scans upward — without them it creates `<cwd>/tickets`.
+- Ticket directory discovery for the store commands, first match wins: `-C`/`--tickets-dir` → `$TICKETS_DIR` → upward scan from cwd for `tickets/` (see README Installation). `init` is the exception: it honours `-C`/`$TICKETS_DIR` but never scans upward — without them it creates `<cwd>/tickets`, even when a parent already has one.
 - i18n: language chain `TICKET_LANG → LC_ALL → LANG`, default **RU**; `TICKET_LANG=en` opts into English help and English-label ticket files.
 - 🔴 Ticket CONTENT language: write titles, Details, comments and journal entries in **Russian** (project rule since 2026-11-06). The `-t`/`-p` flag values and file names stay English (`T-NNNN-<status>.md`); the i18n setting above only governs help text and section labels, not what you write.
+
+## Store scopes: project vs general
+
+The CLI has no global store and no merged view: ONE invocation resolves exactly ONE directory (first match wins: `-C` → `$TICKETS_DIR` → upward scan) and works only on that store.
+
+| Scope | Directory | How it is used |
+|-------|-----------|----------------|
+| Project | the `tickets/` found by the upward scan (`./tickets`) | plain commands from inside the project tree: `ticket new "..." -t BUG -p high`, `ticket list`, `ticket set N done "..."` |
+| General | `~/.config/tickets` — a deliberate CONVENTION of this workflow, NOT a CLI default | every call names it explicitly: `ticket -C "$HOME/.config/tickets" ...` |
+
+One-time setup, then both workflows — general tickets always with `-C`, project tickets unchanged:
+
+```bash
+ticket -C "$HOME/.config/tickets" init                     # general store, once: store + archive/ + deleted/
+ticket -C "$HOME/.config/tickets" new "..." -P general     # a general ticket
+ticket -C "$HOME/.config/tickets" list -P general          # list it
+ticket -C "$HOME/.config/tickets" set N done "<evidence>"  # close it
+ticket init                                                # project store, once (creates ./tickets)
+```
+
+Rules that keep the two scopes apart:
+
+- 🔴 Merely creating the directory (`mkdir -p ~/.config/tickets`) enables NOTHING: there is NO general-store auto-discovery and no fallback. Without `-C`/`TICKETS_DIR` the CLI sees only the project tree and outside such a tree exits 1 with `cannot locate tickets dir` — even when `~/.config/tickets` is fully populated.
+- 🔴 A `TICKETS_DIR` exported in the shell profile OVERRIDES the project scan for every command in every cwd (the env tier beats the scan tier), so a plain project `ticket list` silently reads the general store instead. Prefer a per-command assignment (`TICKETS_DIR="$HOME/.config/tickets" ticket list`) or no export at all.
+- There is NO combined `list`: the general and the project stores are separate worlds — run one command per store to see both sets.
+- `-P <project>` is ticket METADATA, NEVER a store selector: `new` sets it, `list` filters on it, `normalize` limits the run to it and `edit --project` rewrites it (`edit` takes no `-P`) — but `ticket list -P general` outside a store still exits 1 with `cannot locate tickets dir`.
+- 🔴 Pass `-P general` for general tickets: the implicit project name is `basename(dirname(<store>))`, which for `~/.config/tickets` is `.config` — an unflagged `new` files the ticket under the wrong project (the first-seen project warning names it).
+- The path is NEVER tilde-expanded: write `"$HOME/.config/tickets"`, not a quoted `'~/...'` (that resolves to `<cwd>/~/.config/tickets`).
+
+## Documentation verification
+
+`verified_with_cli` (frontmatter) is the EXACT `ticket version` value against which this document was last checked — the version string with the `ticket version` prefix stripped (`2.0.0-8-g07701fe`). It is NOT a minimum supported version and NOT a compatibility range: it MUST be refreshed on every next verification pass and on every change to the documented behaviour, together with `version` and `modified`. It covers this `SKILL.md` and the INSTALLED `reference.md` (both checked against that one build).
+
+`reference.md` exists in two copies, and they answer different questions. The REPOSITORY copy (`skills/ticket-cli/reference.md`) is a verbatim snapshot of the SOURCE help template (`internal/cli/templates/usage.ru.txt`) and moves with the code, so it may describe a newer build than the one installed. The INSTALLED copy (`~/.agents/skills/ticket-cli/reference.md`) is a verbatim snapshot of the `ticket help` printed by the binary actually on `PATH` and records its own `verified_with_cli`. The two snapshots may therefore differ legitimately; never sync one from the other.
 
 ## Commands
 
@@ -27,7 +62,7 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 
 Two flags are global, and both are accepted ONLY before the command name: a flag-like token after the command name is a subcommand argument and is rejected (e.g. `ticket list --verbose` fails).
 
-`-C <path>` / `-C<path>` / `--tickets-dir <path>` / `--tickets-dir=<path>` — the value is the path to the tickets directory itself (not a parent). Overrides `TICKETS_DIR`. Works with every command, `init` included; only `init` skips the upward scan (it creates, it does not resolve).
+`-C <path>` / `-C<path>` / `--tickets-dir <path>` / `--tickets-dir=<path>` — the value is the path to the tickets directory itself (not a parent). Overrides `TICKETS_DIR`. For every store-resolving command (`new`, `list`, `show`, `set`, `edit`, `recover`, `delete`, `archive`, `normalize`) the target MUST already exist — a missing path is exit 1 with `invalid tickets dir (--tickets-dir): path does not exist: <path>`. The store is NOT resolved by a bare invocation (usage), `help`/`--help`, `version` and `update-check`: a nonexistent target is simply ignored there (exit 0, and `3` for update-check when a release exists). `init` is the one command that accepts and CREATES a missing target, and its value is the store directory itself, not a parent: `ticket -C "$HOME/.config/tickets" init` creates exactly that directory (see `init`); it is also the only command that skips the upward scan — it creates, it does not resolve. An ordinary `-C` on an existing empty directory is accepted too (bootstrap via `new`). The value is never tilde-expanded.
 
 `--verbose` enables the debug log; `TICKET_LOG=<path>` sends the records to that file instead — the file wins over the flag. Log records NEVER reach stdout: stdout stays pure command output.
 
@@ -37,9 +72,14 @@ Record format, destinations, failure behaviour and the complete event list are o
 
 ```text
 ticket init
+ticket -C <path> init
 ```
 
-Creates `tickets/`, `tickets/archive/` AND `tickets/deleted/`. The target is `-C`/`--tickets-dir` → `$TICKETS_DIR` → `<cwd>/tickets` (NO upward scan). Idempotent: repeat runs do nothing. Exit 1 if `tickets`, `tickets/archive/` or `tickets/deleted/` exists as a non-directory (file/FIFO/broken link) — never overwrites, and when one of the two subdirs conflicts NOTHING is created. It does NOT install the binary.
+Creates the store itself plus `archive/` and `deleted/` inside it. The store is, first match wins (NO upward scan): `-C`/`--tickets-dir` → `$TICKETS_DIR` → `<cwd>/tickets`. An explicit target is made absolute but NOT existence-checked and NOT symlink-resolved — `init` is exactly the command that creates a missing target — and `tickets` is NEVER appended to it: `ticket -C /tmp/gen init` creates `/tmp/gen`, `/tmp/gen/archive` and `/tmp/gen/deleted`, NOT `/tmp/gen/tickets`; run with no flag or env, it creates `<cwd>/tickets`, `<cwd>/tickets/archive` and `<cwd>/tickets/deleted`. It prints the localized initialized message naming the created store.
+
+Idempotent: a repeat run prints the same message and exits 0. Exit 1 if the store or either subdirectory exists as a non-directory (file/FIFO/broken link) — never overwrites, and a conflict is detected before anything is created, so no partial structure is left behind. It does NOT install the binary.
+
+`-C` MUST precede the command name like every global flag: `ticket init -C <path>` is NOT parsed as a flag — the init does not run at all. It prints the full usage text to stdout (byte-identical to `ticket help`), leaves stderr empty, exits 1 and creates nothing.
 
 ### `new`
 
@@ -217,7 +257,7 @@ Labels are bilingual under the RU default locale:
 4. 🔴 Closing gate: verify the fix FIRST, then IMMEDIATELY `ticket set N done "<comment with evidence>"`. The comment MUST state what was checked: command + result, file:line. `done` without evidence is forbidden; NEVER batch status flips "for later".
 5. 🔴 BEFORE working on a ticket, read its `## User comments` section — the user leaves remarks there; the agent NEVER writes there. The agent's working notes go to `## Comments`.
 6. Tickets with Russian-only headers (`## Кратко`, `- Статус:`) are NOT parsed: those fields stay empty and the next `set` rewrites the file in the current format without them — fix such files by hand. There is no migration command. Files in the pre-MD022 format (current format without the blank line after the heading) are read and normalised on the next `set`.
-7. `TICKET_LOCK_TIMEOUT` controls how long the tickets-directory lock (`.lock`) may remain without holder progress before failing — while the holder keeps working, the wait is extended up to 12× the configured value (see `docs/configuration.md`); the value is a Go duration with a mandatory unit (`30s`, `2m`, `500ms`), and an empty or invalid value silently falls back to the default — a typo never errors out. Raise it for parallel agent runs or CI. The default itself is owned by the code (`defaultLockTimeout` in `internal/store`), so this skill does not repeat the number.
+7. `TICKET_LOCK_TIMEOUT` controls how long `ticket` waits to acquire the tickets-directory lock (`.lock`) before failing; the value is a Go duration that must carry a unit (`30s`, `2m`, `500ms`) — the only unit-less value accepted is the literal `0`, and any value `<= 0` means a single lock attempt without waiting — and an empty or invalid value silently falls back to the default — a typo never errors out. In the SOURCE tree the same variable already bounds a holder STALL (time without holder progress, extended up to 12× while the holder keeps heartbeating — `internal/lock/lock_progress.go`, T-0226) instead of the waiter's wall clock; that newer behaviour is NOT in the build this skill was verified against (`2.0.0-8-g07701fe`), where a heartbeat does not extend the wait, and the repository `reference.md` snapshot already carries the newer wording. Raise it for parallel agent runs or CI. The default itself is owned by the code (`defaultLockTimeout` in `internal/store`), so this skill does not repeat the number.
 8. `-C`/`--tickets-dir` and `--verbose` MUST come BEFORE the command name; after it the token is a subcommand argument and the command fails — except after `help`/`version`, where it is ignored — see `docs/configuration.md` for the exact messages.
 9. 🔴 `tickets/deleted/` is NOT `tickets/archive/`: deleted is terminal and read-only, `list deleted` is the only mode that shows it, `all` hides it, `archive` ignores it, and there is NO undelete — `set` (any reopen included) and `edit` refuse such a ticket and change nothing.
 10. Numbers are never reused: a deleted ticket keeps its number in `tickets/deleted/T-NNNN-deleted.md`, and the next `new` skips it. Never renumber or hand-copy a ticket file.
@@ -268,3 +308,7 @@ Tickets directory layout: `tickets/` (main) + `tickets/archive/` (closed) + `tic
 | 2026-11-16 | T-0189 W3 (GitHub #22): `ticket delete`, the `list deleted` mode and the `deleted/` integration were undocumented | Added the `delete` section (soft-delete into `tickets/deleted/`, `--yes`/`--force` guards, exit 0/1/2, repeat = exit 1), the `deleted` list mode and the hiding rule (`all` stays main-only), the `deleted/` notes for `show`/`set`/`edit`/`archive`/`recover`/`normalize`, the `deleted` lifecycle row, pitfalls 9-10 and the tickets-dir layout; version bumped to 1.17 | 1.17 |
 | 2026-11-21 | T-0215 (GitHub #35): the `set` comment source rules (single-argument `-`/`@file`/`@@name`, multi-argument literal join, CR/LF refusal) were undocumented | Documented the comment-source contract in the `set` section and the workflow reference: one argument = a source, two or more = literal space-join, byte-exact copy, CR/LF refusal without mutation, and the trade-off (a lone `-`/`@...` is never literal); version bumped to 1.18 | 1.18 |
 | 2026-11-24 | Skill drifted from the CLI at v2.0.2: `init` was described as creating only `tickets/`+`archive/` and as never honouring `-C`/`$TICKETS_DIR`; the `set` comment rule claimed that ANY CR/LF is refused | Re-synced against the binary built from HEAD: `init` creates `tickets/`, `tickets/archive/` AND `tickets/deleted/`, resolves `-C` → `$TICKETS_DIR` → `<cwd>/tickets` (no upward scan), and creates nothing when a subdir conflicts; a single trailing LF/CRLF in a `set` comment source is stripped and accepted, while `x\n\n`, a lone CR and multi-line payloads stay refused (T-0223, T-0225); version bumped to 1.19 | 1.19 |
+| 2026-11-24 | T-0234: the skill versioned only itself and did not record which CLI build it was checked against; the installed copy lagged behind (v1.14 vs v1.18); the `init` section omitted `tickets/deleted/` and the subdirectory conflict probe | Added `verified_with_cli: "2.0.0-8-g07701fe"` plus the Documentation verification rule (exact checked version, refreshed on every pass, not a compatibility claim); corrected the `init` section to the current CLI (creates `deleted/` too, conflicts are probed before any creation) and pitfall 7 (unit-less `0` is accepted; `<= 0` = a single attempt without waiting, per `docs/configuration.md`); re-verified against `ticket help` of v2.0.0-8-g07701fe and synced the installed copy; version bumped to 1.19 | 1.19 |
+| 2026-11-24 | T-0235: the skill claimed `-C` does not work with `init` and described `init` as always creating `<cwd>/tickets` | Verified against v2.0.0-8-g07701fe: `init` honours `-C`/`$TICKETS_DIR` and creates that directory itself (plus `archive/` and `deleted/`, no `tickets` suffix appended; an explicit target is absolute but not existence-checked or symlink-resolved); removed the "except `init`" claim from Global flags, added the existence requirement for ordinary commands and the `-C`-must-precede-`init` rule; post-review: pitfall 7 now states only the installed binary's lock-wait semantics (at T-0235 the source-only extension was omitted from pitfall 7; the 1.21 reconcile re-added it with explicit source-only scope), the Documentation verification section scopes `verified_with_cli` to `SKILL.md` plus the installed `reference.md` and explains why the repository snapshot may differ, and the installed snapshot was re-captured from `ticket help` | 1.20 |
+| 2026-11-24 | T-0236: the general (`~/.config/tickets`) vs project (`./tickets`) split was undocumented, including the global `TICKETS_DIR` override and the `-P` vs `-C` confusion | Added "Store scopes: project vs general" (no auto-discovery, no merged list, one store per invocation, explicit `-C` or per-command `TICKETS_DIR`, `-P` is metadata only, `-P general` recommended because the implicit name is `.config`, no tilde expansion) and noted that `-P` is used by `new`, `list` and `normalize` | 1.20 |
+| 2026-11-24 | The local 1.20 series (T-0234/35/36: store scopes, `verified_with_cli`, `init`/`-C` and lock semantics, installed reference) and the remote 1.19 series (T-0223/25/26: `init` corrections, one trailing LF/CRLF allowed in a `set` comment source, lock line reworded as a holder-stall budget) were written on parallel branches | Reconciled by a fast-forward merge of `origin/main` (`868d2cf`) with the local file stashed: every local addition and every remote correction is kept — `init` honours `-C`/`$TICKETS_DIR` but never scans upward, exactly one trailing LF/CRLF is stripped while every other CR/LF stays refused, and the source help snapshot carries the holder-stall wording; re-verified against the `PATH` binary (`2.0.0-8-g07701fe`): `init -C` creates the target itself (no `tickets` suffix, `archive/`+`deleted/`, nothing created on a subdir conflict), trailing-LF/CRLF comments accepted while `x\n\n` and a lone CR are refused, multi-argument join strips nothing, `TICKET_LOCK_TIMEOUT=0` is a single attempt and unit-less/`bogus` values fall back to 5s — the holder-progress extension is source-only (T-0226, newer than the installed build); repo `reference.md` re-diffed against `internal/cli/templates/usage.ru.txt` and the installed copy against `ticket help` — both bodies match; installed `SKILL.md` synced byte-identical | 1.21 |
