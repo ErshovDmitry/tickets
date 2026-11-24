@@ -75,5 +75,7 @@
   "errRepeatedFlagSection": "ticket: repeated flag --section",
   "errUnknownSection": "ticket: unknown section: %s (accepted names: %s; aliases: brief, user_comments)",
   "errFlagsConflictShow": "ticket: --section and --json are mutually exclusive",
-  "errShowExtraArgsModes": "ticket: unexpected extra arguments in --section/--json mode: %s"
+  "errShowExtraArgsModes": "ticket: unexpected extra arguments in --section/--json mode: %s",
+  "errJSONEncodeShow": "ticket: JSON encode error: %v",
+  "errJSONShortWriteShow": "ticket: JSON write error: short write (%d of %d bytes)"
 }

@@ -75,5 +75,7 @@
   "errRepeatedFlagSection": "ticket: повторный флаг --section",
   "errUnknownSection": "ticket: неизвестная секция: %s (допустимые имена: %s; алиасы: brief, user_comments)",
   "errFlagsConflictShow": "ticket: флаги --section и --json взаимоисключаемы",
-  "errShowExtraArgsModes": "ticket: лишние аргументы в режиме --section/--json: %s"
+  "errShowExtraArgsModes": "ticket: лишние аргументы в режиме --section/--json: %s",
+  "errJSONEncodeShow": "ticket: ошибка кодирования JSON: %v",
+  "errJSONShortWriteShow": "ticket: ошибка записи JSON: короткая запись (%d из %d байт)"
 }

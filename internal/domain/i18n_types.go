@@ -146,6 +146,8 @@ type dict struct {
 	errUnknownSection      string // 2 %s: offending name, canonical token list
 	errFlagsConflictShow   string // no placeholders
 	errShowExtraArgsModes  string // 1 %s: extra positional arguments
+	errJSONEncodeShow      string // 1 %v: the marshalling error
+	errJSONShortWriteShow  string // 2 %d: bytes written, bytes expected
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the

@@ -126,10 +126,8 @@ var (
 	getDeleteCancelled             = func(dj dictJSON) string { return dj.DeleteCancelled }
 	getErrTicketDeletedReadOnly    = func(dj dictJSON) string { return dj.ErrTicketDeletedReadOnly }
 	getErrReadOnly                 = func(dj dictJSON) string { return dj.ErrReadOnly }
-	getErrRepeatedFlagSection      = func(dj dictJSON) string { return dj.ErrRepeatedFlagSection }
-	getErrUnknownSection           = func(dj dictJSON) string { return dj.ErrUnknownSection }
-	getErrFlagsConflictShow        = func(dj dictJSON) string { return dj.ErrFlagsConflictShow }
-	getErrShowExtraArgsModes       = func(dj dictJSON) string { return dj.ErrShowExtraArgsModes }
+	// The T-0241 show getters live in i18n_show_messages.go, next to the
+	// message helpers they serve (the table file stays inside its budget).
 )
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
@@ -289,4 +287,10 @@ var dictValidationRules = []dictRule{
 	count("errFlagsConflictShow", "s", 0, getErrFlagsConflictShow),
 	nonEmpty("errShowExtraArgsModes", getErrShowExtraArgsModes),
 	count("errShowExtraArgsModes", "s", 1, getErrShowExtraArgsModes),
+	// The JSON write path: %v carries the marshal error, %d/%d the short-write
+	// byte counts — both must render, so both are pinned.
+	nonEmpty("errJSONEncodeShow", getErrJSONEncodeShow),
+	count("errJSONEncodeShow", "v", 1, getErrJSONEncodeShow),
+	nonEmpty("errJSONShortWriteShow", getErrJSONShortWriteShow),
+	count("errJSONShortWriteShow", "d", 2, getErrJSONShortWriteShow),
 }

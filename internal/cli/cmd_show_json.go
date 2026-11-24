@@ -60,7 +60,7 @@ type showJSONEntry struct {
 func runShowJSON(stdout, stderr io.Writer, lang domain.Lang, tk domain.Ticket, unknown []byte, warnings []store.ParseWarning) int {
 	payload, err := json.Marshal(newShowJSONTicket(tk, unknown, warnings))
 	if err != nil {
-		fmt.Fprintf(stderr, "ticket: JSON encode error: %v\n", err)
+		fmt.Fprintln(stderr, domain.ErrJSONEncodeShow(lang, err))
 		return exitError
 	}
 	// json.Marshal never appends a newline; exactly one is added here.
@@ -70,7 +70,7 @@ func runShowJSON(stdout, stderr io.Writer, lang domain.Lang, tk domain.Ticket, u
 		return reportShowWriteError(stderr, lang, werr)
 	}
 	if n != len(payload) {
-		fmt.Fprintf(stderr, "ticket: JSON write error: short write (%d of %d bytes)\n", n, len(payload))
+		fmt.Fprintln(stderr, domain.ErrJSONShortWriteShow(lang, n, len(payload)))
 		return exitError
 	}
 	return exitOK

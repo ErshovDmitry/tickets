@@ -37,8 +37,10 @@ var sectionAlias = map[string]Section{
 
 // sectionToken renders a canonical section identifier as its CLI token: lower
 // case with spaces replaced by hyphens ("User comments" -> "user-comments").
-// The raw identifiers are never accepted on the command line, because they
-// would spell names ParseSectionName refuses.
+// The raw identifiers are never RETURNED by CanonicalSectionNames — only the
+// CLI tokens are — while ParseSectionName accepts both the tokens and (case
+// insensitively) the raw identifiers, so a hand-written "--section Summary"
+// also resolves.
 func sectionToken(name sectionName) string {
 	return strings.ReplaceAll(strings.ToLower(string(name)), " ", "-")
 }
@@ -104,8 +106,9 @@ func (t Ticket) SectionBody(sec Section) string {
 
 // journalBody joins the original text of every recognized journal entry. The
 // separator blank lines between entries are dropped by Parse, so the payload
-// is exactly the entry lines; entries without Raw (appended in memory, never
-// rendered to a file) contribute nothing.
+// is exactly the entry lines; entries without Raw contribute nothing here
+// because set/archive append them in memory WITHOUT a Raw line, so Render —
+// not the in-memory entry list — is what puts them into the file.
 func journalBody(entries []JournalEntry) string {
 	lines := make([]string, 0, len(entries))
 	for _, e := range entries {

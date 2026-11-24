@@ -97,6 +97,8 @@ type dictJSON struct {
 	ErrUnknownSection      string `json:"errUnknownSection"`
 	ErrFlagsConflictShow   string `json:"errFlagsConflictShow"`
 	ErrShowExtraArgsModes  string `json:"errShowExtraArgsModes"`
+	ErrJSONEncodeShow      string `json:"errJSONEncodeShow"`
+	ErrJSONShortWriteShow  string `json:"errJSONShortWriteShow"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -185,5 +187,7 @@ func loadDict(data []byte) (*dict, error) {
 		errUnknownSection:           dj.ErrUnknownSection,
 		errFlagsConflictShow:        dj.ErrFlagsConflictShow,
 		errShowExtraArgsModes:       dj.ErrShowExtraArgsModes,
+		errJSONEncodeShow:           dj.ErrJSONEncodeShow,
+		errJSONShortWriteShow:       dj.ErrJSONShortWriteShow,
 	}, nil
 }
