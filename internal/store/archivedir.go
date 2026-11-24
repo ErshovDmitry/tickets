@@ -55,15 +55,24 @@ func validArchiveDir(dir string) (string, error) {
 // ("", nil, nil); an invalid or unreadable archive yields an error —
 // archive scan failures are never silenced.
 func (s *Store) archiveScan() (string, []fileEntry, error) {
+	archiveDir, entries, _, err := s.archiveScanWarned()
+	return archiveDir, entries, err
+}
+
+// archiveScanWarned is archiveScan keeping the scan warnings, for callers that
+// report parse anomalies of a file they read (the show read API, T-0241).
+// Validation and error mapping are identical — this is the one implementation,
+// archiveScan only drops the warnings.
+func (s *Store) archiveScanWarned() (string, []fileEntry, []ParseWarning, error) {
 	archiveDir, err := validArchiveDir(s.Dir)
 	if err != nil || archiveDir == "" {
-		return "", nil, err
+		return "", nil, nil, err
 	}
-	entries, _, err := scanDir(archiveDir)
+	entries, warns, err := scanDir(archiveDir)
 	if err != nil {
-		return "", nil, fmt.Errorf("store: read dir %s: %w", archiveDir, err)
+		return "", nil, nil, fmt.Errorf("store: read dir %s: %w", archiveDir, err)
 	}
-	return archiveDir, entries, nil
+	return archiveDir, entries, warns, nil
 }
 
 // ListArchive returns the parseable tickets under tickets/archive/,

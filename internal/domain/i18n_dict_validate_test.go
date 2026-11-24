@@ -96,11 +96,15 @@ func stringFieldSetters(dj *dictJSON) map[string]*string {
 		"deleteCancelled":             &dj.DeleteCancelled,
 		"errTicketDeletedReadOnly":    &dj.ErrTicketDeletedReadOnly,
 		"errReadOnly":                 &dj.ErrReadOnly,
+		"errRepeatedFlagSection":      &dj.ErrRepeatedFlagSection,
+		"errUnknownSection":           &dj.ErrUnknownSection,
+		"errFlagsConflictShow":        &dj.ErrFlagsConflictShow,
+		"errShowExtraArgsModes":       &dj.ErrShowExtraArgsModes,
 	}
 }
 
 // TestValidateDictStringFieldsCovered guards the setter table: dictJSON must
-// have exactly 66 string fields, every one covered by stringFieldSetters,
+// have exactly 72 string fields, every one covered by stringFieldSetters,
 // and each setter must point at the struct field carrying the same json tag.
 // A newly added string field without a test case fails here.
 func TestValidateDictStringFieldsCovered(t *testing.T) {
@@ -130,8 +134,8 @@ func TestValidateDictStringFieldsCovered(t *testing.T) {
 		}
 		*sp = ""
 	}
-	if stringFields != 68 {
-		t.Errorf("dictJSON: expected 68 string fields, got %d", stringFields)
+	if stringFields != 72 {
+		t.Errorf("dictJSON: expected 72 string fields, got %d", stringFields)
 	}
 	if len(setters) != stringFields {
 		t.Errorf("setter table: expected %d entries, got %d", stringFields, len(setters))
@@ -193,8 +197,8 @@ func TestValidateDictHeaders(t *testing.T) {
 // expects the "<jsonKey>: empty" error for it.
 func TestValidateDictEmptyFields(t *testing.T) {
 	probe := stringFieldSetters(&dictJSON{})
-	if len(probe) != 68 {
-		t.Fatalf("setter table: expected 68 entries, got %d", len(probe))
+	if len(probe) != 72 {
+		t.Fatalf("setter table: expected 72 entries, got %d", len(probe))
 	}
 	for key := range probe {
 		t.Run(key, func(t *testing.T) {

@@ -11,8 +11,9 @@ import (
 	"ticket/internal/store"
 )
 
-// cmdShow implements `show <номер|имя-файла>`: look the ticket up by
-// number and print its file verbatim.
+// cmdShow implements `show <номер|имя-файла>`: look the ticket up by number
+// and print its file verbatim — or select one of the T-0241 modes (--section,
+// --json; see cmd_show_modes.go).
 // lang selects the usage text language for argument errors.
 // Signature per wave-1 dispatch contract (wiki 8bd93a4e, A1).
 func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdout, stderr io.Writer) int {
@@ -20,67 +21,61 @@ func cmdShow(st *store.Store, args []string, _, _ string, lang domain.Lang, stdo
 		printUsage(stdout, stderr, lang)
 		return exitError
 	}
+	// T-0241: a bare --section/--json token selects a new mode with strict
+	// validation. Without one the plain path stays exactly as before: any
+	// extra argument (unknown flag included) is a warning on stderr and the
+	// exit code stays 0.
+	if hasShowModeFlag(args) {
+		return runShowModes(st, args, lang, stdout, stderr)
+	}
 	// T-0076: extra arguments are ignored (as in the bash era), but the silent
 	// truncation is surfaced as a warning; the exit code stays 0.
 	if len(args) > 1 {
 		fmt.Fprintln(stderr, domain.WarnExtraArgsIgnored(lang, strings.Join(args[1:], " ")))
 	}
-	// T-0157 escape hatch: an argument that is an exact ticket file name
-	// (no path separators, matches T-NNNN-<status>.md) resolves that very
-	// file via FindExactAcross, even when the number is ambiguous — the user
-	// picked the file from a listing, so the number need not be unique.
-	if !strings.ContainsAny(args[0], "/\\") {
-		if _, _, perr := domain.ParseFilename(args[0]); perr == nil {
-			return showByName(st, args[0], lang, stdout, stderr)
-		}
-	}
-	n, ok := parseTicketNumber(args[0])
-	if !ok {
-		// T-0072: the argument has no digits at all — it is not a ticket
-		// number, so the «не найден» report would mislead.
-		fmt.Fprintln(stderr, domain.ErrTicketArgNonNumeric(lang, args[0]))
-		return exitError
-	}
-	// FindRawAcross returns the scan-matched file's exact raw bytes, read
-	// from the single validated handle (openValidated): the file is never
-	// re-opened by path after validation, so a symlink swapped into the
-	// name between scan and read cannot leak outside content into show's
-	// output. FindRawAcross matches the number across the main, archive
-	// and deleted listings (T-0189), so a deleted ticket is readable too. The body's Status is untrusted ("- Статус: " accepts any
-	// bytes), so the path is NEVER rebuilt via domain.Filename(t.Number,
-	// t.Status): a crafted body status like "../../../x" made the old code
-	// read files outside TICKETS_DIR (filepath.Join cleans the inner ".."
-	// elements out of the directory — T-0006).
-	_, _, raw, err := st.FindRawAcross(n)
+	// The lookup is TOCTOU-safe, and its parse warnings are DROPPED here: the
+	// plain mode prints the file bytes on stdout and nothing else, so its
+	// output stays byte-identical to the pre-T-0241 binary.
+	_, _, raw, _, _, err := locateShow(st, args[0])
 	if err != nil {
-		// T-0157: more than one file carries n — refuse and list every
-		// conflicting path instead of silently reading an arbitrary one.
-		var amb *store.AmbiguousNumberError
-		if errors.As(err, &amb) {
-			return reportAmbiguous(stderr, lang, amb)
-		}
-		// An absent number is a not-found report; anything else (unreadable
-		// or corrupt file, scan failure) is a real error the user must see,
-		// never masked as «не найден».
-		if errors.Is(err, store.ErrNotFound) {
-			return notFoundHinted(st, stderr, lang, args[0])
-		}
-		if errors.Is(err, store.ErrReadOnly) {
-			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
-		} else {
-			fmt.Fprintf(stderr, "ticket: %v\n", err)
-		}
-		return exitError
+		return reportShowArgError(st, stderr, lang, args[0], err)
 	}
 	if _, err := stdout.Write(raw); err != nil {
-		if errors.Is(err, store.ErrReadOnly) {
-			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
-		} else {
-			fmt.Fprintf(stderr, "ticket: %v\n", err)
-		}
-		return exitError
+		return reportShowWriteError(stderr, lang, err)
 	}
 	return exitOK
+}
+
+// reportShowArgError maps every locateShow failure to the pinned diagnostics:
+// an ambiguous number is the ONLY exit-2 case and lists every conflicting
+// path; an absent ticket gets the «не найден» report plus the numeric hint;
+// an argument with no digits is named as such (the not-found report would
+// mislead); read-only and any other store error are real errors, exit 1.
+func reportShowArgError(st *store.Store, stderr io.Writer, lang domain.Lang, arg string, err error) int {
+	if errors.Is(err, errShowArgNonNumeric) {
+		fmt.Fprintln(stderr, domain.ErrTicketArgNonNumeric(lang, arg))
+		return exitError
+	}
+	var amb *store.AmbiguousNumberError
+	if errors.As(err, &amb) {
+		return reportAmbiguous(stderr, lang, amb)
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		return notFoundHinted(st, stderr, lang, arg)
+	}
+	return reportShowWriteError(stderr, lang, err)
+}
+
+// reportShowWriteError renders a store/stdout failure of show: the read-only
+// store message when the store refused, the raw error otherwise. It never
+// masks the cause as «не найден».
+func reportShowWriteError(stderr io.Writer, lang domain.Lang, err error) int {
+	if errors.Is(err, store.ErrReadOnly) {
+		fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
+	} else {
+		fmt.Fprintf(stderr, "ticket: %v\n", err)
+	}
+	return exitError
 }
 
 // notFound prints the established «не найден» message; the quoted
@@ -145,40 +140,6 @@ func scanMax(st *store.Store) (maxNum int, warned bool) {
 		}
 	}
 	return maxNum, len(warns) > 0 || len(archiveWarns) > 0 || len(deletedWarns) > 0
-}
-
-// showByName resolves an exact ticket file name via the store's
-// FindExactAcross escape hatch (T-0157): one match prints the file's exact
-// bytes; an ambiguous name (same base name in main, archive or deleted)
-// lists
-// every conflicting path; an absent name is a not-found report. As with
-// the number path, the raw bytes come from the single validated handle.
-func showByName(st *store.Store, name string, lang domain.Lang, stdout, stderr io.Writer) int {
-	_, _, raw, err := st.FindExactAcross(name)
-	if err != nil {
-		var amb *store.AmbiguousNumberError
-		if errors.As(err, &amb) {
-			return reportAmbiguous(stderr, lang, amb)
-		}
-		if errors.Is(err, store.ErrNotFound) {
-			return notFoundHinted(st, stderr, lang, name)
-		}
-		if errors.Is(err, store.ErrReadOnly) {
-			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
-		} else {
-			fmt.Fprintf(stderr, "ticket: %v\n", err)
-		}
-		return exitError
-	}
-	if _, err := stdout.Write(raw); err != nil {
-		if errors.Is(err, store.ErrReadOnly) {
-			fmt.Fprintln(stderr, domain.ErrReadOnly(lang))
-		} else {
-			fmt.Fprintf(stderr, "ticket: %v\n", err)
-		}
-		return exitError
-	}
-	return exitOK
 }
 
 // reportAmbiguous prints the pinned T-0157 ambiguity report — one

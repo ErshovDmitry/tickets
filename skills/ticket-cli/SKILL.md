@@ -1,9 +1,9 @@
 ---
 name: ticket-cli
-version: "1.22"
-verified_with_cli: "2.0.3"
+version: "1.23"
+verified_with_cli: "2.0.3-2-ge2ec601"
 created: 2026-09-04
-modified: 2026-11-24
+modified: 2026-11-25
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/archive/recover/delete/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`."
@@ -108,10 +108,10 @@ Each of these flags takes the NEXT token as its value, even when that token look
 ### `show`
 
 ```text
-ticket show <number|filename>
+ticket show <number|filename> [--section <name>] [--json]
 ```
 
-Shows a ticket; searches `tickets/`, `tickets/archive/` and `tickets/deleted/`. A duplicate number is exit 2 with every conflicting absolute path on stderr; an exact filename selects one file out of the duplicate.
+Shows a ticket; searches `tickets/`, `tickets/archive/` and `tickets/deleted/`. A duplicate number is exit 2 with every conflicting absolute path on stderr; an exact filename selects one file out of the duplicate. Three mutually exclusive modes: **plain** (no flag) prints the file byte for byte and only WARNS about extra arguments (exit 0 — a lone glued `--section=<name>` counts as one); **`--section <name>`** prints just the section body plus one LF (`summary`, `details`, `user-comments`, `comments`, `journal`, aliases `brief` and `user_comments`; an empty or absent section is exit 0 with an empty stdout, an unknown name exit 1); **`--json`** prints one JSON document with `number, status, type, priority, project, title, summary, created, who, details, user_comments, comments, journal[], unknown, unknown_encoding, warnings[]` — the status comes from the FILE NAME, dates are RFC3339 or `""`, `journal[]` holds objects (`{at, from, to, who, comment, archived}`) instead of markdown lines, the `unknown` tail is lossless (UTF-8 text or base64), parse warnings ride along, diagnostics go to stderr only and the document ends with one LF. In both new modes the flags are validated BEFORE the ticket is read: an unknown, repeated or glued flag, extra positionals, `--section`+`--json` or a missing ticket argument are exit 1 with an empty stdout.
 
 ### `set`
 

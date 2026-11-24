@@ -133,6 +133,32 @@ T-0003  open     BUG: Cross-project entry
 
 `ticket list deleted` prints the deleted tickets the same way, with `deleted` in the status column. Duplicate numbers inside `tickets/deleted/` take part in the same duplicate warning (stderr, exit code 0) as everywhere else; `show` answers exit 2 for such a number.
 
+## Reading one ticket (`show --section`, `show --json`)
+
+`ticket show <number|filename> [--section <name>] [--json]` has three mutually exclusive output modes. The plain form is unchanged: the ticket file is printed byte for byte on stdout, extra arguments stay a warning on stderr (exit 0). A bare `--section` or `--json` token selects one of the two new modes, and those modes validate their flags strictly BEFORE the ticket is read: an unknown flag, a repeated flag, a glued `--section=<name>`, extra positional arguments or the `--section`+`--json` combination are errors on stderr with exit 1 and an empty stdout.
+
+`--section <name>` prints only the section BODY — no `##` header line — followed by exactly one LF:
+
+- canonical names: `summary`, `details`, `user-comments`, `comments`, `journal`;
+- aliases: `brief` (= `summary`) and `user_comments` (= `user-comments`); the name is case-insensitive and surrounding whitespace is ignored, inner spaces are not normalised (`user comments` is rejected);
+- a known but empty section, or a section an older ticket does not carry at all, is a success: exit 0 and an empty stdout (0 bytes);
+- an unknown name is an error on stderr with exit 1, and the message lists the canonical names.
+
+The payload is the parsed body, so it is language independent: `## Summary (Кратко)`, `## Summary` and `## Summary (<free suffix>)` select the same text. Summary is stored separately from Details, so `summary` is the Summary body (not the title). `journal` prints the journal entry lines with the separating blank lines dropped.
+
+`--json` prints ONE JSON document on stdout — every diagnostic goes to stderr, and the document ends with exactly one LF:
+
+| Key | Value |
+|-----|-------|
+| `number`, `status`, `type`, `priority`, `project`, `title`, `who` | strings (number is a JSON number) |
+| `summary`, `details`, `user_comments`, `comments` | the section bodies; always present, `""` when empty |
+| `created` | RFC3339; `""` when the source timestamp cannot be parsed |
+| `journal` | array of `{at, from, to, who, comment, archived}`, `at` in RFC3339 (`""` for an unparsable timestamp); `[]` when there is no journal |
+| `unknown` / `unknown_encoding` | the manual tail after the journal: valid UTF-8 is emitted as text with `"utf-8"`, anything else as base64 with `"base64"` (never lossy) |
+| `warnings` | array of parse-warning strings (`"<file name>: <error>"`); `[]` when the file is clean |
+
+Every key is always present (no `omitempty`), and the status always comes from the FILE NAME, never from the body's `- Status:` line. Default `encoding/json` HTML escaping applies (`<`, `>`, `&` are escaped). Unknown `## ...` sections in the head zone are not exposed in JSON: only the tail in `unknown` is preserved.
+
 ## Full command reference
 
 Help text (`TICKET_LANG=en`), byte-identical to the embedded template `internal/cli/templates/usage.en.txt`. The binary prepends a version line (`ticket version <ver>`, `dev` when built without `-ldflags`) that is not part of the template:
@@ -159,8 +185,11 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       an invalid --type/--priority value is an error (exit 1)
       project column shown when output tickets have differing projects;
       --json outputs a JSON array (6 fields: number, status, type, priority, title, created); empty = []
-  ticket show <number|filename>
+  ticket show <number|filename> [--section <name>] [--json]
       show a ticket (the archive and deleted/ are searched too); a duplicate number is exit 2 with every conflicting path
+      --section prints only the section body without the header (empty or missing section: exit 0, empty stdout; unknown name: exit 1)
+      --json prints one JSON document: number, status, type, priority, project, title, summary, created, who, details, user_comments, comments, journal[], unknown, unknown_encoding, warnings[]; status comes from the file name
+      the modes are mutually exclusive; diagnostics go to stderr only; extra positional args: warning (exit 0) in plain, error (exit 1) in --section/--json
   ticket set <number> <status> ["comment"]
       change the status (renames the file itself and appends a line to the ticket journal);
       re-setting the same status with a comment appends a journal entry

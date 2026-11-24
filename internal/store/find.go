@@ -73,6 +73,38 @@ func readLocated(loc locatedFile) (domain.Ticket, string, []byte, error) {
 	return *tk, loc.Name, raw, nil
 }
 
+// readLocatedShow is readLocated for the show read API (T-0241): the same
+// error mapping and the same filename-authoritative status, but it also hands
+// back the unknown trailing bytes the parser preserved (readTicketFile already
+// returns them; readLocated drops them). The bytes come from the same single
+// validated handle, so the TOCTOU containment is unchanged.
+func readLocatedShow(loc locatedFile) (domain.Ticket, []byte, []byte, error) {
+	tk, raw, unknown, err := readTicketFile(filepath.Join(loc.dir, loc.Name), loc.Number)
+	if err != nil {
+		if errors.Is(err, errEmptyTicket) {
+			return domain.Ticket{}, nil, nil, ErrNotFound
+		}
+		return domain.Ticket{}, nil, nil, fmt.Errorf("store: read %s: %w", loc.Name, err)
+	}
+	tk.Status = loc.Status
+	return *tk, raw, unknown, nil
+}
+
+// attributableWarnings keeps only the warnings that belong to the file being
+// read (Name == its base name). Everything else is a directory-level report
+// and stays on list's path: show must not explain why an unrelated file was
+// skipped. A located file was accepted by the very scan that produced the
+// warnings, so this filter normally yields nothing.
+func attributableWarnings(name string, warns []ParseWarning) []ParseWarning {
+	var out []ParseWarning
+	for _, w := range warns {
+		if w.Name == name {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
 // FindExact resolves a ticket by its exact base name (T-NNNN-<status>.md)
 // across s.Dir and s.Dir/archive — the escape hatch for an ambiguous
 // number (T-0157): the caller passes a name it took from a listing and

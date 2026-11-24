@@ -115,6 +115,111 @@ func (s *Store) FindExactAcross(baseName string) (domain.Ticket, string, []byte,
 	return domain.Ticket{}, "", nil, ambiguousNumberError(n, matches)
 }
 
+// findAllNumberShowAcross is findAllNumberAcross keeping the scan warnings of
+// all three directories (main, archive, deleted — the same order and the same
+// error propagation), so a caller can attribute them to the file it reads.
+func (s *Store) findAllNumberShowAcross(n int) ([]locatedFile, []ParseWarning, error) {
+	entries, warns, dirErr := s.scan()
+	if dirErr != nil {
+		return nil, nil, fmt.Errorf("store: read dir %s: %w", s.Dir, dirErr)
+	}
+	var files []locatedFile
+	for _, e := range entries {
+		if e.Number == n {
+			files = append(files, locatedFile{fileEntry: e, dir: s.Dir})
+		}
+	}
+	archiveDir, archiveEntries, archiveWarns, aerr := s.archiveScanWarned()
+	if aerr != nil {
+		return nil, nil, aerr
+	}
+	warns = append(warns, archiveWarns...)
+	for _, e := range archiveEntries {
+		if e.Number == n {
+			files = append(files, locatedFile{fileEntry: e, dir: archiveDir})
+		}
+	}
+	deletedDir, deletedEntries, deletedWarns, derr := s.deletedScanWarned()
+	if derr != nil {
+		return nil, nil, derr
+	}
+	warns = append(warns, deletedWarns...)
+	for _, e := range deletedEntries {
+		if e.Number == n {
+			files = append(files, locatedFile{fileEntry: e, dir: deletedDir})
+		}
+	}
+	return files, warns, nil
+}
+
+// readShowLocated reads one located file for the show read API: the ticket,
+// its exact bytes, the unknown trailing bytes and the warnings attributable to
+// it — the scan warnings naming exactly this file plus the journal-dup notice
+// of a ticket whose second "## Journal" was merged by Parse.
+func readShowLocated(loc locatedFile, warns []ParseWarning) (domain.Ticket, string, []byte, []byte, []ParseWarning, error) {
+	tk, raw, unknown, err := readLocatedShow(loc)
+	if err != nil {
+		return domain.Ticket{}, "", nil, nil, nil, err
+	}
+	attributed := attributableWarnings(loc.Name, warns)
+	attributed = append(attributed, journalDupWarnings(loc.Name, &tk)...)
+	return tk, loc.Name, raw, unknown, attributed, nil
+}
+
+// FindShowAcross is FindRawAcross widened for the show read path (T-0241): it
+// adds the unknown trailing bytes and the parse warnings attributable to the
+// ticket, so neither a "## ..." tail nor a merged duplicate journal is lost.
+// Everything else matches FindRawAcross: main+archive+deleted, the scan-matched
+// name (never a path derived from the body status), the ambiguity detected
+// before any body is read, ErrNotFound for an absent number.
+func (s *Store) FindShowAcross(n int) (domain.Ticket, string, []byte, []byte, []ParseWarning, error) {
+	files, warns, err := s.findAllNumberShowAcross(n)
+	if err != nil {
+		return domain.Ticket{}, "", nil, nil, nil, err
+	}
+	switch len(files) {
+	case 0:
+		return domain.Ticket{}, "", nil, nil, nil, ErrNotFound
+	case 1:
+		return readShowLocated(files[0], warns)
+	}
+	return domain.Ticket{}, "", nil, nil, nil, ambiguousNumberError(n, files)
+}
+
+// FindExactShowAcross is FindExactAcross widened the same way: the exact-name
+// escape hatch (T-0157) across main, archive and deleted, carrying the unknown
+// tail and the attributable warnings.
+func (s *Store) FindExactShowAcross(baseName string) (domain.Ticket, string, []byte, []byte, []ParseWarning, error) {
+	n, _, ferr := domain.ParseFilename(baseName)
+	if ferr != nil || strings.ContainsAny(baseName, "/\\") {
+		return domain.Ticket{}, "", nil, nil, nil, fmt.Errorf("store: FindExactShowAcross: not a ticket file name: %q", baseName)
+	}
+	entries, warns, dirErr := s.scan()
+	if dirErr != nil {
+		return domain.Ticket{}, "", nil, nil, nil, fmt.Errorf("store: read dir %s: %w", s.Dir, dirErr)
+	}
+	matches := matchingEntries(baseName, s.Dir, entries, nil)
+	archiveDir, archiveEntries, archiveWarns, aerr := s.archiveScanWarned()
+	if aerr != nil {
+		return domain.Ticket{}, "", nil, nil, nil, aerr
+	}
+	warns = append(warns, archiveWarns...)
+	matches = matchingEntries(baseName, archiveDir, archiveEntries, matches)
+	deletedDir, deletedEntries, deletedWarns, derr := s.deletedScanWarned()
+	if derr != nil {
+		return domain.Ticket{}, "", nil, nil, nil, derr
+	}
+	warns = append(warns, deletedWarns...)
+	matches = matchingEntries(baseName, deletedDir, deletedEntries, matches)
+	switch len(matches) {
+	case 0:
+		return domain.Ticket{}, "", nil, nil, nil, ErrNotFound
+	case 1:
+		return readShowLocated(matches[0], warns)
+	}
+	return domain.Ticket{}, "", nil, nil, nil, ambiguousNumberError(n, matches)
+}
+
 // matchingEntries appends the entries named baseName to matches, each
 // paired with dir. Extracted so FindExactAcross keeps one match loop per
 // directory instead of three copies.

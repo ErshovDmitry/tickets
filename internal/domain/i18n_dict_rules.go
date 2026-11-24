@@ -126,6 +126,10 @@ var (
 	getDeleteCancelled             = func(dj dictJSON) string { return dj.DeleteCancelled }
 	getErrTicketDeletedReadOnly    = func(dj dictJSON) string { return dj.ErrTicketDeletedReadOnly }
 	getErrReadOnly                 = func(dj dictJSON) string { return dj.ErrReadOnly }
+	getErrRepeatedFlagSection      = func(dj dictJSON) string { return dj.ErrRepeatedFlagSection }
+	getErrUnknownSection           = func(dj dictJSON) string { return dj.ErrUnknownSection }
+	getErrFlagsConflictShow        = func(dj dictJSON) string { return dj.ErrFlagsConflictShow }
+	getErrShowExtraArgsModes       = func(dj dictJSON) string { return dj.ErrShowExtraArgsModes }
 )
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
@@ -273,4 +277,16 @@ var dictValidationRules = []dictRule{
 	// T-0192: store-wide read-only refusal — no placeholders.
 	nonEmpty("errReadOnly", getErrReadOnly),
 	count("errReadOnly", "s", 0, getErrReadOnly),
+
+	// T-0241: `ticket show --section/--json` modes — 2 %s slots in the
+	// unknown-section message (name, canonical list), 1 %s in the extra-args
+	// message, none in the other two.
+	nonEmpty("errRepeatedFlagSection", getErrRepeatedFlagSection),
+	count("errRepeatedFlagSection", "s", 0, getErrRepeatedFlagSection),
+	nonEmpty("errUnknownSection", getErrUnknownSection),
+	count("errUnknownSection", "s", 2, getErrUnknownSection),
+	nonEmpty("errFlagsConflictShow", getErrFlagsConflictShow),
+	count("errFlagsConflictShow", "s", 0, getErrFlagsConflictShow),
+	nonEmpty("errShowExtraArgsModes", getErrShowExtraArgsModes),
+	count("errShowExtraArgsModes", "s", 1, getErrShowExtraArgsModes),
 }

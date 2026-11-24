@@ -70,5 +70,10 @@
   "deleteCancelled": "ticket: удаление отменено, ничего не изменено",
 
   "errTicketDeletedReadOnly": "ticket: тикет %d удалён (файл в tickets/deleted/) и доступен только для чтения: set, reopen и edit отклоняются, файл не меняется",
-  "errReadOnly": "ticket: хранилище тикетов в режиме только чтения"
+  "errReadOnly": "ticket: хранилище тикетов в режиме только чтения",
+
+  "errRepeatedFlagSection": "ticket: повторный флаг --section",
+  "errUnknownSection": "ticket: неизвестная секция: %s (допустимые имена: %s; алиасы: brief, user_comments)",
+  "errFlagsConflictShow": "ticket: флаги --section и --json взаимоисключаемы",
+  "errShowExtraArgsModes": "ticket: лишние аргументы в режиме --section/--json: %s"
 }

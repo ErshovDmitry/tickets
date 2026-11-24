@@ -90,6 +90,13 @@ type dictJSON struct {
 	// T-0192: store-wide read-only refusal (rights/mount of TICKETS_DIR).
 	// No placeholders — the message names the store, not one ticket.
 	ErrReadOnly string `json:"errReadOnly"`
+
+	// T-0241: `ticket show --section/--json` modes. Same pipeline as the edit
+	// and delete keys; runtime access lives in i18n_show_messages.go.
+	ErrRepeatedFlagSection string `json:"errRepeatedFlagSection"`
+	ErrUnknownSection      string `json:"errUnknownSection"`
+	ErrFlagsConflictShow   string `json:"errFlagsConflictShow"`
+	ErrShowExtraArgsModes  string `json:"errShowExtraArgsModes"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -174,5 +181,9 @@ func loadDict(data []byte) (*dict, error) {
 		deleteCancelled:             dj.DeleteCancelled,
 		errTicketDeletedReadOnly:    dj.ErrTicketDeletedReadOnly,
 		errReadOnly:                 dj.ErrReadOnly,
+		errRepeatedFlagSection:      dj.ErrRepeatedFlagSection,
+		errUnknownSection:           dj.ErrUnknownSection,
+		errFlagsConflictShow:        dj.ErrFlagsConflictShow,
+		errShowExtraArgsModes:       dj.ErrShowExtraArgsModes,
 	}, nil
 }

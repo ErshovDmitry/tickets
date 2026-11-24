@@ -70,5 +70,10 @@
   "deleteCancelled": "ticket: delete cancelled, nothing was changed",
 
   "errTicketDeletedReadOnly": "ticket: ticket %d is deleted (file in tickets/deleted/) and is read-only: set, reopen and edit are refused, the file is unchanged",
-  "errReadOnly": "ticket: the ticket store is read-only"
+  "errReadOnly": "ticket: the ticket store is read-only",
+
+  "errRepeatedFlagSection": "ticket: repeated flag --section",
+  "errUnknownSection": "ticket: unknown section: %s (accepted names: %s; aliases: brief, user_comments)",
+  "errFlagsConflictShow": "ticket: --section and --json are mutually exclusive",
+  "errShowExtraArgsModes": "ticket: unexpected extra arguments in --section/--json mode: %s"
 }

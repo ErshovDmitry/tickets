@@ -139,6 +139,13 @@ type dict struct {
 
 	// T-0192: store-wide read-only refusal; no placeholders.
 	errReadOnly string // no placeholders (store-level, not per-ticket)
+
+	// T-0241: `ticket show --section/--json` modes. Runtime access lives in
+	// i18n_show_messages.go via getDict.
+	errRepeatedFlagSection string // no placeholders
+	errUnknownSection      string // 2 %s: offending name, canonical token list
+	errFlagsConflictShow   string // no placeholders
+	errShowExtraArgsModes  string // 1 %s: extra positional arguments
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the

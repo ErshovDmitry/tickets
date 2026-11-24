@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.15"
+version: "1.16"
 created: 2026-09-04
-modified: 2026-11-24
+modified: 2026-11-25
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -10,7 +10,7 @@ description: "Verbatim `ticket help` output (RU) — full command reference."
 
 # ticket help (verbatim)
 
-Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-24 (T-0237 corrected the `set` comment rule: a resolved source is copied byte for byte and exactly one trailing LF or CRLF is stripped, while any remaining CR or LF — `x\n\n`, a lone trailing CR, an embedded break — is refused; the earlier "a CR or LF in it is refused" wording was wrong); before that on 2026-11-22 (T-0226 reworded the `TICKET_LOCK_TIMEOUT` line from the wall-clock wait to the holder-stall budget: no holder progress for the configured value fails the command, a working holder extends the wait up to 12×); previously on 2026-11-21 (T-0215 documented the `set` comment source rules in the `set` block: a single comment argument is a source (`-` — stdin, `@<file>` — file content, `@@имя` — file named "@имя"), two or more arguments are joined with a space and used literally, the content is copied byte for byte (its CR/LF-refusal sentence was corrected by T-0237), and the lone-marker trade-off is stated); the previous re-sync was on 2026-11-16 (T-0189 W3 added the `list` `deleted` mode and the `deleted/` notes to `show`/`set`/`edit`/`archive`/`recover`/`normalize`, T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block, T-0187 added the `ticket edit` block to the command list); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
+Re-synced with the embedded RU template `internal/cli/templates/usage.ru.txt` on 2026-11-25 (T-0241 added the `show` block's `--section`/`--json` lines: three modes, the section name contract and the JSON field list); before that on 2026-11-24 (T-0237 corrected the `set` comment rule: a resolved source is copied byte for byte and exactly one trailing LF or CRLF is stripped, while any remaining CR or LF — `x\n\n`, a lone trailing CR, an embedded break — is refused; the earlier "a CR or LF in it is refused" wording was wrong); before that on 2026-11-22 (T-0226 reworded the `TICKET_LOCK_TIMEOUT` line from the wall-clock wait to the holder-stall budget: no holder progress for the configured value fails the command, a working holder extends the wait up to 12×); previously on 2026-11-21 (T-0215 documented the `set` comment source rules in the `set` block: a single comment argument is a source (`-` — stdin, `@<file>` — file content, `@@имя` — file named "@имя"), two or more arguments are joined with a space and used literally, the content is copied byte for byte (its CR/LF-refusal sentence was corrected by T-0237), and the lone-marker trade-off is stated); the previous re-sync was on 2026-11-16 (T-0189 W3 added the `list` `deleted` mode and the `deleted/` notes to `show`/`set`/`edit`/`archive`/`recover`/`normalize`, T-0188 added the `list` `--type`/`--priority` filters to the syntax line and the list block, T-0187 added the `ticket edit` block to the command list); the template itself was re-synced on 2026-11-11 (T-0162 documented the conservative single-file no-op in the `recover` block and made the exit-1 line name a single file with ANOTHER name; T-0159 added the `recover` block and the `recover` mention in the exit-code line; T-0109 added the `-d` input rules and the Details format rule; T-0094 added the `TICKET_LOCK_TIMEOUT` paragraph, T-0095 removed the migration section); T-0173 added the `update-check` block and exit code 3 to the exit-code line; `TICKET_LANG` default is RU. The first line below is `ticket version <ver>` — a placeholder, not part of the template: the build injects the real version via `-ldflags -X ticket/internal/cli.version=<ver>` (`dev` when built without `-ldflags`). Read the actual value from `ticket version` or `git describe --tags --always`.
 
 Maintenance: regenerate with `go run ./cmd/ticket help` after code changes, then replace the injected first line with the `ticket version <ver>` placeholder.
 
@@ -37,8 +37,11 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       неверное значение --type/--priority — ошибка (код 1)
       колонка проекта отображается когда проекты в выводе различаются;
       --json выводит массив JSON (6 полей: number, status, type, priority, title, created); пусто = []
-  ticket show <номер|имя-файла>
+  ticket show <номер|имя-файла> [--section <имя>] [--json]
       показать тикет (ищет и в архиве, и в deleted/); неоднозначный номер — код 2 со всеми конфликтующими путями
+      --section печатает только тело секции без заголовка (пустая/отсутствующая секция — код 0, пустой stdout; неизвестное имя — код 1)
+      --json выводит один JSON-документ: number, status, type, priority, project, title, summary, created, who, details, user_comments, comments, journal[], unknown, unknown_encoding, warnings[]; статус берётся из имени файла
+      режимы взаимоисключаемы; диагностика — только stderr; лишние позиционные аргументы — предупреждение (код 0) в plain и ошибка (код 1) в --section/--json
   ticket set <номер> <статус> ["комментарий"]
       сменить статус (сам переименует файл и допишет строку в журнал тикета);
       повторный set в тот же статус с комментарием допишет журнал
@@ -129,3 +132,4 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-11-22 | T-0226: the `TICKET_LOCK_TIMEOUT` line was reworded (holder-stall budget instead of a wall-clock wait) | Re-synced with `internal/cli/templates/usage.ru.txt` (lock-timeout line); the version was not bumped in that commit | 1.13 |
 | 2026-11-24 | T-0237: the `set` comment rule claimed a CR/LF is refused, but the binary strips exactly one trailing LF or CRLF and refuses only what remains | Re-synced with `internal/cli/templates/usage.ru.txt` (set block: byte-for-byte copy + one stripped trailing LF/CRLF, remaining CR/LF refused) | 1.15 |
 | 2026-11-24 | The reference had drifted only in its metadata — the embedded help was already byte-identical to the binary built from HEAD | Verified the help block against `ticket help` from HEAD (`0712bb5`): identical; bumped the version, fixed `modified`, added the missed 2026-11-22 row | 1.14 |
+| 2026-11-25 | T-0241: `show` gained `--section <name>` and `--json` (three mutually exclusive modes, the section name/alias contract, the JSON field list) | Re-synced with `internal/cli/templates/usage.ru.txt` (show block: syntax line + three mode lines) | 1.16 |
