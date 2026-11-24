@@ -137,3 +137,25 @@ func journalBody(entries []JournalEntry) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// editableSections is the write-path allowlist (T-0240): the sections an
+// agent workflow may replace through Store.SetSection. It is derived from
+// the section constants above, never from header text. User comments
+// belongs to the user, and Journal is appended only by store operations,
+// so neither is editable.
+var editableSections = []Section{SectionSummary, SectionDetails, SectionComments}
+
+// EditableSections returns a copy of the write-path allowlist in
+// sectionNames order. It is the owner of the accepted list for write-path
+// refusals: a caller must list these names, never hard-code them (the
+// write-path counterpart of CanonicalSectionNames for the read path).
+func EditableSections() []Section {
+	return slices.Clone(editableSections)
+}
+
+// IsEditableSection reports whether sec is on the write-path allowlist.
+// Protected sections (user comments, journal) and unknown identifiers are
+// not editable.
+func IsEditableSection(sec Section) bool {
+	return slices.Contains(editableSections, sec)
+}

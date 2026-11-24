@@ -184,3 +184,46 @@ func TestParseSectionName(t *testing.T) {
 		}
 	}
 }
+
+// TestEditableSections pins the write-path allowlist (T-0240 DS2): exactly
+// the summary/details/comments constants in sectionNames order, and the
+// returned slice is a copy — a caller cannot mutate the owner list.
+func TestEditableSections(t *testing.T) {
+	want := []Section{SectionSummary, SectionDetails, SectionComments}
+	got := EditableSections()
+	if len(got) != len(want) {
+		t.Fatalf("EditableSections() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("EditableSections()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+	got[0] = SectionJournal
+	if again := EditableSections(); again[0] != SectionSummary {
+		t.Fatalf("EditableSections() aliasing: owner list mutated to %v", again)
+	}
+}
+
+// TestIsEditableSection pins the protected/unknown refusal set: user
+// comments and journal are never editable, nor is any unknown identifier.
+func TestIsEditableSection(t *testing.T) {
+	cases := []struct {
+		sec  Section
+		want bool
+	}{
+		{SectionSummary, true},
+		{SectionDetails, true},
+		{SectionComments, true},
+		{SectionUserComments, false},
+		{SectionJournal, false},
+		{Section("bogus"), false},
+		{Section(""), false},
+		{Section("summary"), false}, // raw lower case is not a canonical identifier
+	}
+	for _, tc := range cases {
+		if got := IsEditableSection(tc.sec); got != tc.want {
+			t.Errorf("IsEditableSection(%q) = %v, want %v", tc.sec, got, tc.want)
+		}
+	}
+}
