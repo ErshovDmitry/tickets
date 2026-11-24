@@ -1,8 +1,8 @@
 ---
 name: ticket-cli
-version: "1.18"
+version: "1.19"
 created: 2026-09-04
-modified: 2026-11-21
+modified: 2026-11-24
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/archive/recover/delete/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`."
@@ -17,7 +17,7 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 - Tickets are plain files `tickets/T-NNNN-<status>.md`; files are the single source of truth; there is NO database.
 - The CLI is `ticket` on your `PATH` (`~/bin/ticket`; `%USERPROFILE%\bin\ticket.exe` on Windows); `-P <project>` flag: see README.
 - Numbers are issued atomically via OS locks and are never reused — a soft-deleted ticket keeps its number, too. Status lives in the file name — NEVER rename ticket files manually.
-- Ticket directory discovery, first match wins: `-C`/`--tickets-dir` → `$TICKETS_DIR` → upward scan from cwd for `tickets/` (see README Installation).
+- Ticket directory discovery, first match wins: `-C`/`--tickets-dir` → `$TICKETS_DIR` → upward scan from cwd for `tickets/` (see README Installation). `init` is the exception: it honours `-C`/`$TICKETS_DIR` but never scans upward — without them it creates `<cwd>/tickets`.
 - i18n: language chain `TICKET_LANG → LC_ALL → LANG`, default **RU**; `TICKET_LANG=en` opts into English help and English-label ticket files.
 - 🔴 Ticket CONTENT language: write titles, Details, comments and journal entries in **Russian** (project rule since 2026-11-06). The `-t`/`-p` flag values and file names stay English (`T-NNNN-<status>.md`); the i18n setting above only governs help text and section labels, not what you write.
 
@@ -27,7 +27,7 @@ Workflow for operating the `ticket` CLI. Tickets are plain Markdown files — th
 
 Two flags are global, and both are accepted ONLY before the command name: a flag-like token after the command name is a subcommand argument and is rejected (e.g. `ticket list --verbose` fails).
 
-`-C <path>` / `-C<path>` / `--tickets-dir <path>` / `--tickets-dir=<path>` — the value is the path to the tickets directory itself (not a parent). Overrides `TICKETS_DIR`. Works with every command except `init` (which creates, never resolves).
+`-C <path>` / `-C<path>` / `--tickets-dir <path>` / `--tickets-dir=<path>` — the value is the path to the tickets directory itself (not a parent). Overrides `TICKETS_DIR`. Works with every command, `init` included; only `init` skips the upward scan (it creates, it does not resolve).
 
 `--verbose` enables the debug log; `TICKET_LOG=<path>` sends the records to that file instead — the file wins over the flag. Log records NEVER reach stdout: stdout stays pure command output.
 
@@ -39,7 +39,7 @@ Record format, destinations, failure behaviour and the complete event list are o
 ticket init
 ```
 
-Creates `tickets/` and `tickets/archive/` in the current directory. Idempotent: repeat runs do nothing. Exit 1 if `tickets` exists as a non-directory (file/FIFO/broken link) — never overwrites. It does NOT install the binary.
+Creates `tickets/`, `tickets/archive/` AND `tickets/deleted/`. The target is `-C`/`--tickets-dir` → `$TICKETS_DIR` → `<cwd>/tickets` (NO upward scan). Idempotent: repeat runs do nothing. Exit 1 if `tickets`, `tickets/archive/` or `tickets/deleted/` exists as a non-directory (file/FIFO/broken link) — never overwrites, and when one of the two subdirs conflicts NOTHING is created. It does NOT install the binary.
 
 ### `new`
 
@@ -81,7 +81,7 @@ ticket set <number> <status> ["comment"]
 
 Renames the file and appends a journal line. Re-setting the SAME status WITH a comment appends a journal entry only (no rename); the same status WITHOUT a comment is an error. Moving an archived ticket to `open`/`wip` returns it from the archive into work.
 
-The comment may be a SOURCE, but only when it is ONE argument: `-` is stdin, `@<file>` is the content of that file, `@@name` is the file named `@name` (exactly one `@` is stripped, `@@` is not an escape); any other single argument is used literally. `@` alone as that ONE argument is an error (exit 1). The content is copied byte for byte — a CR or LF inside it is refused (exit 1) and nothing is written, so the ticket name, its bytes and the journal stay unchanged. An empty source yields an empty comment (a same-status `set` then fails as it does without a comment). TWO or more comment arguments are joined with a single space and used literally (no file, no stdin — a flag-like `-x` stays literal). Trade-off: a lone `-` or `@...` argument is never a literal comment, and two arguments are not a byte-exact escape (the join inserts a space); `-` on a terminal reads stdin until EOF (Ctrl-D).
+The comment may be a SOURCE, but only when it is ONE argument: `-` is stdin, `@<file>` is the content of that file, `@@name` is the file named `@name` (exactly one `@` is stripped, `@@` is not an escape); any other single argument is used literally. `@` alone as that ONE argument is an error (exit 1). The content is copied byte for byte, except that exactly ONE trailing LF or CRLF is stripped (the newline `echo` or an editor appends). Any other CR or LF inside it — `x\n\n`, a lone trailing CR, an embedded or multi-line payload — is refused (exit 1) and nothing is written, so the ticket name, its bytes and the journal stay unchanged. An empty source yields an empty comment (a same-status `set` then fails as it does without a comment). TWO or more comment arguments are joined with a single space and used literally (no file, no stdin — a flag-like `-x` stays literal; the join strips nothing, not even a trailing newline). Trade-off: a lone `-` or `@...` argument is never a literal comment, and two arguments are not a byte-exact escape (the join inserts a space); `-` on a terminal reads stdin until EOF (Ctrl-D).
 
 `deleted` is terminal and read-only, and `set` NEVER assigns it: naming that status, or addressing a ticket whose file lives in `tickets/deleted/`, is refused (exit 1, file unchanged). There is no undelete — a reopen to `open`/`wip` is not supported for a deleted ticket.
 
@@ -267,3 +267,4 @@ Tickets directory layout: `tickets/` (main) + `tickets/archive/` (closed) + `tic
 | 2026-11-16 | Merge of PR #23 (list filters, T-0188) and PR #24 (`ticket edit`, T-0187) | Rebase resolution: both features kept — `list --type`/`--priority` and the `edit` section coexist; version bumped past both parents | 1.16 |
 | 2026-11-16 | T-0189 W3 (GitHub #22): `ticket delete`, the `list deleted` mode and the `deleted/` integration were undocumented | Added the `delete` section (soft-delete into `tickets/deleted/`, `--yes`/`--force` guards, exit 0/1/2, repeat = exit 1), the `deleted` list mode and the hiding rule (`all` stays main-only), the `deleted/` notes for `show`/`set`/`edit`/`archive`/`recover`/`normalize`, the `deleted` lifecycle row, pitfalls 9-10 and the tickets-dir layout; version bumped to 1.17 | 1.17 |
 | 2026-11-21 | T-0215 (GitHub #35): the `set` comment source rules (single-argument `-`/`@file`/`@@name`, multi-argument literal join, CR/LF refusal) were undocumented | Documented the comment-source contract in the `set` section and the workflow reference: one argument = a source, two or more = literal space-join, byte-exact copy, CR/LF refusal without mutation, and the trade-off (a lone `-`/`@...` is never literal); version bumped to 1.18 | 1.18 |
+| 2026-11-24 | Skill drifted from the CLI at v2.0.2: `init` was described as creating only `tickets/`+`archive/` and as never honouring `-C`/`$TICKETS_DIR`; the `set` comment rule claimed that ANY CR/LF is refused | Re-synced against the binary built from HEAD: `init` creates `tickets/`, `tickets/archive/` AND `tickets/deleted/`, resolves `-C` → `$TICKETS_DIR` → `<cwd>/tickets` (no upward scan), and creates nothing when a subdir conflicts; a single trailing LF/CRLF in a `set` comment source is stripped and accepted, while `x\n\n`, a lone CR and multi-line payloads stay refused (T-0223, T-0225); version bumped to 1.19 | 1.19 |

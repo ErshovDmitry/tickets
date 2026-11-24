@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.12"
+version: "1.14"
 created: 2026-09-04
-modified: 2026-11-21
+modified: 2026-11-24
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -126,3 +126,5 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-11-16 | T-0187: `ticket edit` was missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (edit block) | 1.9 |
 | 2026-11-16 | Merge of T-0188 and T-0187 | Rebase resolution: help text keeps both the `list` filters and the `edit` block; version bumped past both parents | 1.10 |
 | 2026-11-21 | T-0215 (GitHub #35): the `set` comment source rules (single-argument `-`/`@file`/`@@name`, multi-argument literal join, CR/LF refusal) were missing from the help text | Re-synced with `internal/cli/templates/usage.ru.txt` (set block: one comment argument = a source, two or more = literal space-join, byte-exact copy, CR/LF refusal without mutation) | 1.12 |
+| 2026-11-22 | T-0226: the `TICKET_LOCK_TIMEOUT` line was reworded (holder-stall budget instead of a wall-clock wait) | Re-synced with `internal/cli/templates/usage.ru.txt` (lock-timeout line); the version was not bumped in that commit | 1.13 |
+| 2026-11-24 | The reference had drifted only in its metadata — the embedded help was already byte-identical to the binary built from HEAD | Verified the help block against `ticket help` from HEAD (`0712bb5`): identical; bumped the version, fixed `modified`, added the missed 2026-11-22 row | 1.14 |
