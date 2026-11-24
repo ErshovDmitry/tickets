@@ -73,7 +73,7 @@
   "errReadOnly": "ticket: the ticket store is read-only",
 
   "errRepeatedFlagSection": "ticket: repeated flag --section",
-  "errUnknownSection": "ticket: unknown section: %s (accepted names: %s; aliases: brief, user_comments)",
+  "errUnknownSection": "ticket: unknown section: %s (accepted names: %s; aliases: %s)",
   "errFlagsConflictShow": "ticket: --section and --json are mutually exclusive",
   "errShowExtraArgsModes": "ticket: unexpected extra arguments in --section/--json mode: %s",
   "errJSONEncodeShow": "ticket: JSON encode error: %v",

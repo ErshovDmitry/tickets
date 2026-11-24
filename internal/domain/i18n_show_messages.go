@@ -34,12 +34,13 @@ func ErrRepeatedFlagSection(lang Lang) string {
 }
 
 // ErrUnknownSection returns the localized rejection for an unrecognized
-// --section value. names is the canonical token list (A1
-// CanonicalSectionNames) — passed in, never hard-coded, so the message cannot
-// drift from what ParseSectionName accepts. The two accepted aliases are named
-// by the template itself and are deliberately absent from names.
-func ErrUnknownSection(lang Lang, name string, names []string) string {
-	return fmt.Sprintf(getDict(lang).errUnknownSection, name, strings.Join(names, ", "))
+// --section value. names is the canonical token list (CanonicalSectionNames)
+// and aliases the accepted non-canonical ones (SectionAliasNames) — both
+// passed in, never hard-coded, so the message cannot drift from what
+// ParseSectionName accepts.
+func ErrUnknownSection(lang Lang, name string, names, aliases []string) string {
+	return fmt.Sprintf(getDict(lang).errUnknownSection,
+		name, strings.Join(names, ", "), strings.Join(aliases, ", "))
 }
 
 // ErrFlagsConflictShow returns the localized rejection for combining --section

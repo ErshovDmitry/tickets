@@ -73,7 +73,7 @@
   "errReadOnly": "ticket: хранилище тикетов в режиме только чтения",
 
   "errRepeatedFlagSection": "ticket: повторный флаг --section",
-  "errUnknownSection": "ticket: неизвестная секция: %s (допустимые имена: %s; алиасы: brief, user_comments)",
+  "errUnknownSection": "ticket: неизвестная секция: %s (допустимые имена: %s; алиасы: %s)",
   "errFlagsConflictShow": "ticket: флаги --section и --json взаимоисключаемы",
   "errShowExtraArgsModes": "ticket: лишние аргументы в режиме --section/--json: %s",
   "errJSONEncodeShow": "ticket: ошибка кодирования JSON: %v",

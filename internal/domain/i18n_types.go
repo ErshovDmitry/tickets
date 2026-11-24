@@ -143,7 +143,7 @@ type dict struct {
 	// T-0241: `ticket show --section/--json` modes. Runtime access lives in
 	// i18n_show_messages.go via getDict.
 	errRepeatedFlagSection string // no placeholders
-	errUnknownSection      string // 2 %s: offending name, canonical token list
+	errUnknownSection      string // 3 %s: offending name, canonical tokens, aliases
 	errFlagsConflictShow   string // no placeholders
 	errShowExtraArgsModes  string // 1 %s: extra positional arguments
 	errJSONEncodeShow      string // 1 %v: the marshalling error

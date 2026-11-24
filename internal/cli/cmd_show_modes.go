@@ -89,7 +89,8 @@ func parseShowFlags(args []string, lang domain.Lang, stderr io.Writer) (string, 
 			i++
 			parsed, ok := domain.ParseSectionName(args[i])
 			if !ok {
-				fmt.Fprintln(stderr, domain.ErrUnknownSection(lang, args[i], domain.CanonicalSectionNames()))
+				fmt.Fprintln(stderr, domain.ErrUnknownSection(lang, args[i],
+					domain.CanonicalSectionNames(), domain.SectionAliasNames()))
 				return "", nil, false, false
 			}
 			sec = &parsed

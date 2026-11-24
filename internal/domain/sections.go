@@ -1,6 +1,9 @@
 package domain
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // T-0241 A1: the section-selection model behind `ticket show --section`.
 // It is the single place that knows how a section is NAMED on the command
@@ -38,9 +41,11 @@ var sectionAlias = map[string]Section{
 // sectionToken renders a canonical section identifier as its CLI token: lower
 // case with spaces replaced by hyphens ("User comments" -> "user-comments").
 // The raw identifiers are never RETURNED by CanonicalSectionNames — only the
-// CLI tokens are — while ParseSectionName accepts both the tokens and (case
-// insensitively) the raw identifiers, so a hand-written "--section Summary"
-// also resolves.
+// CLI tokens are. ParseSectionName lower-cases the input and compares it with
+// exactly these tokens plus the aliases, so only a raw identifier that is a
+// single word resolves: "--section Summary" works, "--section User comments"
+// does not — that section is reachable as "user-comments" or via the
+// "user_comments" alias.
 func sectionToken(name sectionName) string {
 	return strings.ReplaceAll(strings.ToLower(string(name)), " ", "-")
 }
@@ -54,6 +59,18 @@ func CanonicalSectionNames() []string {
 	for _, name := range sectionNames {
 		out = append(out, sectionToken(name))
 	}
+	return out
+}
+
+// SectionAliasNames returns the accepted non-canonical tokens in sorted order.
+// It complements CanonicalSectionNames for the same reason: the unknown-section
+// message names both sets, and neither may be hard-coded in the template.
+func SectionAliasNames() []string {
+	out := make([]string, 0, len(sectionAlias))
+	for alias := range sectionAlias {
+		out = append(out, alias)
+	}
+	slices.Sort(out)
 	return out
 }
 
@@ -106,9 +123,11 @@ func (t Ticket) SectionBody(sec Section) string {
 
 // journalBody joins the original text of every recognized journal entry. The
 // separator blank lines between entries are dropped by Parse, so the payload
-// is exactly the entry lines; entries without Raw contribute nothing here
-// because set/archive append them in memory WITHOUT a Raw line, so Render —
-// not the in-memory entry list — is what puts them into the file.
+// is exactly the entry lines; entries without Raw contribute nothing here.
+// Raw is filled by Parse alone — every in-memory append site (new, the
+// set/archive/delete paths, edit) leaves it empty — so Render, via
+// writeJournalLine, and not this accessor, is what puts those lines into the
+// file.
 func journalBody(entries []JournalEntry) string {
 	lines := make([]string, 0, len(entries))
 	for _, e := range entries {

@@ -276,13 +276,13 @@ var dictValidationRules = []dictRule{
 	nonEmpty("errReadOnly", getErrReadOnly),
 	count("errReadOnly", "s", 0, getErrReadOnly),
 
-	// T-0241: `ticket show --section/--json` modes — 2 %s slots in the
-	// unknown-section message (name, canonical list), 1 %s in the extra-args
-	// message, none in the other two.
+	// T-0241: `ticket show --section/--json` modes — 3 %s slots in the
+	// unknown-section message (name, canonical list, alias list), 1 %s in the
+	// extra-args message, none in the other two.
 	nonEmpty("errRepeatedFlagSection", getErrRepeatedFlagSection),
 	count("errRepeatedFlagSection", "s", 0, getErrRepeatedFlagSection),
 	nonEmpty("errUnknownSection", getErrUnknownSection),
-	count("errUnknownSection", "s", 2, getErrUnknownSection),
+	count("errUnknownSection", "s", 3, getErrUnknownSection),
 	nonEmpty("errFlagsConflictShow", getErrFlagsConflictShow),
 	count("errFlagsConflictShow", "s", 0, getErrFlagsConflictShow),
 	nonEmpty("errShowExtraArgsModes", getErrShowExtraArgsModes),
