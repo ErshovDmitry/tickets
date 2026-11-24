@@ -5,6 +5,10 @@ This file is English-only by design: README.ru.md translates README.md, while a 
 
 ## [Unreleased]
 
+### Fixed
+
+- The help text and the docs no longer claim that a `set` comment refuses every CR or LF. A resolved single-argument comment (`-` for stdin, `@<file>` for file content) is copied byte for byte and exactly one trailing LF or CRLF is stripped — so a file written by `echo` is accepted; any CR or LF left after that strip (a second trailing LF in `x\n\n`, a lone trailing CR in `x\r`, an embedded or multiline break) is still refused with exit 1 and nothing is written. Corrected in the RU and EN templates, in the mirrored help of `docs/usage.md` and `docs/ru/usage.md`, in the `set` sections of both scenarios docs and in the shipped `skills/ticket-cli/reference.md`; the help regression tests pin the new wording in both languages and fail on the retired one. The multi-argument literal join is unchanged (T-0237).
+
 ## [2.0.2] - 2026-11-23
 
 ### Changed

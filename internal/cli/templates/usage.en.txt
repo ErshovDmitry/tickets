@@ -27,7 +27,7 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       (status and file name unchanged), without a comment it is an error;
       the comment may be given as ONE argument: - — stdin, @<file> — file content, @@name — file named "@name";
       a bare @ as the ONE comment argument (no path) is an error (exit 1), a missing file and a failed stdin read are errors too — the ticket name, its bytes and the journal stay unchanged;
-      the content is copied byte for byte; a CR or LF in it is refused (exit 1) — nothing is written;
+      the content is copied byte for byte, and exactly one trailing LF or CRLF is stripped; any other CR or LF — a second trailing LF, a lone trailing CR, an embedded line break — is refused (exit 1), nothing is written;
       two or more comment arguments are joined with a space and used literally — no file and no stdin is read;
       trade-off: a lone "-" or "@..." argument is never a literal comment, and two arguments are not a byte-exact escape (the join inserts a space);
       "-" reads stdin to the end of the input; on a terminal it waits for EOF (Ctrl-D)

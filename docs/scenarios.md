@@ -56,7 +56,7 @@ Archived tickets stay first-class: `show` searches the archive, `set` works on t
 A status change with a long comment can take the comment from a file or from stdin instead of the command line:
 
 ```bash
-printf 'the comment text' > comment.md   # printf, not echo: echo appends a trailing newline, and it is refused
+printf 'the comment text' > comment.md   # create the comment file
 ticket set 7 wip @comment.md              # the comment is the content of comment.md
 ticket set 7 done @comment.md             # the same for the closing transition
 cat comment.md | ticket set 7 wip -       # the comment is stdin
@@ -65,8 +65,8 @@ cat comment.md | ticket set 7 wip -       # the comment is stdin
 Behaviour worth knowing:
 
 - The source forms apply to ONE comment argument only: `-` is stdin, `@<file>` is the content of that file, `@@name` is the file named `@name` (exactly one `@` is stripped).
-- The content is copied byte for byte — no trimming, no newline conversion. A CR or LF inside it is refused (exit 1): the ticket name, its bytes and the journal stay unchanged.
-- A file written by `echo` ends with a newline, and that trailing LF is refused like any other: write the file with `printf` (no trailing newline) or strip it.
+- The content is copied byte for byte, and exactly one trailing LF or CRLF is stripped. Any other CR or LF — a second trailing LF (`x\n\n`), a lone trailing CR (`x\r`), an embedded or multi-line break — is refused (exit 1): the ticket name, its bytes and the journal stay unchanged.
+- A file written by `echo` ends with one newline, and that single trailing LF (or CRLF) is stripped, so `echo`-written files are accepted as they are. A comment that must end with a blank line cannot be passed: the second trailing LF is refused like any other break inside the text.
 - A bare `@` (no path) as the ONE comment argument is an error, and so is a missing file or a failed stdin read (exit 1, nothing written).
 - Two or more comment arguments are joined with a single space and used literally — no file and no stdin are read, so a flag-like `-x` stays a literal comment.
 - Trade-off: a lone `-` or `@...` argument is never a literal comment, and two arguments are not a byte-exact escape (the join inserts a space).
