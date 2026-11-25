@@ -159,6 +159,26 @@ The payload is the parsed body, so it is language independent: `## Summary (Кр
 
 Every key is always present (no `omitempty`), and the status always comes from the FILE NAME, never from the body's `- Status:` line. Default `encoding/json` HTML escaping applies (`<`, `>`, `&` are escaped). Unknown `## ...` sections in the head zone are not exposed in JSON: only the tail in `unknown` is preserved.
 
+## Writing text (`comment`, `section set`)
+
+```text
+ticket comment <number> [-] [--file <path>] [--json] [--schema]
+ticket section set <number> <section> [-] [--file <path>] [--json]
+```
+
+Both commands write ticket text without touching the status or the metadata bullets, and both share one payload contract: the source is exactly one of `-` (stdin) or `--file <path>` — no source or both sources is a usage error (exit 1), and the terminal is never read. The input is read and decoded BEFORE the ticket lookup, so a refused input leaves the file and the journal byte-identical. Only separate `--flag value` pairs are accepted after the positionals; a glued `--flag=value` is refused.
+
+- stdin is the primary channel: a heredoc on Unix (`ticket comment 42 - <<'EOF' … EOF`), a pipe on Windows (`type note.txt | ticket comment 42 -` in cmd, `Get-Content note.txt -Raw | ticket comment 42 -` in PowerShell).
+- `--file <path>` reads the file byte for byte; trailing LF characters are trimmed, every other byte stays verbatim. An empty file is a valid empty payload.
+- A payload line that is a markdown heading (1–6 `#` then whitespace or end of line) is refused (exit 1) with its line number.
+- `--json` treats the payload as the strict single-field object `{"text":"<payload>"}`: unknown fields, invalid JSON or trailing garbage are exit 1 with position/format/example — never a plain-text fallback. `comment --schema` prints that JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source (exit 1).
+
+`ticket comment` APPENDS a block to the `Comments` section — never a replacement: exactly one blank line separates the new block from the old body, and the journal records the append (`comment: +N lines`, who, timestamp). An empty or whitespace-only payload is refused (exit 1).
+
+`ticket section set` REPLACES the whole body of an editable section. `<section>` is a canonical CLI token: `summary`, `details`, `user-comments`, `comments`, `journal`, plus the aliases `brief` (= `summary`) and `user_comments` (= `user-comments`); the name is case-insensitive, surrounding whitespace is trimmed, inner spaces are not normalised. Editable are `summary`, `details` and `comments`; protected are `user-comments` («Комментарии от пользователя») and `journal` («Журнал») — a protected or unknown name is refused (exit 1) with the editable list. An empty payload clears the section (an empty summary renders as the title).
+
+Exit codes for both commands: `0` — silent success, parse warnings go to stderr; `1` — usage, I/O, a protected section, an empty comment, a heading-guard refusal, a `tickets/deleted/` ticket or a missing ticket; `2` — ambiguous number, with every conflicting path on stderr.
+
 ## Full command reference
 
 Help text (`TICKET_LANG=en`), byte-identical to the embedded template `internal/cli/templates/usage.en.txt`. The binary prepends a version line (`ticket version <ver>`, `dev` when built without `-ldflags`) that is not part of the template:
@@ -397,7 +417,7 @@ Broken export
 - `Summary` — brief description.
 - `Details` — specifics as a numbered list, one item per line: `N. <what> — <file:line>; <fix>` (file:line, logs, reproduction).
 - `User comments` — written by the user, read by the agent before working on the ticket; the agent never writes there.
-- `Comments` — the agent's working notes.
-- `Journal` — append-only log written automatically by `new` / `set` / `edit`.
+- `Comments` — the agent's working notes; `ticket comment` appends a block here.
+- `Journal` — append-only log written automatically by `new` / `set` / `edit` / `comment` / `section set`.
 
 Agent integration, cross-project work, the archive and the delete lifecycle in context: [scenarios.md](scenarios.md).

@@ -1,12 +1,12 @@
 ---
 name: ticket-cli
-version: "1.23"
-verified_with_cli: "2.0.3-2-ge2ec601"
+version: "1.24"
+verified_with_cli: "2.0.3-7-g240d10b"
 created: 2026-09-04
 modified: 2026-11-25
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
-description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/archive/recover/delete/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`."
+description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/comment/section set/archive/recover/delete/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`, (6) appending working notes with `ticket comment` or replacing a section body with `ticket section set`."
 ---
 
 # ticket-cli
@@ -62,7 +62,7 @@ Rules that keep the two scopes apart:
 
 Two flags are global, and both are accepted ONLY before the command name: a flag-like token after the command name is a subcommand argument and is rejected (e.g. `ticket list --verbose` fails).
 
-`-C <path>` / `-C<path>` / `--tickets-dir <path>` / `--tickets-dir=<path>` — the value is the path to the tickets directory itself (not a parent). Overrides `TICKETS_DIR`. For every store-resolving command (`new`, `list`, `show`, `set`, `edit`, `recover`, `delete`, `archive`, `normalize`) the target MUST already exist — a missing path is exit 1 with `invalid tickets dir (--tickets-dir): path does not exist: <path>`. The store is NOT resolved by a bare invocation (usage), `help`/`--help`, `version` and `update-check`: a nonexistent target is simply ignored there (exit 0, and `3` for update-check when a release exists). `init` is the one command that accepts and CREATES a missing target, and its value is the store directory itself, not a parent: `ticket -C "$HOME/.config/tickets" init` creates exactly that directory (see `init`); it is also the only command that skips the upward scan — it creates, it does not resolve. An ordinary `-C` on an existing empty directory is accepted too (bootstrap via `new`). The value is never tilde-expanded.
+`-C <path>` / `-C<path>` / `--tickets-dir <path>` / `--tickets-dir=<path>` — the value is the path to the tickets directory itself (not a parent). Overrides `TICKETS_DIR`. For every store-resolving command (`new`, `list`, `show`, `set`, `edit`, `comment`, `section set`, `recover`, `delete`, `archive`, `normalize`) the target MUST already exist — a missing path is exit 1 with `invalid tickets dir (--tickets-dir): path does not exist: <path>`. The store is NOT resolved by a bare invocation (usage), `help`/`--help`, `version` and `update-check`: a nonexistent target is simply ignored there (exit 0, and `3` for update-check when a release exists). `init` is the one command that accepts and CREATES a missing target, and its value is the store directory itself, not a parent: `ticket -C "$HOME/.config/tickets" init` creates exactly that directory (see `init`); it is also the only command that skips the upward scan — it creates, it does not resolve. An ordinary `-C` on an existing empty directory is accepted too (bootstrap via `new`). The value is never tilde-expanded.
 
 `--verbose` enables the debug log; `TICKET_LOG=<path>` sends the records to that file instead — the file wins over the flag. Log records NEVER reach stdout: stdout stays pure command output.
 
@@ -140,6 +140,33 @@ Each changed field appends its OWN journal line `<field>: old → new` in the fi
 🔴 The ticket CONTENT language rule applies to the values you pass: write the new title/details in **Russian** (project rule since 2026-11-06); flag values and file names stay English.
 
 Exit codes: `0` — silent success; `1` — usage/validation error, an explicitly unchanged field (no write), or a ticket whose file lives in `tickets/deleted/` (refused before any write); `2` — ambiguous number, like `show`/`set`.
+
+### `comment`
+
+```text
+ticket comment <number> [-] [--file <path>] [--json] [--schema]
+```
+
+Appends a text block to `## Comments` — NEVER a replacement; status and metadata stay untouched. The payload source is exactly one of `-` (stdin) or `--file <path>`; no source or both is exit 1 and the terminal is never read. stdin is the primary channel: heredoc on Unix, pipe on Windows. The input is read and decoded BEFORE the lookup — a refused input leaves the file and journal byte-identical.
+
+- 🔴 An empty or whitespace-only payload is refused (exit 1). A payload markdown-heading line (1–6 `#` then whitespace or end of line) is refused (exit 1) with its line number.
+- `--file` is read byte for byte (trailing LF trimmed); only separate `--flag value` pairs after the number.
+- `--json` — the strict single-field object `{"text":"<payload>"}`; unknown fields, invalid JSON or trailing garbage are exit 1, never a plain-text fallback. `--schema` prints the JSON Schema (exit 0, no lookup, no write) and cannot be combined with a source (exit 1).
+- Success is silent (exit 0); the journal records `comment: +N lines`. Exit codes: `0` ok; `1` usage/IO/empty/heading/deleted/not found; `2` ambiguous number.
+- 🔴 Write the comment text in **Russian** (project rule); NEVER write secrets; NEVER write `## User comments`.
+
+### `section set`
+
+```text
+ticket section set <number> <section> [-] [--file <path>] [--json]
+```
+
+REPLACES the whole body of an editable section: `summary`, `details`, `comments` (canonical CLI tokens, case-insensitive; `brief` = `summary` alias; surrounding whitespace trimmed, inner spaces not normalised).
+
+- 🔴 Protected sections — `user-comments` («Комментарии от пользователя») and `journal` («Журнал») — and unknown names are refused (exit 1) with the editable list. The agent NEVER writes «Комментарии от пользователя».
+- Same payload contract as `comment`: exactly one of `-`/`--file`, strict `--json` object `{"text":"<payload>"}`, heading guard, separate flag pairs, input decoded before the lookup.
+- An empty payload CLEARS the section (an empty summary renders as the title) — unlike `comment`, empty is allowed here.
+- Success is silent (exit 0); the journal records `section <token>: replaced`. Exit codes: `0` ok; `1` usage/IO/protected/heading/deleted/not found; `2` ambiguous number.
 
 ### `recover`
 
@@ -219,6 +246,8 @@ Explicit check for a newer release on GitHub — never automatic, never blocks o
 
 `ticket edit` uses `0`/`1`/`2`: `0` — silent success; `1` — a usage/validation error or an explicitly unchanged field (the whole operation is refused, nothing is written); `2` — ambiguous number (both conflicting absolute paths on stderr).
 
+`ticket comment` and `ticket section set` use `0`/`1`/`2`: `0` — silent success (parse warnings on stderr); `1` — usage, I/O, a protected/unknown section, an empty comment payload, a heading-guard refusal, a deleted or missing ticket; `2` — ambiguous number (every conflicting absolute path on stderr). A missing ticket is `1` — there is no separate not-found code.
+
 `ticket recover` reuses these codes: `0` also covers a conservative no-op (a repeat after a successful recovery, or a single file already named `<new-file>`) and never proves that a recovery happened; `1` covers a usage error, a refused confirmation, a missing file, an I/O error (archive scan included), the keep-old choice and a selection that is not the crash pair; `2` means the number cannot be recovered automatically — more than two files, diverging content or equal statuses. A divergent pair is `2`, never `1`.
 
 ## Status lifecycle
@@ -247,7 +276,7 @@ Labels are bilingual under the RU default locale:
 - `Details` — specifics as a numbered list, one item per line: `N. <what> — <file:line>; <fix>`.
 - With `TICKET_LANG=en` plain labels are produced: `## Summary`, `- Status: open`.
 - Journal line format: `YYYY-MM-DD HH:MM — статус: X → Y · comment (who)`.
-- `Journal` is append-only, written automatically by `new`/`set`/`edit`.
+- `Journal` is append-only, written automatically by `new`/`set`/`edit`/`comment`/`section set`.
 
 ## Pitfalls
 
@@ -255,7 +284,7 @@ Labels are bilingual under the RU default locale:
 2. 🔴 Test/smoke runs ONLY in a sandbox: set `TICKETS_DIR` or pass `-C /tmp/…`. NEVER experiment in the live `tickets/` dir (incident T-0023).
 3. 🔴 NEVER write secrets (passwords, tokens, keys) into tickets.
 4. 🔴 Closing gate: verify the fix FIRST, then IMMEDIATELY `ticket set N done "<comment with evidence>"`. The comment MUST state what was checked: command + result, file:line. `done` without evidence is forbidden; NEVER batch status flips "for later".
-5. 🔴 BEFORE working on a ticket, read its `## User comments` section — the user leaves remarks there; the agent NEVER writes there. The agent's working notes go to `## Comments`.
+5. 🔴 BEFORE working on a ticket, read its `## User comments` section — the user leaves remarks there; the agent NEVER writes there. The agent's working notes go to `## Comments` — append them with `ticket comment N -` (stdin); `section set comments` REPLACES the whole section, never use it for a note.
 6. Tickets with Russian-only headers (`## Кратко`, `- Статус:`) are NOT parsed: those fields stay empty and the next `set` rewrites the file in the current format without them — fix such files by hand. There is no migration command. Files in the pre-MD022 format (current format without the blank line after the heading) are read and normalised on the next `set`.
 7. `TICKET_LOCK_TIMEOUT` is a holder-STALL budget, NOT the waiter's wall clock: `ticket` fails when the lock holder makes no progress for the configured value, while a holder that keeps working extends the wait — the holder refreshes the `.lock` mtime about every 250 ms and the waiter extends its deadline on every observed progress, capped at 12× the configured value, after which a heartbeating-but-stuck holder fails the waiter exactly as without progress tracking (`internal/lock/lock_progress.go`, T-0226). This holder-stall behaviour is what the build this skill was verified against ships (`2.0.3`); the deadline error reads `still held by another process ... without holder progress`. The value is a Go duration that must carry a unit (`30s`, `2m`, `500ms`) — the only unit-less value accepted is the literal `0`, and any value `<= 0` means a single lock attempt without waiting — and an empty or invalid value silently falls back to the default — a typo never errors out. Keep the value above the filesystem mtime granularity (FAT 2 s, HFS+ 1 s) and above the ~250 ms refresh interval; raise it for parallel agent runs or CI. The default itself is owned by the code (`defaultLockTimeout` in `internal/store`), so this skill does not repeat the number.
 8. `-C`/`--tickets-dir` and `--verbose` MUST come BEFORE the command name; after it the token is a subcommand argument and the command fails — except after `help`/`version`, where it is ignored — see `docs/configuration.md` for the exact messages.
@@ -267,9 +296,10 @@ Labels are bilingual under the RU default locale:
 1. `ticket list` — see open tickets (remind the user at session start).
 2. `ticket new "..." -t ... -p ... -d "..."` — file a problem/incident immediately, with file:line in details; long details go through `-d @file` or `-d -`.
 3. `ticket set N <status> "<comment>"` — move statuses; close with evidence only.
-4. `ticket archive` — tidy up closed tickets.
-5. `ticket show N` — works on archived and deleted tickets too.
-6. `ticket delete N --yes` — soft-delete into `tickets/deleted/` (terminal, read-only; never a substitute for `set done`).
+4. `ticket comment N -` — append working notes/evidence to `## Comments` (heredoc on Unix, pipe on Windows).
+5. `ticket archive` — tidy up closed tickets.
+6. `ticket show N` — works on archived and deleted tickets too.
+7. `ticket delete N --yes` — soft-delete into `tickets/deleted/` (terminal, read-only; never a substitute for `set done`).
 
 ## Structure
 
@@ -313,3 +343,4 @@ Tickets directory layout: `tickets/` (main) + `tickets/archive/` (closed) + `tic
 | 2026-11-24 | T-0236: the general (`~/.config/tickets`) vs project (`./tickets`) split was undocumented, including the global `TICKETS_DIR` override and the `-P` vs `-C` confusion | Added "Store scopes: project vs general" (no auto-discovery, no merged list, one store per invocation, explicit `-C` or per-command `TICKETS_DIR`, `-P` is metadata only, `-P general` recommended because the implicit name is `.config`, no tilde expansion) and noted that `-P` is used by `new`, `list` and `normalize` | 1.20 |
 | 2026-11-24 | The local 1.20 series (T-0234/35/36: store scopes, `verified_with_cli`, `init`/`-C` and lock semantics, installed reference) and the remote 1.19 series (T-0223/25/26: `init` corrections, one trailing LF/CRLF allowed in a `set` comment source, lock line reworded as a holder-stall budget) were written on parallel branches | Reconciled by a fast-forward merge of `origin/main` (`868d2cf`) with the local file stashed: every local addition and every remote correction is kept — `init` honours `-C`/`$TICKETS_DIR` but never scans upward, exactly one trailing LF/CRLF is stripped while every other CR/LF stays refused, and the source help snapshot carries the holder-stall wording; re-verified against the `PATH` binary (`2.0.0-8-g07701fe`): `init -C` creates the target itself (no `tickets` suffix, `archive/`+`deleted/`, nothing created on a subdir conflict), trailing-LF/CRLF comments accepted while `x\n\n` and a lone CR are refused, multi-argument join strips nothing, `TICKET_LOCK_TIMEOUT=0` is a single attempt and unit-less/`bogus` values fall back to 5s — the holder-progress extension is source-only (T-0226, newer than the installed build); repo `reference.md` re-diffed against `internal/cli/templates/usage.ru.txt` and the installed copy against `ticket help` — both bodies match; installed `SKILL.md` synced byte-identical | 1.21 |
 | 2026-11-24 | The candidate build for the next release is `2.0.3`, and pitfall 7 still posed the holder-stall lock budget as source-only versus `2.0.0-8-g07701fe`, although that behaviour shipped in v2.0.1 | Re-verified against the `2.0.3` candidate built from `d30fe97` (normal clone, `-ldflags -X ticket/internal/cli.version=2.0.3`, `ticket version` = 2.0.3): holder-stall semantics confirmed from `internal/lock/lock_progress.go`/`lock.go` (heartbeat ~250 ms, patience cap 12×, deadline error `... without holder progress`) and from `internal/lock` tests `TestAcquireLockedExtendsOnHolderProgress`/`...TimesOutWithoutProgress`/`...ProgressPatienceCap` (all pass); `ticket help` states the same rule. Sandbox probes: a single trailing LF or CRLF in a `set` comment source is accepted and stripped, while `x\n\n`, a lone CR and an embedded LF are refused (exit 1, bytes unchanged); two arguments stay a literal space-join; repo `reference.md` body still equals `internal/cli/templates/usage.ru.txt` exactly. Pitfall 7 rewritten without the source-only/binary split, `verified_with_cli` set to `2.0.3`; version bumped to 1.22 | 1.22 |
+| 2026-11-25 | T-0240: the text-write commands `ticket comment` and `ticket section set` were undocumented | Added `comment`/`section set` subsections (payload source contract, strict `--json`/`--schema`, protected sections, heading guard, exit codes 0/1/2), the store-command list, an exit-code paragraph, Journal/pitfall 5/quick-reference updates; verified against the build `2.0.3-7-g240d10b` (branch `feat/t-0240-0241-cli-sections-json`, `ticket help` body byte-identical to the RU/EN templates) | 1.24 |
