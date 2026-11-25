@@ -1,7 +1,7 @@
 ---
 name: ticket-cli
-version: "1.25"
-verified_with_cli: "2.0.3-8-g3615465"
+version: "1.26"
+verified_with_cli: "2.0.3-10-g3f7883f"
 created: 2026-09-04
 modified: 2026-11-25
 type: guide
@@ -54,7 +54,7 @@ Rules that keep the two scopes apart:
 
 `verified_with_cli` (frontmatter) is the EXACT `ticket version` value against which this document was last checked — the version string with the `ticket version` prefix stripped (`2.0.3`). It is NOT a minimum supported version and NOT a compatibility range: it MUST be refreshed on every next verification pass and on every change to the documented behaviour, together with `version` and `modified`. It covers this `SKILL.md` and the INSTALLED `reference.md` (both checked against that one build).
 
-`reference.md` exists in two copies, and they answer different questions. The REPOSITORY copy (`skills/ticket-cli/reference.md`) is a verbatim snapshot of the SOURCE help template (`internal/cli/templates/usage.ru.txt`) and moves with the code, so it may describe a newer build than the one installed. The INSTALLED copy (`~/.agents/skills/ticket-cli/reference.md`) is a verbatim snapshot of the `ticket help` printed by the binary actually on `PATH` and records its own `verified_with_cli`. The two snapshots may therefore differ legitimately; never sync one from the other.
+`reference.md` exists in two copies, and they answer different questions. The REPOSITORY copy (`skills/ticket-cli/reference.md`) is a verbatim snapshot of the SOURCE help template (`internal/cli/templates/usage.ru.txt`) and moves with the code, so it may describe a newer build than the one installed. The INSTALLED copy (`~/.agents/skills/ticket-cli/reference.md`) is a verbatim snapshot of the `ticket help` printed by the binary it was captured from — the `PATH` release or a named branch build, stated in its provenance — and records its own `verified_with_cli`. The two snapshots may therefore differ legitimately; never sync one from the other.
 
 ## Commands
 
@@ -345,3 +345,4 @@ Tickets directory layout: `tickets/` (main) + `tickets/archive/` (closed) + `tic
 | 2026-11-24 | The candidate build for the next release is `2.0.3`, and pitfall 7 still posed the holder-stall lock budget as source-only versus `2.0.0-8-g07701fe`, although that behaviour shipped in v2.0.1 | Re-verified against the `2.0.3` candidate built from `d30fe97` (normal clone, `-ldflags -X ticket/internal/cli.version=2.0.3`, `ticket version` = 2.0.3): holder-stall semantics confirmed from `internal/lock/lock_progress.go`/`lock.go` (heartbeat ~250 ms, patience cap 12×, deadline error `... without holder progress`) and from `internal/lock` tests `TestAcquireLockedExtendsOnHolderProgress`/`...TimesOutWithoutProgress`/`...ProgressPatienceCap` (all pass); `ticket help` states the same rule. Sandbox probes: a single trailing LF or CRLF in a `set` comment source is accepted and stripped, while `x\n\n`, a lone CR and an embedded LF are refused (exit 1, bytes unchanged); two arguments stay a literal space-join; repo `reference.md` body still equals `internal/cli/templates/usage.ru.txt` exactly. Pitfall 7 rewritten without the source-only/binary split, `verified_with_cli` set to `2.0.3`; version bumped to 1.22 | 1.22 |
 | 2026-11-25 | T-0240: the text-write commands `ticket comment` and `ticket section set` were undocumented | Added `comment`/`section set` subsections (payload source contract, strict `--json`/`--schema`, protected sections, heading guard, exit codes 0/1/2), the store-command list, an exit-code paragraph, Journal/pitfall 5/quick-reference updates; verified against the build `2.0.3-7-g240d10b` (branch `feat/t-0240-0241-cli-sections-json`, `ticket help` body byte-identical to the RU/EN templates) | 1.24 |
 | 2026-11-25 | T-0240 review pass 1: the `comment` bullet wrongly refused whitespace-only payloads and the `--file` note still said trailing-LF-only | Corrected to "An empty payload is refused" (a whitespace-only payload is written verbatim) and "trailing CR/LF trimmed"; re-verified against the binary built from `feat/t-0240-0241-cli-sections-json` (`2.0.3-8-g3615465`) | 1.25 |
+| 2026-11-25 | T-0240 review pass 2: the frontmatter still cited `2.0.3-8-g3615465` although the text carries the `1391e13` edits, and the installed-copy policy named only the PATH binary | Re-verified SKILL.md and the installed reference.md against the binary built from branch `feat/t-0240-0241-cli-sections-json` at `3f7883f` (`2.0.3-10-g3f7883f`): `ticket help` body byte-identical to the RU template, unknown-fields refusal didactic (fields + format + example); the policy now names the PATH release or a recorded branch build as the snapshot source; `verified_with_cli` refreshed | 1.26 |
