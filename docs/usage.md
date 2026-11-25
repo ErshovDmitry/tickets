@@ -171,7 +171,7 @@ Both commands write ticket text without touching the status or the metadata bull
 - stdin is the primary channel: a heredoc on Unix (`ticket comment 42 - <<'EOF' … EOF`), a pipe on Windows (`type note.txt | ticket comment 42 -` in cmd, `Get-Content note.txt -Raw | ticket comment 42 -` in PowerShell).
 - `--file <path>` reads the file byte for byte; trailing CR/LF characters are trimmed, every other byte stays verbatim. An empty file is read as an empty payload.
 - A payload line that is a markdown heading (1–6 `#` then whitespace or end of line) is refused (exit 1) with its line number.
-- `--json` treats the payload as the strict single-field object `{"text":"<payload>"}`: unknown fields, invalid JSON or trailing garbage are exit 1 with position/format/example — never a plain-text fallback. `comment --schema` prints that JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source (exit 1).
+- `--json` treats the payload as the strict single-field object `{"text":"<payload>"}`: unknown fields are exit 1 with the field list/format/example, invalid JSON or trailing garbage are exit 1 with position/format/example — never a plain-text fallback. `comment --schema` prints that JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source (exit 1).
 
 `ticket comment` APPENDS a block to the `Comments` section — never a replacement: exactly one blank line separates the new block from the old body, and the journal records the append (`comment: +N lines`, who, timestamp). An empty payload is refused (exit 1).
 
@@ -231,7 +231,7 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
   ticket comment <number> [-] [--file <path>] [--json] [--schema]
       append a text block to the Comments section (never a replacement); the payload source is exactly one of - (stdin) or --file <path>;
       no source or both sources is a usage error (exit 1) and the terminal is never read; --file is read byte for byte, an empty file is read as an empty payload;
-      --json treats the payload as strict JSON {"text":"<payload>"} (single field): unknown fields, invalid JSON or trailing garbage are exit 1 with position/format/example, never a plain-text fallback;
+      --json treats the payload as strict JSON {"text":"<payload>"} (single field): unknown fields are exit 1 with the field list/format/example, invalid JSON or trailing garbage are exit 1 with position/format/example, never a plain-text fallback;
       --schema prints the JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source;
       only separate "--flag value" pairs after the positional number; a payload line that is a markdown heading (1-6 '#' then whitespace or end of line) is refused (exit 1) with its line number;
       an empty payload is refused (exit 1); success is silent (exit 0), parse warnings go to stderr; a deleted/ ticket is refused, an ambiguous number is exit 2 with every conflicting path

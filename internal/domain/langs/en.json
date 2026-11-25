@@ -85,7 +85,7 @@
   "errWriteFileRead": "ticket: cannot read payload file %s: %v",
   "errWriteStdinRead": "ticket: cannot read payload from stdin: %v",
   "errWriteJSONInvalid": "ticket: invalid JSON payload at byte %d: expected an object {\"text\":\"<payload>\"} (example: {\"text\":\"line 1\\nline 2\"}): %v",
-  "errWriteJSONUnknownFields": "ticket: unknown JSON fields: %s (only \"text\" is allowed)",
+  "errWriteJSONUnknownFields": "ticket: unknown JSON fields: %s; expected an object {\"text\":\"<payload>\"} (example: {\"text\":\"line 1\\nline 2\"})",
   "errWriteEmptyComment": "ticket: comment payload must not be empty",
   "errWritePayloadHeading": "ticket: payload line %d is a markdown heading and would escape its section",
   "errWriteSectionNotEditable": "ticket: cannot write section %s (editable sections: %s)"

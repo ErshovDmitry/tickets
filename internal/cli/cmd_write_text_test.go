@@ -159,6 +159,12 @@ func TestWriteJSONStrict(t *testing.T) {
 	if !strings.Contains(serr, `{"text":"<payload>"}`) || !strings.Contains(serr, "example") {
 		t.Errorf("invalid-JSON message lacks format/example: %q", serr)
 	}
+	// The unknown-fields message carries the expected format and a ready example.
+	withStdin(t, strings.NewReader(`{"text":"x","foo":1}`))
+	_, serr, _ = writeRun(t, dir, "en", "comment", "1", "-", "--json")
+	if !strings.Contains(serr, `{"text":"<payload>"}`) || !strings.Contains(serr, "example") {
+		t.Errorf("unknown-fields message lacks format/example: %q", serr)
+	}
 	if after := readWriteTicket(t, dir); after != before {
 		t.Error("a JSON refusal mutated the ticket")
 	}

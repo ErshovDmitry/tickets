@@ -27,7 +27,7 @@ var ErrEmptyCommentPayload = errors.New("store: comment: empty payload")
 // the text would escape its section (T-0240 DS6). Line is the 1-based
 // offending line number within the payload. Ordinary lines merely
 // containing '#' are not headings and pass. The CLI renders the localized
-// message from Line; the store carries no UI text.
+// message from Line; the error carries no localized text.
 type PayloadHeadingError struct {
 	Line int
 }

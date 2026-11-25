@@ -95,13 +95,12 @@ func ErrWritePayloadHeading(lang Lang, line int) string {
 // ErrWriteSectionNotEditable returns the localized refusal for a protected
 // or unknown section. accepted is the write-path allowlist from
 // EditableSections() (never hard-coded); each name is rendered as its CLI
-// token — every editable section is a single-word identifier, so lower
-// casing is exactly the read-path token spelling (sectionJournalText
-// precedent).
+// token via SectionToken — the same spelling the read path and
+// sectionJournalText use.
 func ErrWriteSectionNotEditable(lang Lang, name string, accepted []Section) string {
 	tokens := make([]string, len(accepted))
 	for i, sec := range accepted {
-		tokens[i] = strings.ToLower(string(sec))
+		tokens[i] = SectionToken(sec)
 	}
 	return fmt.Sprintf(getDict(lang).errWriteSectionNotEditable, name, strings.Join(tokens, ", "))
 }
