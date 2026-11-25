@@ -228,19 +228,28 @@ func TestWriteText_EmptyPayloadClears(t *testing.T) {
 func TestAddComment_CRLFIdempotent(t *testing.T) {
 	s, dir := seededStore(t)
 	const payload = "line1\r\nline2\r\n"
+	// The OLD block is the payload minus its trailing CRLF (DS7 trim). Its
+	// interior CRLF must survive the SECOND write byte-for-byte (T-0245).
+	oldBlock := []byte(strings.TrimRight(payload, "\r\n"))
 	if _, err := s.AddComment(1, payload, "alice"); err != nil {
 		t.Fatalf("AddComment: %v", err)
 	}
 	body := mustRead(t, dir, 1)
-	if !bytes.Contains(body, []byte("line1\r\nline2\n\n")) || !strings.Contains(string(body), "comment: +2 строк (alice)") {
+	first := bytes.Join([][]byte{oldBlock, []byte("\n\n")}, nil)
+	if !bytes.Contains(body, first) || !strings.Contains(string(body), "comment: +2 строк (alice)") {
 		t.Fatalf("interior CRLF lost, trailing CRLF kept, or line count wrong:\n%q", body)
 	}
 	if _, err := s.AddComment(1, payload, "alice"); err != nil {
 		t.Fatalf("AddComment 2: %v", err)
 	}
 	body = mustRead(t, dir, 1)
-	if !bytes.Contains(body, []byte("line2\n\nline1\r\nline2\n\n")) || bytes.Contains(body, []byte("\n\n\n")) {
-		t.Fatalf("want one blank separator, no accumulation:\n%q", body)
+	// Both blocks keep their CRLF; exactly one LF blank line separates them.
+	twoBlocks := bytes.Join([][]byte{oldBlock, []byte("\n\n"), oldBlock, []byte("\n\n")}, nil)
+	if !bytes.Contains(body, twoBlocks) || bytes.Contains(body, []byte("\n\n\n")) {
+		t.Fatalf("old CRLF block normalized or blank accumulated:\n%q", body)
+	}
+	if tr := journalTransitions(string(body)); len(tr) != 2 {
+		t.Fatalf("journal = %v, want both append events", tr)
 	}
 }
 

@@ -136,6 +136,11 @@ var (
 // with exactly the string field "text". json.Unmarshal rejects trailing
 // garbage; unknown fields are listed; there is no tolerant parsing and no
 // fallback to plain text. The decoded text is the payload, returned unchanged.
+// Refusal offsets are document-relative (T-0244): the fragment-relative
+// UnmarshalTypeError offset of the selected "text" value is shifted by the
+// value's start in the original document, and a null text reports the first
+// byte of the selected null value (its zero-based start + 1), so the byte
+// position matches what the user sees in the payload.
 func decodeWriteJSON(data []byte, lang domain.Lang, stderr io.Writer) (string, bool) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -165,15 +170,72 @@ func decodeWriteJSON(data []byte, lang domain.Lang, stderr io.Writer) (string, b
 	// encoding/json unmarshals null into a string as a no-op, leaving it
 	// empty; refuse null explicitly or it would silently clear the payload.
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, int64(bytes.Index(data, raw)), errJSONTextNotString))
+		// A null has no fragment-relative type offset; report the first byte
+		// of the selected value itself, not its zero-based start.
+		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, jsonValueStart(data)+1, errJSONTextNotString))
 		return "", false
 	}
 	var text string
 	if err := json.Unmarshal(raw, &text); err != nil {
-		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, jsonErrorOffset(err), err))
+		// The fragment error offset is relative to raw; shift it by the
+		// value's start so the reported byte is document-relative.
+		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, jsonValueStart(data)+jsonErrorOffset(err), err))
 		return "", false
 	}
 	return text, true
+}
+
+// jsonValueStart locates the selected "text" value in data. A locator error
+// is practically unreachable once the primary Unmarshal succeeded; it
+// degrades to the deterministic 0 fallback so the original type/null cause
+// is still reported.
+func jsonValueStart(data []byte) int64 {
+	start, err := locateJSONField(data, "text")
+	if err != nil {
+		return 0
+	}
+	return start
+}
+
+// locateJSONField returns the zero-based byte offset of the first byte of the
+// value of the LAST top-level occurrence of key in the JSON object data,
+// matching the map last-wins rule of the primary Unmarshal. It walks the
+// document with a streaming Decoder: after each value Decode, InputOffset is
+// the end of that value, so start = end - len(raw value). Keys are compared
+// decoded (Token unescapes them), so an escaped key spelling still matches,
+// and other keys never influence the selection. An error is returned when
+// data is not a well-formed object or the key is absent.
+func locateJSONField(data []byte, key string) (int64, error) {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	tok, err := dec.Token()
+	if err != nil {
+		return 0, err
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '{' {
+		return 0, errJSONObjectExpected
+	}
+	start := int64(-1)
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return 0, err
+		}
+		k, ok := tok.(string)
+		if !ok {
+			return 0, fmt.Errorf("expected object key, got %v", tok)
+		}
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			return 0, err
+		}
+		if k == key {
+			start = dec.InputOffset() - int64(len(raw))
+		}
+	}
+	if start < 0 {
+		return 0, fmt.Errorf("missing field %q", key)
+	}
+	return start, nil
 }
 
 // jsonErrorOffset extracts the byte position of a JSON parse failure; both

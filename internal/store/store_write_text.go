@@ -123,7 +123,9 @@ func (s *Store) addCommentLocked(n int, text, who string) ([]ParseWarning, error
 		return nil, err
 	}
 	_, warnings, err := s.rewriteInPlaceLocked(n, cur.fileEntry, cur.dir, func(tk *domain.Ticket, at time.Time) ([]domain.JournalEntry, error) {
-		tk.Comments = appendCommentBlock(tk.Comments, payload)
+		// T-0245: the domain method preserves the old block's raw bytes
+		// (CRLF included) and keeps the public field parser-normalized.
+		tk.AppendCommentPayload(payload)
 		return []domain.JournalEntry{{
 			From:    tk.Status,
 			To:      tk.Status,
@@ -152,22 +154,11 @@ func (s *Store) setSectionLocked(n int, sec domain.Section, text, who string) ([
 		return nil, err
 	}
 	_, warnings, err := s.rewriteInPlaceLocked(n, cur.fileEntry, cur.dir, func(tk *domain.Ticket, at time.Time) ([]domain.JournalEntry, error) {
-		switch sec {
-		case domain.SectionSummary:
-			// Brief is line-oriented; an empty payload yields nil so
-			// Render falls back to the title.
-			tk.Brief = nil
-			if payload != "" {
-				tk.Brief = strings.Split(payload, "\n")
-			}
-		case domain.SectionDetails:
-			tk.Details = payload
-		case domain.SectionComments:
-			tk.Comments = payload
-		default:
-			// Unreachable while the switch covers EditableSections();
-			// guards a future allowlist extension against a silent no-op.
-			return nil, fmt.Errorf("store: section %q has no field mapping", sec)
+		// T-0245: raw target + normalized public field + snapshot update
+		// atomically; only the selected section changes. The default
+		// branch guards a future allowlist extension against a silent no-op.
+		if err := tk.SetEditablePayload(sec, payload); err != nil {
+			return nil, err
 		}
 		return []domain.JournalEntry{{
 			From:    tk.Status,
@@ -191,18 +182,6 @@ func validateWritePayload(text string) (string, error) {
 		}
 	}
 	return payload, nil
-}
-
-// appendCommentBlock appends payload as a new block: exactly one blank
-// line separates it from the old body; an empty old body takes payload
-// alone. Both parts carry no trailing LF, so Render's single separator
-// keeps the section ending at one LF and re-writes never accumulate
-// blanks (DS7 idempotency).
-func appendCommentBlock(old, payload string) string {
-	if old == "" {
-		return payload
-	}
-	return old + "\n\n" + payload
 }
 
 // commentJournalText renders the one-line append event in the ticket's

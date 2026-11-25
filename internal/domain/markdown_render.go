@@ -81,8 +81,10 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 		b.WriteString(d.headers[0])
 		b.WriteString("\n\n")
 	}
+	// Raw sidecar (T-0245): re-emit the captured bytes only while the
+	// public value still equals the snapshot; otherwise the current value.
 	if len(t.Brief) > 0 {
-		b.WriteString(strings.Join(t.Brief, "\n"))
+		b.WriteString(t.bodyRawOr(secNameSummary, strings.Join(t.Brief, "\n")))
 		b.WriteString("\n\n")
 	} else {
 		fmt.Fprintf(&b, "%s\n\n", t.Title)
@@ -99,7 +101,7 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	// added unconditionally, so a payload keeping its trailing LF would
 	// emit three consecutive newlines (markdownlint MD012). CR, spaces and
 	// every other byte stay verbatim, and t.Details itself is not mutated.
-	if details := normalizeDetails(t.Details); details != "" {
+	if details := normalizeDetails(t.bodyRawOr(secNameDetails, t.Details)); details != "" {
 		b.WriteString(details)
 	} else {
 		b.WriteString(d.detailsStub)
@@ -118,13 +120,14 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 	// the section empty. Legacy files holding the placeholder still parse
 	// to "" via isStubLine. Note: the shorter T-0034 stub variant is NOT
 	// an isStubLine match and stays content by design.
-	if t.UserComments != "" {
-		b.WriteString(t.UserComments)
+	userComments := t.bodyRawOr(secNameUserComments, t.UserComments)
+	if userComments != "" {
+		b.WriteString(userComments)
 	}
 	// Separator after content: a non-empty section ends with a blank line
 	// before the next header; an empty section needs nothing — the header
 	// already emitted its own trailing blank line.
-	if t.UserComments != "" {
+	if userComments != "" {
 		b.WriteString("\n\n")
 	}
 
@@ -135,11 +138,12 @@ func Render(t *Ticket, unknown []byte) ([]byte, error) {
 		b.WriteString(d.headers[3])
 		b.WriteString("\n\n")
 	}
-	if t.Comments != "" {
-		b.WriteString(t.Comments)
+	comments := t.bodyRawOr(secNameComments, t.Comments)
+	if comments != "" {
+		b.WriteString(comments)
 	}
 	// Same conditional separator as User comments above.
-	if t.Comments != "" {
+	if comments != "" {
 		b.WriteString("\n\n")
 	}
 
