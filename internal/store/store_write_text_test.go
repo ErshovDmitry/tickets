@@ -232,15 +232,29 @@ func TestAddComment_CRLFIdempotent(t *testing.T) {
 		t.Fatalf("AddComment: %v", err)
 	}
 	body := mustRead(t, dir, 1)
-	if !bytes.Contains(body, []byte("line1\r\nline2\r\n\n")) || !strings.Contains(string(body), "comment: +2 строк (alice)") {
-		t.Fatalf("interior CRLF lost, trailing LF kept, or line count wrong:\n%q", body)
+	if !bytes.Contains(body, []byte("line1\r\nline2\n\n")) || !strings.Contains(string(body), "comment: +2 строк (alice)") {
+		t.Fatalf("interior CRLF lost, trailing CRLF kept, or line count wrong:\n%q", body)
 	}
 	if _, err := s.AddComment(1, payload, "alice"); err != nil {
 		t.Fatalf("AddComment 2: %v", err)
 	}
 	body = mustRead(t, dir, 1)
-	if !bytes.Contains(body, []byte("line2\n\nline1\r\nline2\r\n\n")) || bytes.Contains(body, []byte("\n\n\n")) {
+	if !bytes.Contains(body, []byte("line2\n\nline1\r\nline2\n\n")) || bytes.Contains(body, []byte("\n\n\n")) {
 		t.Fatalf("want one blank separator, no accumulation:\n%q", body)
+	}
+}
+
+// TestWriteText_TrailingCRLFTrimmed pins that a CRLF-terminated payload
+// loses its trailing CR as well as its LF, so no stray CR ends the section
+// body, while an interior CRLF stays verbatim.
+func TestWriteText_TrailingCRLFTrimmed(t *testing.T) {
+	s, dir := seededStore(t)
+	if _, err := s.SetSection(1, domain.SectionDetails, "alpha\r\nbeta\r\n", "alice"); err != nil {
+		t.Fatalf("SetSection: %v", err)
+	}
+	body := mustRead(t, dir, 1)
+	if !bytes.Contains(body, []byte("alpha\r\nbeta\n")) || bytes.Contains(body, []byte("beta\r")) {
+		t.Fatalf("trailing CR kept or interior CRLF lost:\n%q", body)
 	}
 }
 

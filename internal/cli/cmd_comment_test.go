@@ -41,6 +41,33 @@ func TestCommentSchema(t *testing.T) {
 	}
 }
 
+// TestDetectCommentSchema pins the shared flag grammar (walkWriteFlags):
+// source flags set hasSource, --schema sets schema, a leading positional is
+// skipped, and a --file value is consumed blindly so a "--schema" used as a
+// file path does not trigger the schema mode.
+func TestDetectCommentSchema(t *testing.T) {
+	cases := []struct {
+		name              string
+		args              []string
+		schema, hasSource bool
+	}{
+		{"schema only", []string{"--schema"}, true, false},
+		{"schema and stdin", []string{"--schema", "-"}, true, true},
+		{"schema and file", []string{"--schema", "--file", "p"}, true, true},
+		{"file value looks like schema", []string{"--file", "--schema"}, false, true},
+		{"leading number skipped", []string{"1", "--schema"}, true, false},
+		{"no schema", []string{"1", "-"}, false, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			schema, hasSource := detectCommentSchema(tc.args)
+			if schema != tc.schema || hasSource != tc.hasSource {
+				t.Fatalf("detectCommentSchema(%q) = (%v,%v), want (%v,%v)", tc.args, schema, hasSource, tc.schema, tc.hasSource)
+			}
+		})
+	}
+}
+
 // TestCommentAppendAndJournal pins DS1/DS7/DS12: two comments append as two
 // blocks separated by exactly one blank line, each with a one-line journal
 // event; success is silent (exit 0, empty stderr).

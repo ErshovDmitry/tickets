@@ -66,7 +66,7 @@ var payloadATX = regexp.MustCompile(`^#{1,6}(\s|$)`)
 // n — never a replacement (T-0240 DS1). Exactly one blank line separates
 // the old body from the new block; an empty old body takes the payload
 // alone. The payload keeps its interior bytes verbatim (including CRLF);
-// only trailing LFs are trimmed (DS7, normalizeDetails precedent). One
+// only trailing CRs and LFs are trimmed (DS7). One
 // one-line journal event records the append. The flow mirrors Edit:
 // withLock → journal-safe who → payload validation → findOneLocked →
 // rewriteInPlaceLocked; a read-only Store is rejected by withLock with
@@ -181,11 +181,10 @@ func (s *Store) setSectionLocked(n int, sec domain.Section, text, who string) ([
 }
 
 // validateWritePayload applies the shared payload policy (T-0240 DS6/DS7):
-// trailing-LF trim (interior bytes, including CR, stay verbatim —
-// normalizeDetails precedent), then the ATX heading guard with the offending
-// line number. The journal-safe who check runs before it in each operation.
+// trailing-CRLF trim (interior bytes, including CR, stay verbatim), then the
+// ATX heading guard with the offending line number. The journal-safe who check runs before it in each operation.
 func validateWritePayload(text string) (string, error) {
-	payload := strings.TrimRight(text, "\n")
+	payload := strings.TrimRight(text, "\r\n")
 	for i, line := range strings.Split(payload, "\n") {
 		if payloadATX.MatchString(line) {
 			return "", &PayloadHeadingError{Line: i + 1}
@@ -218,11 +217,10 @@ func commentJournalText(lang domain.Lang, lines int) string {
 }
 
 // sectionJournalText renders the one-line replace event in the ticket's
-// language. The section is named by its CLI token: every editable section
-// is a single-word identifier, so lower casing is exactly the read-path
-// token spelling (domain/sections.go sectionToken).
+// language. The section is named by its CLI token (domain.SectionToken),
+// the same spelling the read path uses.
 func sectionJournalText(lang domain.Lang, sec domain.Section) string {
-	token := strings.ToLower(string(sec))
+	token := domain.SectionToken(sec)
 	if lang == domain.LangRU {
 		return fmt.Sprintf("section %s: заменено", token)
 	}

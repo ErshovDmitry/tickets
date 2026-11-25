@@ -57,25 +57,24 @@ func cmdComment(st *store.Store, args []string, who, _ string, lang domain.Lang,
 // detectCommentSchema is a silent pre-scan of the post-command tokens used by
 // Run to route the standalone --schema mode before tickets-dir resolution and
 // store opening. It reports whether a real --schema flag is present and
-// whether a payload source (- or --file) accompanies it. A leading positional
-// number is skipped and --file values are consumed blindly, so a "--schema"
-// used as a file path is not mistaken for the flag.
+// whether a payload source accompanies it. Source flags are recognised by
+// walkWriteFlags — the same grammar parseWriteSources uses — so a new source
+// flag cannot bypass the --schema conflict check. A leading positional number
+// is skipped; --file values are consumed blindly, so a "--schema" used as a
+// file path is not mistaken for the flag.
 func detectCommentSchema(args []string) (schema, hasSource bool) {
 	rest := args
 	if len(rest) > 0 && rest[0] != "-" && !strings.HasPrefix(rest[0], "-") {
 		rest = rest[1:]
 	}
-	for i := 0; i < len(rest); i++ {
-		switch rest[i] {
-		case "-":
+	walkWriteFlags(rest, func(flag string, isSource bool, _ string, _ bool) {
+		if isSource {
 			hasSource = true
-		case "--file":
-			hasSource = true
-			i++ // skip the value blindly
-		case "--schema":
+		}
+		if flag == "--schema" {
 			schema = true
 		}
-	}
+	})
 	return schema, hasSource
 }
 

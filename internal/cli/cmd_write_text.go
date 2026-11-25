@@ -9,6 +9,7 @@ package cli
 // ATX-heading guard and section protection all belong to the store (A1).
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +31,31 @@ type writeSources struct {
 	json  bool
 }
 
+// walkWriteFlags scans write-command flag tokens left to right, consuming the
+// value after --file blindly, and reports each flag to visit. It owns the
+// payload-source grammar (isSource marks "-" and "--file") shared by
+// parseWriteSources and detectCommentSchema, so a source flag added here is
+// seen by both and cannot bypass the --schema conflict check. For --file,
+// fileValue is the following token and hasFileValue reports its presence.
+func walkWriteFlags(args []string, visit func(flag string, isSource bool, fileValue string, hasFileValue bool)) {
+	for i := 0; i < len(args); i++ {
+		flag := args[i]
+		switch flag {
+		case "-":
+			visit(flag, true, "", false)
+		case "--file":
+			if i+1 < len(args) {
+				i++
+				visit(flag, true, args[i], true)
+			} else {
+				visit(flag, true, "", false)
+			}
+		default:
+			visit(flag, false, "", false)
+		}
+	}
+}
+
 // parseWriteSources scans the tokens after the positional number/section.
 // Only separate "--flag value" pairs are accepted (parseEditFlags style):
 // "--flag=value", short flags and the "--" separator are refused as unknown
@@ -37,31 +63,33 @@ type writeSources struct {
 // value. A --file value is consumed blindly — even one starting with '-'.
 func parseWriteSources(args []string, cmd string, lang domain.Lang, stderr io.Writer) (writeSources, bool) {
 	var w writeSources
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch arg {
+	ok := true
+	walkWriteFlags(args, func(flag string, _ bool, fileValue string, hasFileValue bool) {
+		if !ok {
+			return
+		}
+		switch flag {
 		case "-":
 			w.stdin = true
 		case "--file":
-			if i+1 >= len(args) {
-				fmt.Fprintln(stderr, domain.ErrFlagRequiresValue(lang, arg))
-				return w, false
+			if !hasFileValue {
+				fmt.Fprintln(stderr, domain.ErrFlagRequiresValue(lang, flag))
+				ok = false
+				return
 			}
-			i++
-			v := args[i]
-			w.file = &v
+			w.file = &fileValue
 		case "--json":
 			w.json = true
 		default:
-			if strings.HasPrefix(arg, "-") {
-				fmt.Fprintln(stderr, domain.ErrWriteUnknownFlag(lang, cmd, arg))
-				return w, false
+			if strings.HasPrefix(flag, "-") {
+				fmt.Fprintln(stderr, domain.ErrWriteUnknownFlag(lang, cmd, flag))
+			} else {
+				fmt.Fprintln(stderr, domain.ErrUnknownArgument(lang, flag))
 			}
-			fmt.Fprintln(stderr, domain.ErrUnknownArgument(lang, arg))
-			return w, false
+			ok = false
 		}
-	}
-	return w, true
+	})
+	return w, ok
 }
 
 // readWritePayload reads the single chosen source verbatim and, for --json,
@@ -101,6 +129,7 @@ func readWritePayload(w writeSources, lang domain.Lang, stderr io.Writer) (strin
 var (
 	errJSONObjectExpected = errors.New("expected a JSON object")
 	errJSONMissingText    = errors.New("missing required field \"text\"")
+	errJSONTextNotString  = errors.New("field \"text\" must be a string")
 )
 
 // decodeWriteJSON enforces the strict single-field contract: a JSON object
@@ -131,6 +160,12 @@ func decodeWriteJSON(data []byte, lang domain.Lang, stderr io.Writer) (string, b
 	raw, ok := m["text"]
 	if !ok {
 		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, 0, errJSONMissingText))
+		return "", false
+	}
+	// encoding/json unmarshals null into a string as a no-op, leaving it
+	// empty; refuse null explicitly or it would silently clear the payload.
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, int64(bytes.Index(data, raw)), errJSONTextNotString))
 		return "", false
 	}
 	var text string

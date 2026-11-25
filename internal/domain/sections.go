@@ -38,7 +38,7 @@ var sectionAlias = map[string]Section{
 	"user_comments": SectionUserComments,
 }
 
-// sectionToken renders a canonical section identifier as its CLI token: lower
+// SectionToken renders a canonical section identifier as its CLI token: lower
 // case with spaces replaced by hyphens ("User comments" -> "user-comments").
 // The raw identifiers are never RETURNED by CanonicalSectionNames — only the
 // CLI tokens are. ParseSectionName lower-cases the input and compares it with
@@ -46,7 +46,7 @@ var sectionAlias = map[string]Section{
 // single word resolves: "--section Summary" works, "--section User comments"
 // does not — that section is reachable as "user-comments" or via the
 // "user_comments" alias.
-func sectionToken(name sectionName) string {
+func SectionToken(name sectionName) string {
 	return strings.ReplaceAll(strings.ToLower(string(name)), " ", "-")
 }
 
@@ -57,7 +57,7 @@ func sectionToken(name sectionName) string {
 func CanonicalSectionNames() []string {
 	out := make([]string, 0, len(sectionNames))
 	for _, name := range sectionNames {
-		out = append(out, sectionToken(name))
+		out = append(out, SectionToken(name))
 	}
 	return out
 }
@@ -86,7 +86,7 @@ func SectionAliasNames() []string {
 func ParseSectionName(s string) (Section, bool) {
 	token := strings.TrimSpace(strings.ToLower(s))
 	for _, name := range sectionNames {
-		if sectionToken(name) == token {
+		if SectionToken(name) == token {
 			return name, true
 		}
 	}
@@ -146,7 +146,7 @@ func journalBody(entries []JournalEntry) string {
 var editableSections = []Section{SectionSummary, SectionDetails, SectionComments}
 
 // EditableSections returns a copy of the write-path allowlist in
-// sectionNames order. It is the owner of the accepted list for write-path
+// editableSections order. It is the owner of the accepted list for write-path
 // refusals: a caller must list these names, never hard-code them (the
 // write-path counterpart of CanonicalSectionNames for the read path).
 func EditableSections() []Section {

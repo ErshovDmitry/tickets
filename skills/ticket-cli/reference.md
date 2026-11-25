@@ -1,6 +1,6 @@
 ---
 name: ticket-cli-reference
-version: "1.17"
+version: "1.18"
 created: 2026-09-04
 modified: 2026-11-25
 type: reference
@@ -62,10 +62,10 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
       тикет, чей файл лежит в deleted/, отклоняется (код 1, ничего не записывается)
   ticket comment <номер> [-] [--file <путь>] [--json] [--schema]
       добавить текстовый блок в секцию «Комментарии» (никогда не замена); источник payload — ровно один из - (stdin) или --file <путь>;
-      нет источника или оба источника — ошибка использования (код 1), терминал не читается; --file читается побайтово, пустой файл — допустимый пустой payload;
+      нет источника или оба источника — ошибка использования (код 1), терминал не читается; --file читается побайтово, пустой файл читается как пустой payload;
       --json трактует payload как строгий JSON {"text":"<payload>"} (единственное поле): неизвестные поля, невалидный JSON или мусор после объекта — код 1 с позицией/форматом/примером, без отката к plain;
       --schema печатает JSON Schema в stdout (код 0, без lookup и записи) и несовместим с источником;
-      только раздельные пары "--флаг значение" после позиционного номера; строка payload — markdown-заголовок (1-6 '#' затем пробел) — отклоняется (код 1) с номером строки;
+      только раздельные пары "--флаг значение" после позиционного номера; строка payload — markdown-заголовок (1-6 '#' затем пробел или конец строки) — отклоняется (код 1) с номером строки;
       пустой payload отклоняется (код 1); успех тихий (код 0), parse-предупреждения в stderr; тикет в deleted/ отклоняется, неоднозначный номер — код 2 со всеми конфликтующими путями
   ticket section set <номер> <секция> [-] [--file <путь>] [--json]
       заменить тело редактируемой секции; <секция> — канонический CLI-токен (защищённое или неизвестное имя отклоняется, код 1, со списком редактируемых имён);
@@ -148,3 +148,4 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-11-24 | The reference had drifted only in its metadata — the embedded help was already byte-identical to the binary built from HEAD | Verified the help block against `ticket help` from HEAD (`0712bb5`): identical; bumped the version, fixed `modified`, added the missed 2026-11-22 row | 1.14 |
 | 2026-11-25 | T-0241: `show` gained `--section <name>` and `--json` (three mutually exclusive modes, the section name/alias contract, the JSON field list) | Re-synced with `internal/cli/templates/usage.ru.txt` (show block: syntax line + three mode lines) | 1.16 |
 | 2026-11-25 | T-0240: the template gained the `comment` and `section set` blocks (payload source contract, strict `--json`/`--schema`, protected sections, heading guard, exit-code list) | Fence re-synced by T-0240 A2; this row credits the re-sync and refreshes the provenance prose; verified byte-identical to `ticket help` of the build `2.0.3-7-g240d10b` (minus the version line) | 1.17 |
+| 2026-11-25 | T-0240 review pass 1: the `comment` block's "empty file is a valid empty payload" contradicted the exit-1 refusal and the ATX guard omitted the end-of-line case | Re-synced the fenced help with the corrected RU template (empty file read as an empty payload; heading guard "whitespace or end of line") | 1.18 |

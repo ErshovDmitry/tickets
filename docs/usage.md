@@ -169,11 +169,11 @@ ticket section set <number> <section> [-] [--file <path>] [--json]
 Both commands write ticket text without touching the status or the metadata bullets, and both share one payload contract: the source is exactly one of `-` (stdin) or `--file <path>` — no source or both sources is a usage error (exit 1), and the terminal is never read. The input is read and decoded BEFORE the ticket lookup, so a refused input leaves the file and the journal byte-identical. Only separate `--flag value` pairs are accepted after the positionals; a glued `--flag=value` is refused.
 
 - stdin is the primary channel: a heredoc on Unix (`ticket comment 42 - <<'EOF' … EOF`), a pipe on Windows (`type note.txt | ticket comment 42 -` in cmd, `Get-Content note.txt -Raw | ticket comment 42 -` in PowerShell).
-- `--file <path>` reads the file byte for byte; trailing LF characters are trimmed, every other byte stays verbatim. An empty file is a valid empty payload.
+- `--file <path>` reads the file byte for byte; trailing CR/LF characters are trimmed, every other byte stays verbatim. An empty file is read as an empty payload.
 - A payload line that is a markdown heading (1–6 `#` then whitespace or end of line) is refused (exit 1) with its line number.
 - `--json` treats the payload as the strict single-field object `{"text":"<payload>"}`: unknown fields, invalid JSON or trailing garbage are exit 1 with position/format/example — never a plain-text fallback. `comment --schema` prints that JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source (exit 1).
 
-`ticket comment` APPENDS a block to the `Comments` section — never a replacement: exactly one blank line separates the new block from the old body, and the journal records the append (`comment: +N lines`, who, timestamp). An empty or whitespace-only payload is refused (exit 1).
+`ticket comment` APPENDS a block to the `Comments` section — never a replacement: exactly one blank line separates the new block from the old body, and the journal records the append (`comment: +N lines`, who, timestamp). An empty payload is refused (exit 1).
 
 `ticket section set` REPLACES the whole body of an editable section. `<section>` is a canonical CLI token: `summary`, `details`, `user-comments`, `comments`, `journal`, plus the aliases `brief` (= `summary`) and `user_comments` (= `user-comments`); the name is case-insensitive, surrounding whitespace is trimmed, inner spaces are not normalised. Editable are `summary`, `details` and `comments`; protected are `user-comments` («Комментарии от пользователя») and `journal` («Журнал») — a protected or unknown name is refused (exit 1) with the editable list. An empty payload clears the section (an empty summary renders as the title).
 
@@ -230,10 +230,10 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       a ticket whose file lives in deleted/ is refused (exit 1, nothing is written)
   ticket comment <number> [-] [--file <path>] [--json] [--schema]
       append a text block to the Comments section (never a replacement); the payload source is exactly one of - (stdin) or --file <path>;
-      no source or both sources is a usage error (exit 1) and the terminal is never read; --file is read byte for byte, an empty file is a valid empty payload;
+      no source or both sources is a usage error (exit 1) and the terminal is never read; --file is read byte for byte, an empty file is read as an empty payload;
       --json treats the payload as strict JSON {"text":"<payload>"} (single field): unknown fields, invalid JSON or trailing garbage are exit 1 with position/format/example, never a plain-text fallback;
       --schema prints the JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source;
-      only separate "--flag value" pairs after the positional number; a payload line that is a markdown heading (1-6 '#' then whitespace) is refused (exit 1) with its line number;
+      only separate "--flag value" pairs after the positional number; a payload line that is a markdown heading (1-6 '#' then whitespace or end of line) is refused (exit 1) with its line number;
       an empty payload is refused (exit 1); success is silent (exit 0), parse warnings go to stderr; a deleted/ ticket is refused, an ambiguous number is exit 2 with every conflicting path
   ticket section set <number> <section> [-] [--file <path>] [--json]
       replace the body of an editable section; <section> is a canonical CLI token (a protected or unknown name is refused, exit 1, listing the editable names);

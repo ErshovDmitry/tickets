@@ -119,9 +119,10 @@ func TestWriteFlagParsing(t *testing.T) {
 }
 
 // TestWriteJSONStrict pins DS4/DS5: invalid JSON (single quotes, trailing
-// comma, trailing garbage), a missing/non-string text and null all exit 1
-// with position + expected format + example and NO plain-text fallback;
-// unknown fields are listed. The ticket stays byte-identical.
+// comma, trailing garbage), a missing/non-string text, top-level null and a
+// null text value all exit 1 with position + expected format + example and
+// NO plain-text fallback; unknown fields are listed. The ticket stays
+// byte-identical.
 func TestWriteJSONStrict(t *testing.T) {
 	dir := writeTestDir(t)
 	seedWriteTicket(t, dir)
@@ -137,6 +138,7 @@ func TestWriteJSONStrict(t *testing.T) {
 		{"empty object", `{}`, "invalid JSON payload"},
 		{"null", `null`, "invalid JSON payload"},
 		{"non-string text", `{"text":123}`, "invalid JSON payload"},
+		{"text null", `{"text":null}`, "invalid JSON payload"},
 		{"unknown fields", `{"text":"x","foo":1,"bar":2}`, "unknown JSON fields: bar, foo"},
 	}
 	for _, tc := range cases {
