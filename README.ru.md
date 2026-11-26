@@ -26,9 +26,11 @@
 ticket init                                             # создать tickets/ (идемпотентно)
 ticket new "Поломка экспорта" -t BUG -p high -d "Падает на больших файлах"
 ticket list                                             # активные тикеты (open + wip)
-ticket show 7                                           # показать тикет (ищет и в архиве, и в deleted/)
+ticket show 7 [--section <имя>] [--json]                # показать тикет (ищет и в архиве, и в deleted/); --section = только тело секции, --json = JSON-документ (взаимоисключаемы)
 ticket set 7 done "починено, тесты зелёные"             # сменить статус, файл переименуется сам
 ticket edit 7 --title "Экспорт падает на огромных файлах"  # править метаданные на месте; успех тихий, по журналу — строка на каждое поле
+ticket comment 7 -                                      # дописать в секцию «Комментарии» (payload: - = stdin или --file <путь>)
+ticket section set 7 details -                          # заменить тело редактируемой секции (payload: - = stdin или --file <путь>)
 ticket delete 7 --yes                                   # мягко удалить в tickets/deleted/ (терминальный, read-only; без --yes — вопрос)
 ticket recover 7 T-0007-done.md                        # разрулить пару после прерывания (неоднозначный номер, код 2)
 ticket normalize --dry-run                              # показать устаревшие по разметке файлы
