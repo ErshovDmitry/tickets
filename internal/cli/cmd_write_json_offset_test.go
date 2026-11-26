@@ -18,19 +18,14 @@ import (
 	"ticket/internal/domain"
 )
 
-// valueEndOffset returns the byte position encoding/json reports for a
-// non-string value, derived from the original document and the value marker
-// alone: a scalar token (number, bool) is read whole before the type error, so
-// the reported byte is that token's last byte, while a composite value ({ or
-// [) fails on its opening bracket. It deliberately does not reuse the
-// locator's arithmetic, so a wrong base position is caught.
-func valueEndOffset(t *testing.T, doc, marker string, last bool) int64 {
+// valueStartOffset returns the one-based, document-relative byte position
+// of the first byte of the selected value, derived from the original
+// document and the value marker alone: null and non-string values share the
+// same anchor (T-0246). It deliberately does not reuse the locator's
+// arithmetic, so a wrong base position is caught.
+func valueStartOffset(t *testing.T, doc, marker string, last bool) int64 {
 	t.Helper()
-	idx := markerOffset(t, doc, marker, last)
-	if marker[0] == '{' || marker[0] == '[' {
-		return idx + 1
-	}
-	return idx + int64(len(marker))
+	return markerOffset(t, doc, marker, last) + 1
 }
 
 // markerOffset finds the marker in doc, honoring last for duplicate values.
@@ -109,7 +104,7 @@ func TestDecodeWriteJSONOffset(t *testing.T) {
 			if _, ok := decodeWriteJSON([]byte(tc.doc), domain.LangEN, &stderr); ok {
 				t.Fatal("decodeWriteJSON accepted a non-string text")
 			}
-			want := valueEndOffset(t, tc.doc, tc.marker, tc.last)
+			want := valueStartOffset(t, tc.doc, tc.marker, tc.last)
 			if !strings.Contains(stderr.String(), fmt.Sprintf("at byte %d: ", want)) {
 				t.Errorf("stderr=%q, want offset %d", stderr.String(), want)
 			}
@@ -129,9 +124,9 @@ func TestDecodeWriteJSONOffset(t *testing.T) {
 			if _, ok := decodeWriteJSON([]byte(tc.doc), domain.LangEN, &stderr); ok {
 				t.Fatal("decodeWriteJSON accepted a null text")
 			}
-			// A selected null is reported at the first byte of the value
-			// itself: the one-based, document-derived position.
-			want := markerOffset(t, tc.doc, "null", tc.last) + 1
+			// A selected null is reported at the same anchor as a
+			// non-string value: the first byte of the value itself.
+			want := valueStartOffset(t, tc.doc, "null", tc.last)
 			if !strings.Contains(stderr.String(), fmt.Sprintf("at byte %d: ", want)) {
 				t.Errorf("stderr=%q, want offset %d", stderr.String(), want)
 			}
@@ -193,9 +188,9 @@ func dirFileNames(t *testing.T, dir string) []string {
 // offset, the ticket byte-identical and no temp files left behind.
 func TestWriteJSONOffsetCLI(t *testing.T) {
 	doc := "  {\n \"text\" : \t 12345 }"
-	want := valueEndOffset(t, doc, "12345", false)
+	want := valueStartOffset(t, doc, "12345", false)
 	nullDoc := `{"text":null}`
-	nullWant := markerOffset(t, nullDoc, "null", false) + 1
+	nullWant := valueStartOffset(t, nullDoc, "null", false)
 	jsonFile := func(t *testing.T, dir, payload string) string {
 		t.Helper()
 		f := filepath.Join(dir, "payload.json")

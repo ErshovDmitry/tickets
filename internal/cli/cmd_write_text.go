@@ -136,11 +136,10 @@ var (
 // with exactly the string field "text". json.Unmarshal rejects trailing
 // garbage; unknown fields are listed; there is no tolerant parsing and no
 // fallback to plain text. The decoded text is the payload, returned unchanged.
-// Refusal offsets are document-relative (T-0244): the fragment-relative
-// UnmarshalTypeError offset of the selected "text" value is shifted by the
-// value's start in the original document, and a null text reports the first
-// byte of the selected null value (its zero-based start + 1), so the byte
-// position matches what the user sees in the payload.
+// Refusal offsets are document-relative (T-0244) and share one anchor
+// (T-0246): both a null text and a non-string value report the FIRST byte of
+// the selected value (its zero-based start in the original document + 1), so
+// the byte position matches what the user sees in the payload.
 func decodeWriteJSON(data []byte, lang domain.Lang, stderr io.Writer) (string, bool) {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -170,16 +169,14 @@ func decodeWriteJSON(data []byte, lang domain.Lang, stderr io.Writer) (string, b
 	// encoding/json unmarshals null into a string as a no-op, leaving it
 	// empty; refuse null explicitly or it would silently clear the payload.
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		// A null has no fragment-relative type offset; report the first byte
-		// of the selected value itself, not its zero-based start.
 		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, jsonValueStart(data)+1, errJSONTextNotString))
 		return "", false
 	}
 	var text string
 	if err := json.Unmarshal(raw, &text); err != nil {
-		// The fragment error offset is relative to raw; shift it by the
-		// value's start so the reported byte is document-relative.
-		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, jsonValueStart(data)+jsonErrorOffset(err), err))
+		// The same anchor as null: the first byte of the selected value,
+		// document-relative.
+		fmt.Fprintln(stderr, domain.ErrWriteJSONInvalid(lang, jsonValueStart(data)+1, err))
 		return "", false
 	}
 	return text, true

@@ -92,11 +92,6 @@ type rawTemplates struct {
 	Bodies map[sectionName]rawBody
 }
 
-// rawBody pairs one section's original body bytes (CR preserved, T-0245)
-// with the normalized semantic value it was captured with. Render re-emits
-// raw only while the public field still equals snapshot; any other edit
-// falls back to the current public value.
-
 // metaSegments is one meta line as literal text around its value slots.
 // Single-slot metas (Status/Priority/Project) render Prefix+value+Suffix
 // (Middle is empty); the two-slot Created renders
@@ -107,6 +102,10 @@ type metaSegments struct {
 	Suffix string // literal text after the last value slot
 }
 
+// rawBody pairs one section's original body bytes (CR preserved, T-0245)
+// with the normalized semantic value it was captured with. Render re-emits
+// raw only while the public field still equals snapshot; any other edit
+// falls back to the current public value.
 type rawBody struct {
 	raw      string
 	snapshot string
