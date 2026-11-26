@@ -57,15 +57,23 @@ func validDeletedDir(dir string) (string, error) {
 // so numbering can never reuse a number it could not read. Single
 // read-only seam shared by numbering, ResolveDelete and Duplicates.
 func (s *Store) deletedScan() (string, []fileEntry, error) {
+	deletedDir, entries, _, err := s.deletedScanWarned()
+	return deletedDir, entries, err
+}
+
+// deletedScanWarned is deletedScan keeping the scan warnings (T-0241: the show
+// read API reports the parse anomalies of the file it reads). Validation and
+// error mapping are identical; deletedScan only drops the warnings.
+func (s *Store) deletedScanWarned() (string, []fileEntry, []ParseWarning, error) {
 	deletedDir, err := validDeletedDir(s.Dir)
 	if err != nil || deletedDir == "" {
-		return "", nil, err
+		return "", nil, nil, err
 	}
-	entries, _, err := scanDir(deletedDir)
+	entries, warns, err := scanDir(deletedDir)
 	if err != nil {
-		return "", nil, fmt.Errorf("store: read dir %s: %w", deletedDir, err)
+		return "", nil, nil, fmt.Errorf("store: read dir %s: %w", deletedDir, err)
 	}
-	return deletedDir, entries, nil
+	return deletedDir, entries, warns, nil
 }
 
 // ListDeleted returns the parseable tickets under tickets/deleted/,

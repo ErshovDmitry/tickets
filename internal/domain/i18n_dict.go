@@ -90,6 +90,28 @@ type dictJSON struct {
 	// T-0192: store-wide read-only refusal (rights/mount of TICKETS_DIR).
 	// No placeholders — the message names the store, not one ticket.
 	ErrReadOnly string `json:"errReadOnly"`
+
+	// T-0241: `ticket show --section/--json` modes. Same pipeline as the edit
+	// and delete keys; runtime access lives in i18n_show_messages.go.
+	ErrRepeatedFlagSection string `json:"errRepeatedFlagSection"`
+	ErrUnknownSection      string `json:"errUnknownSection"`
+	ErrFlagsConflictShow   string `json:"errFlagsConflictShow"`
+	ErrShowExtraArgsModes  string `json:"errShowExtraArgsModes"`
+	ErrJSONEncodeShow      string `json:"errJSONEncodeShow"`
+	ErrJSONShortWriteShow  string `json:"errJSONShortWriteShow"`
+
+	// T-0240 A2: text write path (comment / section set) messages. Same
+	// pipeline as the show keys; runtime access lives in i18n_write_messages.go.
+	ErrWriteOneSource          string `json:"errWriteOneSource"`
+	ErrWriteSchemaConflict     string `json:"errWriteSchemaConflict"`
+	ErrWriteUnknownFlag        string `json:"errWriteUnknownFlag"`
+	ErrWriteFileRead           string `json:"errWriteFileRead"`
+	ErrWriteStdinRead          string `json:"errWriteStdinRead"`
+	ErrWriteJSONInvalid        string `json:"errWriteJSONInvalid"`
+	ErrWriteJSONUnknownFields  string `json:"errWriteJSONUnknownFields"`
+	ErrWriteEmptyComment       string `json:"errWriteEmptyComment"`
+	ErrWritePayloadHeading     string `json:"errWritePayloadHeading"`
+	ErrWriteSectionNotEditable string `json:"errWriteSectionNotEditable"`
 }
 
 // loadDict parses JSON data into a dict, with validation.
@@ -174,5 +196,21 @@ func loadDict(data []byte) (*dict, error) {
 		deleteCancelled:             dj.DeleteCancelled,
 		errTicketDeletedReadOnly:    dj.ErrTicketDeletedReadOnly,
 		errReadOnly:                 dj.ErrReadOnly,
+		errRepeatedFlagSection:      dj.ErrRepeatedFlagSection,
+		errUnknownSection:           dj.ErrUnknownSection,
+		errFlagsConflictShow:        dj.ErrFlagsConflictShow,
+		errShowExtraArgsModes:       dj.ErrShowExtraArgsModes,
+		errJSONEncodeShow:           dj.ErrJSONEncodeShow,
+		errJSONShortWriteShow:       dj.ErrJSONShortWriteShow,
+		errWriteOneSource:           dj.ErrWriteOneSource,
+		errWriteSchemaConflict:      dj.ErrWriteSchemaConflict,
+		errWriteUnknownFlag:         dj.ErrWriteUnknownFlag,
+		errWriteFileRead:            dj.ErrWriteFileRead,
+		errWriteStdinRead:           dj.ErrWriteStdinRead,
+		errWriteJSONInvalid:         dj.ErrWriteJSONInvalid,
+		errWriteJSONUnknownFields:   dj.ErrWriteJSONUnknownFields,
+		errWriteEmptyComment:        dj.ErrWriteEmptyComment,
+		errWritePayloadHeading:      dj.ErrWritePayloadHeading,
+		errWriteSectionNotEditable:  dj.ErrWriteSectionNotEditable,
 	}, nil
 }

@@ -35,27 +35,13 @@ import (
 	"ticket/internal/domain"
 )
 
-// findAllNumberAcross returns every file carrying n — the unchanged
-// shared main+archive scan plus the deleted/ entries — each paired with
-// its directory, in scan order (main, archive, deleted). Deleted scan
-// errors propagate exactly like the archive scan error inside
-// findAllNumber. Mirrors findRecoverFiles; kept as a separate helper so
-// recover and the W3 lookups stay independently owned.
+// findAllNumberAcross is findAllNumber widened with tickets/deleted/: the one
+// shared main+archive+deleted scan (scanReadTree) plus the one match rule
+// (numberMatches), so the deleted-aware lookup cannot disagree with the
+// deleted-blind one. Deleted scan errors propagate exactly like the archive
+// scan error.
 func (s *Store) findAllNumberAcross(n int) ([]locatedFile, error) {
-	files, err := s.findAllNumber(n)
-	if err != nil {
-		return nil, err
-	}
-	deletedDir, entries, derr := s.deletedScan()
-	if derr != nil {
-		return nil, derr
-	}
-	for _, e := range entries {
-		if e.Number == n {
-			files = append(files, locatedFile{fileEntry: e, dir: deletedDir})
-		}
-	}
-	return files, nil
+	return s.findNumberIn(n, true)
 }
 
 // FindRawAcross is FindRaw widened with tickets/deleted/: it returns
@@ -87,25 +73,10 @@ func (s *Store) FindRawAcross(n int) (domain.Ticket, string, []byte, error) {
 // a separator-free ticket file name is rejected outright, so path
 // traversal never reaches the filesystem.
 func (s *Store) FindExactAcross(baseName string) (domain.Ticket, string, []byte, error) {
-	n, _, ferr := domain.ParseFilename(baseName)
-	if ferr != nil || strings.ContainsAny(baseName, "/\\") {
-		return domain.Ticket{}, "", nil, fmt.Errorf("store: FindExactAcross: not a ticket file name: %q", baseName)
+	matches, n, err := s.matchExactName(baseName, "FindExactAcross", true)
+	if err != nil {
+		return domain.Ticket{}, "", nil, err
 	}
-	entries, _, dirErr := s.scan()
-	if dirErr != nil {
-		return domain.Ticket{}, "", nil, fmt.Errorf("store: read dir %s: %w", s.Dir, dirErr)
-	}
-	matches := matchingEntries(baseName, s.Dir, entries, nil)
-	archiveDir, archiveEntries, aerr := s.archiveScan()
-	if aerr != nil {
-		return domain.Ticket{}, "", nil, aerr
-	}
-	matches = matchingEntries(baseName, archiveDir, archiveEntries, matches)
-	deletedDir, deletedEntries, derr := s.deletedScan()
-	if derr != nil {
-		return domain.Ticket{}, "", nil, derr
-	}
-	matches = matchingEntries(baseName, deletedDir, deletedEntries, matches)
 	switch len(matches) {
 	case 0:
 		return domain.Ticket{}, "", nil, ErrNotFound
@@ -115,16 +86,84 @@ func (s *Store) FindExactAcross(baseName string) (domain.Ticket, string, []byte,
 	return domain.Ticket{}, "", nil, ambiguousNumberError(n, matches)
 }
 
-// matchingEntries appends the entries named baseName to matches, each
-// paired with dir. Extracted so FindExactAcross keeps one match loop per
-// directory instead of three copies.
-func matchingEntries(baseName, dir string, entries []fileEntry, matches []locatedFile) []locatedFile {
-	for _, e := range entries {
-		if e.Name == baseName {
-			matches = append(matches, locatedFile{fileEntry: e, dir: dir})
-		}
+// readShowLocated reads one located file for the show read API: the ticket,
+// its exact bytes, the unknown trailing bytes and the warnings attributable to
+// it — the scan warnings naming exactly this file plus the journal-dup notice
+// of a ticket whose second "## Journal" was merged by Parse.
+func readShowLocated(loc locatedFile, sc locatedScan) (domain.Ticket, string, []byte, []byte, []ParseWarning, error) {
+	tk, raw, unknown, err := readLocatedShow(loc)
+	if err != nil {
+		return domain.Ticket{}, "", nil, nil, nil, err
 	}
-	return matches
+	attributed := sc.attributableWarnings(loc)
+	attributed = append(attributed, journalDupWarnings(loc.Name, &tk)...)
+	return tk, loc.Name, raw, unknown, attributed, nil
+}
+
+// FindShowAcross is FindRawAcross widened for the show read path (T-0241): it
+// adds the unknown trailing bytes and the parse warnings attributable to the
+// ticket, so neither a "## ..." tail nor a merged duplicate journal is lost.
+// Everything else matches FindRawAcross: main+archive+deleted, the scan-matched
+// name (never a path derived from the body status), the ambiguity detected
+// before any body is read, ErrNotFound for an absent number.
+func (s *Store) FindShowAcross(n int) (domain.Ticket, string, []byte, []byte, []ParseWarning, error) {
+	sc, err := s.scanReadTree(true)
+	if err != nil {
+		return domain.Ticket{}, "", nil, nil, nil, err
+	}
+	files := sc.numberMatches(n)
+	switch len(files) {
+	case 0:
+		return domain.Ticket{}, "", nil, nil, nil, ErrNotFound
+	case 1:
+		return readShowLocated(files[0], sc)
+	}
+	return domain.Ticket{}, "", nil, nil, nil, ambiguousNumberError(n, files)
+}
+
+// FindExactShowAcross is FindExactAcross widened the same way: the exact-name
+// escape hatch (T-0157) across main, archive and deleted, carrying the unknown
+// tail and the attributable warnings.
+func (s *Store) FindExactShowAcross(baseName string) (domain.Ticket, string, []byte, []byte, []ParseWarning, error) {
+	sc, err := s.scanReadTree(true)
+	if err != nil {
+		return domain.Ticket{}, "", nil, nil, nil, err
+	}
+	matches, n, err := scanExactName(sc, baseName, "FindExactShowAcross")
+	if err != nil {
+		return domain.Ticket{}, "", nil, nil, nil, err
+	}
+	switch len(matches) {
+	case 0:
+		return domain.Ticket{}, "", nil, nil, nil, ErrNotFound
+	case 1:
+		return readShowLocated(matches[0], sc)
+	}
+	return domain.Ticket{}, "", nil, nil, nil, ambiguousNumberError(n, matches)
+}
+
+// matchExactName is the exact-name lookup for the byte-only variants
+// (FindExact, FindExactAcross): it scans the requested tree, applies the shared
+// name rule and rejects a non-ticket file name outright, so path traversal
+// never reaches the filesystem and every exact-name caller shares one
+// validation.
+func (s *Store) matchExactName(baseName, caller string, withDeleted bool) ([]locatedFile, int, error) {
+	sc, err := s.scanReadTree(withDeleted)
+	if err != nil {
+		return nil, 0, err
+	}
+	return scanExactName(sc, baseName, caller)
+}
+
+// scanExactName validates baseName and resolves it inside an already performed
+// scan. It is the single name-match rule behind FindExact, FindExactAcross and
+// FindExactShowAcross.
+func scanExactName(sc locatedScan, baseName, caller string) ([]locatedFile, int, error) {
+	n, _, ferr := domain.ParseFilename(baseName)
+	if ferr != nil || strings.ContainsAny(baseName, "/\\") {
+		return nil, 0, fmt.Errorf("store: %s: not a ticket file name: %q", caller, baseName)
+	}
+	return sc.nameMatches(baseName), n, nil
 }
 
 // LocateNumber returns the absolute paths of every ticket file carrying

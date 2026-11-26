@@ -133,6 +133,52 @@ T-0003  open     BUG: Cross-project entry
 
 `ticket list deleted` prints the deleted tickets the same way, with `deleted` in the status column. Duplicate numbers inside `tickets/deleted/` take part in the same duplicate warning (stderr, exit code 0) as everywhere else; `show` answers exit 2 for such a number.
 
+## Reading one ticket (`show --section`, `show --json`)
+
+`ticket show <number|filename> [--section <name>] [--json]` has three mutually exclusive output modes. The plain form is unchanged: the ticket file is printed byte for byte on stdout, extra arguments stay a warning on stderr (exit 0). A bare `--section` or `--json` token selects one of the two new modes, and those modes validate their flags strictly BEFORE the ticket is read: an unknown flag, a repeated flag, a glued `--section=<name>`, extra positional arguments or the `--section`+`--json` combination are errors on stderr with exit 1 and an empty stdout.
+
+`--section <name>` prints only the section BODY — no `##` header line — followed by exactly one LF:
+
+- canonical names: `summary`, `details`, `user-comments`, `comments`, `journal`;
+- aliases: `brief` (= `summary`) and `user_comments` (= `user-comments`); the name is case-insensitive and surrounding whitespace is ignored, inner spaces are not normalised (`user comments` is rejected);
+- a known but empty section, or a section an older ticket does not carry at all, is a success: exit 0 and an empty stdout (0 bytes);
+- an unknown name is an error on stderr with exit 1, and the message lists the canonical names.
+
+The payload is the parsed body, so it is language independent: `## Summary (Кратко)`, `## Summary` and `## Summary (<free suffix>)` select the same text. Summary is stored separately from Details, so `summary` is the Summary body (not the title). `journal` prints the journal entry lines with the separating blank lines dropped.
+
+`--json` prints ONE JSON document on stdout — every diagnostic goes to stderr, and the document ends with exactly one LF:
+
+| Key | Value |
+|-----|-------|
+| `number`, `status`, `type`, `priority`, `project`, `title`, `who` | strings (number is a JSON number) |
+| `summary`, `details`, `user_comments`, `comments` | the section bodies; always present, `""` when empty |
+| `created` | RFC3339; `""` when the source timestamp cannot be parsed |
+| `journal` | array of `{at, from, to, who, comment, archived}`, `at` in RFC3339 (`""` for an unparsable timestamp); `[]` when there is no journal |
+| `unknown` / `unknown_encoding` | the manual tail after the journal: valid UTF-8 is emitted as text with `"utf-8"`, anything else as base64 with `"base64"` (never lossy) |
+| `warnings` | array of parse-warning strings (`"<file name>: <error>"`); `[]` when the file is clean |
+
+Every key is always present (no `omitempty`), and the status always comes from the FILE NAME, never from the body's `- Status:` line. Default `encoding/json` HTML escaping applies (`<`, `>`, `&` are escaped). Unknown `## ...` sections in the head zone are not exposed in JSON: only the tail in `unknown` is preserved.
+
+## Writing text (`comment`, `section set`)
+
+```text
+ticket comment <number> [-] [--file <path>] [--json] [--schema]
+ticket section set <number> <section> [-] [--file <path>] [--json]
+```
+
+Both commands write ticket text without touching the status or the metadata bullets, and both share one payload contract: the source is exactly one of `-` (stdin) or `--file <path>` — no source or both sources is a usage error (exit 1), and the terminal is never read. The input is read and decoded BEFORE the ticket lookup, so a refused input leaves the file and the journal byte-identical. Only separate `--flag value` pairs are accepted after the positionals; a glued `--flag=value` is refused.
+
+- stdin is the primary channel: a heredoc on Unix (`ticket comment 42 - <<'EOF' … EOF`), a pipe on Windows (`type note.txt | ticket comment 42 -` in cmd, `Get-Content note.txt -Raw | ticket comment 42 -` in PowerShell).
+- `--file <path>` reads the file byte for byte; trailing CR/LF characters are trimmed, every other byte stays verbatim. An empty file is read as an empty payload.
+- A payload line that is a markdown heading (1–6 `#` then whitespace or end of line) is refused (exit 1) with its line number.
+- `--json` treats the payload as the strict single-field object `{"text":"<payload>"}`: unknown fields are exit 1 with the field list/format/example, invalid JSON or trailing garbage are exit 1 with position/format/example — never a plain-text fallback. `comment --schema` prints that JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source (exit 1).
+
+`ticket comment` APPENDS a block to the `Comments` section — never a replacement: exactly one blank line separates the new block from the old body, and the journal records the append (`comment: +N lines`, who, timestamp). An empty payload is refused (exit 1).
+
+`ticket section set` REPLACES the whole body of an editable section. `<section>` is a canonical CLI token: `summary`, `details`, `user-comments`, `comments`, `journal`, plus the aliases `brief` (= `summary`) and `user_comments` (= `user-comments`); the name is case-insensitive, surrounding whitespace is trimmed, inner spaces are not normalised. Editable are `summary`, `details` and `comments`; protected are `user-comments` («Комментарии от пользователя») and `journal` («Журнал») — a protected or unknown name is refused (exit 1) with the editable list. An empty payload clears the section (an empty summary renders as the title).
+
+Exit codes for both commands: `0` — silent success, parse warnings go to stderr; `1` — usage, I/O, a protected section, an empty comment, a heading-guard refusal, a `tickets/deleted/` ticket or a missing ticket; `2` — ambiguous number, with every conflicting path on stderr.
+
 ## Full command reference
 
 Help text (`TICKET_LANG=en`), byte-identical to the embedded template `internal/cli/templates/usage.en.txt`. The binary prepends a version line (`ticket version <ver>`, `dev` when built without `-ldflags`) that is not part of the template:
@@ -159,8 +205,11 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       an invalid --type/--priority value is an error (exit 1)
       project column shown when output tickets have differing projects;
       --json outputs a JSON array (6 fields: number, status, type, priority, title, created); empty = []
-  ticket show <number|filename>
+  ticket show <number|filename> [--section <name>] [--json]
       show a ticket (the archive and deleted/ are searched too); a duplicate number is exit 2 with every conflicting path
+      --section prints only the section body without the header (empty or missing section: exit 0, empty stdout; unknown name: exit 1)
+      --json prints one JSON document: number, status, type, priority, project, title, summary, created, who, details, user_comments, comments, journal[], unknown, unknown_encoding, warnings[]; status comes from the file name
+      the modes are mutually exclusive; diagnostics go to stderr only; extra positional args: warning (exit 0) in plain, error (exit 1) in --section/--json
   ticket set <number> <status> ["comment"]
       change the status (renames the file itself and appends a line to the ticket journal);
       re-setting the same status with a comment appends a journal entry
@@ -179,6 +228,20 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       only separate "--flag value" pairs: "--flag=value" and short flags are refused; a repeat keeps the last value;
       an explicitly unchanged value refuses the whole edit (exit 1, nothing is written); success is silent (exit 0);
       a ticket whose file lives in deleted/ is refused (exit 1, nothing is written)
+  ticket comment <number> [-] [--file <path>] [--json] [--schema]
+      append a text block to the Comments section (never a replacement); the payload source is exactly one of - (stdin) or --file <path>;
+      no source or both sources is a usage error (exit 1) and the terminal is never read; --file is read byte for byte, an empty file is read as an empty payload;
+      --json treats the payload as strict JSON {"text":"<payload>"} (single field): unknown fields are exit 1 with the field list/format/example, invalid JSON or trailing garbage are exit 1 with position/format/example, never a plain-text fallback;
+      --schema prints the JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source;
+      only separate "--flag value" pairs after the positional number; a payload line that is a markdown heading (1-6 '#' then whitespace or end of line) is refused (exit 1) with its line number;
+      an empty payload is refused (exit 1); success is silent (exit 0), parse warnings go to stderr; a deleted/ ticket is refused, an ambiguous number is exit 2 with every conflicting path
+  ticket section set <number> <section> [-] [--file <path>] [--json]
+      replace the body of an editable section; <section> is a canonical CLI token (a protected or unknown name is refused, exit 1, listing the editable names);
+      the payload source is exactly one of - (stdin) or --file <path>; no source or both is a usage error (exit 1), the terminal is never read;
+      --file is read byte for byte (an empty file clears the section); --json treats the payload as strict JSON {"text":"<payload>"} (single field), unknown fields or invalid JSON are exit 1, never a plain-text fallback;
+      an empty payload clears the section (an empty summary renders as the title); a payload markdown-heading line is refused (exit 1) with its line number;
+      only separate "--flag value" pairs after the positionals; success is silent (exit 0), parse warnings go to stderr;
+      a deleted/ ticket is refused (exit 1), an ambiguous number is exit 2 with every conflicting path
   ticket archive [<number>]
       move closed tickets (done/closed) into archive/;
       without a number — all closed ones, with a number — only the given one;
@@ -226,7 +289,7 @@ Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → 
 
 Lock timeout: TICKET_LOCK_TIMEOUT sets how long the .lock may remain without holder progress before ticket returns an error (while the holder keeps working, the wait is extended up to 12× the configured value); the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set, edit and archive.
 
-Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover, delete): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check). Duplicate numbers inside `tickets/deleted/` follow the same rules: `list` (any mode) warns and exits 0, `show` exits 2 with every conflicting path, and `set`/`edit` refuse a deleted ticket with exit 1.
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover, delete, comment, section): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check). Duplicate numbers inside `tickets/deleted/` follow the same rules: `list` (any mode) warns and exits 0, `show` exits 2 with every conflicting path, and `set`/`edit`/`comment`/`section` refuse a deleted ticket with exit 1.
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate; deleted — soft-deleted (terminal, read-only).
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.
@@ -354,7 +417,7 @@ Broken export
 - `Summary` — brief description.
 - `Details` — specifics as a numbered list, one item per line: `N. <what> — <file:line>; <fix>` (file:line, logs, reproduction).
 - `User comments` — written by the user, read by the agent before working on the ticket; the agent never writes there.
-- `Comments` — the agent's working notes.
-- `Journal` — append-only log written automatically by `new` / `set` / `edit`.
+- `Comments` — the agent's working notes; `ticket comment` appends a block here.
+- `Journal` — append-only log written automatically by `new` / `set` / `edit` / `comment` / `section set`.
 
 Agent integration, cross-project work, the archive and the delete lifecycle in context: [scenarios.md](scenarios.md).

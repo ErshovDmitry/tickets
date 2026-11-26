@@ -126,12 +126,16 @@ var (
 	getDeleteCancelled             = func(dj dictJSON) string { return dj.DeleteCancelled }
 	getErrTicketDeletedReadOnly    = func(dj dictJSON) string { return dj.ErrTicketDeletedReadOnly }
 	getErrReadOnly                 = func(dj dictJSON) string { return dj.ErrReadOnly }
+	// The T-0241 show getters live in i18n_show_messages.go, next to the
+	// message helpers they serve (the table file stays inside its budget).
 )
 
 // dictValidationRules is the ordered validation table of validateDictJSON.
 // The entry order mirrors the original if-chain exactly: precedence of error
-// reports depends on it, so do not group or reorder entries by field.
-var dictValidationRules = []dictRule{
+// reports depends on it, so do not group or reorder entries by field. The
+// T-0240 write-key block (writeDictRules, i18n_write_messages.go) is appended
+// after the existing entries, preserving their order.
+var dictValidationRules = append([]dictRule{
 	nonEmpty("statusFmt", getStatusFmt),
 	nonEmpty("priorityFmt", getPriorityFmt),
 	nonEmpty("projectFmt", getProjectFmt),
@@ -273,4 +277,22 @@ var dictValidationRules = []dictRule{
 	// T-0192: store-wide read-only refusal — no placeholders.
 	nonEmpty("errReadOnly", getErrReadOnly),
 	count("errReadOnly", "s", 0, getErrReadOnly),
-}
+
+	// T-0241: `ticket show --section/--json` modes — 3 %s slots in the
+	// unknown-section message (name, canonical list, alias list), 1 %s in the
+	// extra-args message, none in the other two.
+	nonEmpty("errRepeatedFlagSection", getErrRepeatedFlagSection),
+	count("errRepeatedFlagSection", "s", 0, getErrRepeatedFlagSection),
+	nonEmpty("errUnknownSection", getErrUnknownSection),
+	count("errUnknownSection", "s", 3, getErrUnknownSection),
+	nonEmpty("errFlagsConflictShow", getErrFlagsConflictShow),
+	count("errFlagsConflictShow", "s", 0, getErrFlagsConflictShow),
+	nonEmpty("errShowExtraArgsModes", getErrShowExtraArgsModes),
+	count("errShowExtraArgsModes", "s", 1, getErrShowExtraArgsModes),
+	// The JSON write path: %v carries the marshal error, %d/%d the short-write
+	// byte counts — both must render, so both are pinned.
+	nonEmpty("errJSONEncodeShow", getErrJSONEncodeShow),
+	count("errJSONEncodeShow", "v", 1, getErrJSONEncodeShow),
+	nonEmpty("errJSONShortWriteShow", getErrJSONShortWriteShow),
+	count("errJSONShortWriteShow", "d", 2, getErrJSONShortWriteShow),
+}, writeDictRules...)

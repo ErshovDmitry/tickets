@@ -70,5 +70,23 @@
   "deleteCancelled": "ticket: delete cancelled, nothing was changed",
 
   "errTicketDeletedReadOnly": "ticket: ticket %d is deleted (file in tickets/deleted/) and is read-only: set, reopen and edit are refused, the file is unchanged",
-  "errReadOnly": "ticket: the ticket store is read-only"
+  "errReadOnly": "ticket: the ticket store is read-only",
+
+  "errRepeatedFlagSection": "ticket: repeated flag --section",
+  "errUnknownSection": "ticket: unknown section: %s (accepted names: %s; aliases: %s)",
+  "errFlagsConflictShow": "ticket: --section and --json are mutually exclusive",
+  "errShowExtraArgsModes": "ticket: unexpected extra arguments in --section/--json mode: %s",
+  "errJSONEncodeShow": "ticket: JSON encode error: %v",
+  "errJSONShortWriteShow": "ticket: JSON write error: short write (%d of %d bytes)",
+
+  "errWriteOneSource": "ticket: exactly one payload source is required: - (stdin) or --file <path>",
+  "errWriteSchemaConflict": "ticket: --schema cannot be combined with a payload source (- or --file)",
+  "errWriteUnknownFlag": "ticket: unknown flag for %s command: %s",
+  "errWriteFileRead": "ticket: cannot read payload file %s: %v",
+  "errWriteStdinRead": "ticket: cannot read payload from stdin: %v",
+  "errWriteJSONInvalid": "ticket: invalid JSON payload at byte %d: expected an object {\"text\":\"<payload>\"} (example: {\"text\":\"line 1\\nline 2\"}): %v",
+  "errWriteJSONUnknownFields": "ticket: unknown JSON fields: %s; expected an object {\"text\":\"<payload>\"} (example: {\"text\":\"line 1\\nline 2\"})",
+  "errWriteEmptyComment": "ticket: comment payload must not be empty",
+  "errWritePayloadHeading": "ticket: payload line %d is a markdown heading and would escape its section",
+  "errWriteSectionNotEditable": "ticket: cannot write section %s (editable sections: %s)"
 }

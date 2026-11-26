@@ -70,5 +70,23 @@
   "deleteCancelled": "ticket: удаление отменено, ничего не изменено",
 
   "errTicketDeletedReadOnly": "ticket: тикет %d удалён (файл в tickets/deleted/) и доступен только для чтения: set, reopen и edit отклоняются, файл не меняется",
-  "errReadOnly": "ticket: хранилище тикетов в режиме только чтения"
+  "errReadOnly": "ticket: хранилище тикетов в режиме только чтения",
+
+  "errRepeatedFlagSection": "ticket: повторный флаг --section",
+  "errUnknownSection": "ticket: неизвестная секция: %s (допустимые имена: %s; алиасы: %s)",
+  "errFlagsConflictShow": "ticket: флаги --section и --json взаимоисключаемы",
+  "errShowExtraArgsModes": "ticket: лишние аргументы в режиме --section/--json: %s",
+  "errJSONEncodeShow": "ticket: ошибка кодирования JSON: %v",
+  "errJSONShortWriteShow": "ticket: ошибка записи JSON: короткая запись (%d из %d байт)",
+
+  "errWriteOneSource": "ticket: требуется ровно один источник payload: - (stdin) или --file <путь>",
+  "errWriteSchemaConflict": "ticket: --schema нельзя совмещать с источником payload (- или --file)",
+  "errWriteUnknownFlag": "ticket: неизвестный флаг для команды %s: %s",
+  "errWriteFileRead": "ticket: не удалось прочитать файл payload %s: %v",
+  "errWriteStdinRead": "ticket: не удалось прочитать payload из stdin: %v",
+  "errWriteJSONInvalid": "ticket: невалидный JSON-payload в байте %d: ожидается объект {\"text\":\"<payload>\"} (пример: {\"text\":\"строка 1\\nстрока 2\"}): %v",
+  "errWriteJSONUnknownFields": "ticket: неизвестные поля JSON: %s; ожидается объект {\"text\":\"<payload>\"} (пример: {\"text\":\"строка 1\\nстрока 2\"})",
+  "errWriteEmptyComment": "ticket: payload комментария не может быть пустым",
+  "errWritePayloadHeading": "ticket: строка %d в payload — markdown-заголовок, текст вышел бы за пределы секции",
+  "errWriteSectionNotEditable": "ticket: нельзя записать секцию %s (редактируемые секции: %s)"
 }

@@ -85,6 +85,11 @@ type rawTemplates struct {
 	// "%s" in a user free suffix or value survives round trips byte-
 	// identically.
 	Meta map[string]metaSegments
+
+	// Bodies: per-section raw body sidecar (T-0245). Zero/absent entries
+	// mean "not captured" (empty or stub body) -> Render emits the public
+	// value / dict default.
+	Bodies map[sectionName]rawBody
 }
 
 // metaSegments is one meta line as literal text around its value slots.
@@ -95,6 +100,15 @@ type metaSegments struct {
 	Prefix string // literal text before the first value slot
 	Middle string // Created only: literal text between ts and author slots
 	Suffix string // literal text after the last value slot
+}
+
+// rawBody pairs one section's original body bytes (CR preserved, T-0245)
+// with the normalized semantic value it was captured with. Render re-emits
+// raw only while the public field still equals snapshot; any other edit
+// falls back to the current public value.
+type rawBody struct {
+	raw      string
+	snapshot string
 }
 
 // JournalEntry is one line of the "## Журнал" section. The creation entry has
@@ -140,4 +154,93 @@ func (t Ticket) Validate(mode Mode) error {
 		return fmt.Errorf("краткое описание не может быть пустым")
 	}
 	return nil
+}
+
+// AppendCommentPayload appends payload as a new block to Comments
+// (T-0245): the old block keeps its raw bytes (CRLF included), exactly one
+// LF blank line separates the blocks, and the payload enters the sidecar
+// verbatim — never normalized. The public field and snapshot receive the
+// normalized equivalent. The caller owns payload validation (trailing
+// CR/LF trim, ATX guard, non-empty check).
+func (t *Ticket) AppendCommentPayload(payload string) {
+	oldRaw := t.bodyRawOr(secNameComments, t.Comments)
+	t.Comments = appendBlock(t.Comments, normalizeBody(payload))
+	t.setBodyRaw(secNameComments, appendBlock(oldRaw, payload), t.Comments)
+}
+
+// SetEditablePayload replaces one editable section's body with payload
+// (T-0245): raw keeps the payload bytes verbatim, the public field gets
+// the parser-normalized equivalent, and the snapshot binds the two. Only
+// the target section changes. An empty payload clears the section and its
+// sidecar. The caller owns payload validation and the editability gate.
+func (t *Ticket) SetEditablePayload(sec Section, payload string) error {
+	norm := normalizeBody(payload)
+	switch sec {
+	case SectionSummary:
+		// Brief is line-oriented; an empty payload yields nil so Render
+		// falls back to the title.
+		t.Brief = nil
+		if norm != "" {
+			t.Brief = strings.Split(norm, "\n")
+		}
+	case SectionDetails:
+		t.Details = norm
+	case SectionComments:
+		t.Comments = norm
+	default:
+		return fmt.Errorf("domain: section %q has no field mapping", sec)
+	}
+	t.setBodyRaw(sec, payload, norm)
+	return nil
+}
+
+// DropRawBodies clears the raw-body sidecar so Render emits the normalized
+// semantic view. Canonicalization paths (normalize) call it: their mandate
+// is the canonical LF form, not byte preservation (T-0245). It never
+// touches the public fields, so SectionBody/show are unaffected.
+func (t *Ticket) DropRawBodies() {
+	t.RawTemplates.Bodies = nil
+}
+
+// bodyRawOr returns the preserved raw body while the public value still
+// equals the captured snapshot; after any other edit the current public
+// value is the only truth (T-0245 fallback).
+func (t *Ticket) bodyRawOr(name sectionName, current string) string {
+	if rb, ok := t.RawTemplates.Bodies[name]; ok && rb.snapshot == current {
+		return rb.raw
+	}
+	return current
+}
+
+// setBodyRaw binds raw to snapshot; an empty raw or snapshot removes the
+// entry so Render never resurrects a placeholder or a stale body.
+func (t *Ticket) setBodyRaw(name sectionName, raw, snapshot string) {
+	if raw == "" || snapshot == "" {
+		delete(t.RawTemplates.Bodies, name)
+		return
+	}
+	if t.RawTemplates.Bodies == nil {
+		t.RawTemplates.Bodies = make(map[sectionName]rawBody)
+	}
+	t.RawTemplates.Bodies[name] = rawBody{raw: raw, snapshot: snapshot}
+}
+
+// normalizeBody mirrors Parse's per-line trimEOL on a body string: each
+// LF-delimited line loses one trailing CR, nothing else changes. It is
+// the semantic (public-field) equivalent of a raw payload.
+func normalizeBody(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimSuffix(line, "\r")
+	}
+	return strings.Join(lines, "\n")
+}
+
+// appendBlock joins old and payload with exactly one LF blank line; an
+// empty old body takes payload alone (the DS7 separator, T-0240).
+func appendBlock(old, payload string) string {
+	if old == "" {
+		return payload
+	}
+	return old + "\n\n" + payload
 }

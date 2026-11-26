@@ -139,6 +139,28 @@ type dict struct {
 
 	// T-0192: store-wide read-only refusal; no placeholders.
 	errReadOnly string // no placeholders (store-level, not per-ticket)
+
+	// T-0241: `ticket show --section/--json` modes. Runtime access lives in
+	// i18n_show_messages.go via getDict.
+	errRepeatedFlagSection string // no placeholders
+	errUnknownSection      string // 3 %s: offending name, canonical tokens, aliases
+	errFlagsConflictShow   string // no placeholders
+	errShowExtraArgsModes  string // 1 %s: extra positional arguments
+	errJSONEncodeShow      string // 1 %v: the marshalling error
+	errJSONShortWriteShow  string // 2 %d: bytes written, bytes expected
+
+	// T-0240 A2: text write path (comment / section set) messages. Runtime
+	// access lives in i18n_write_messages.go via getDict.
+	errWriteOneSource          string // no placeholders (exactly one source required)
+	errWriteSchemaConflict     string // no placeholders (--schema vs a source)
+	errWriteUnknownFlag        string // 2 %s: command name, offending flag argument
+	errWriteFileRead           string // 1 %s: path, 1 %v: cause
+	errWriteStdinRead          string // 1 %v: cause
+	errWriteJSONInvalid        string // 1 %d: byte offset, 1 %v: cause
+	errWriteJSONUnknownFields  string // 1 %s: comma-separated found fields
+	errWriteEmptyComment       string // no placeholders (empty comment payload)
+	errWritePayloadHeading     string // 1 %d: offending payload line number
+	errWriteSectionNotEditable string // 2 %s: offending name, editable token list
 }
 
 // Init error classes returned (wrapped) by loadFromFS and stored by the

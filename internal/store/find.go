@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"ticket/internal/domain"
 )
@@ -54,23 +53,39 @@ func (s *Store) FindNamed(n int) (domain.Ticket, string, error) {
 	return tk, name, err
 }
 
-// readLocated reads the located file's body, mapping an empty file to
+// readLocatedShow reads the located file's body and also hands back the
+// unknown trailing bytes the parser preserved: an empty file maps to
 // ErrNotFound (the lockless window: the file exists but its body has not
-// landed yet) and any other read failure to an error carrying the base
-// name. Shared by FindRaw and FindExact so both keep identical
-// semantics.
-func readLocated(loc locatedFile) (domain.Ticket, string, []byte, error) {
-	tk, raw, _, err := readTicketFile(filepath.Join(loc.dir, loc.Name), loc.Number)
+// landed yet) and any other read failure to an error carrying the base name.
+// The bytes come from the single validated handle (readTicketFile), so the
+// TOCTOU containment of readLocated is unchanged.
+//
+// This is the ONE body read of the read path: readLocated is expressed through
+// it, so the errEmptyTicket -> ErrNotFound mapping and the
+// filename-authoritative status cannot drift between the two callers.
+func readLocatedShow(loc locatedFile) (domain.Ticket, []byte, []byte, error) {
+	tk, raw, unknown, err := readTicketFile(filepath.Join(loc.dir, loc.Name), loc.Number)
 	if err != nil {
 		if errors.Is(err, errEmptyTicket) {
-			return domain.Ticket{}, "", nil, ErrNotFound
+			return domain.Ticket{}, nil, nil, ErrNotFound
 		}
-		return domain.Ticket{}, "", nil, fmt.Errorf("store: read %s: %w", loc.Name, err)
+		return domain.Ticket{}, nil, nil, fmt.Errorf("store: read %s: %w", loc.Name, err)
 	}
 	// The scan-matched filename status is authoritative (V19); the parsed
 	// body status is untrusted.
 	tk.Status = loc.Status
-	return *tk, loc.Name, raw, nil
+	return *tk, raw, unknown, nil
+}
+
+// readLocated is readLocatedShow with the unknown trailing bytes dropped, so
+// FindRaw and FindExact keep identical body-read semantics while sharing one
+// error mapping with the show read API.
+func readLocated(loc locatedFile) (domain.Ticket, string, []byte, error) {
+	tk, raw, _, err := readLocatedShow(loc)
+	if err != nil {
+		return domain.Ticket{}, "", nil, err
+	}
+	return tk, loc.Name, raw, nil
 }
 
 // FindExact resolves a ticket by its exact base name (T-NNNN-<status>.md)
@@ -81,28 +96,9 @@ func readLocated(loc locatedFile) (domain.Ticket, string, []byte, error) {
 // is not a separator-free ticket file name is rejected outright, so path
 // traversal never reaches the filesystem.
 func (s *Store) FindExact(baseName string) (domain.Ticket, string, []byte, error) {
-	n, _, ferr := domain.ParseFilename(baseName)
-	if ferr != nil || strings.ContainsAny(baseName, "/\\") {
-		return domain.Ticket{}, "", nil, fmt.Errorf("store: FindExact: not a ticket file name: %q", baseName)
-	}
-	entries, _, dirErr := s.scan()
-	if dirErr != nil {
-		return domain.Ticket{}, "", nil, fmt.Errorf("store: read dir %s: %w", s.Dir, dirErr)
-	}
-	var matches []locatedFile
-	for _, e := range entries {
-		if e.Name == baseName {
-			matches = append(matches, locatedFile{fileEntry: e, dir: s.Dir})
-		}
-	}
-	archiveDir, archiveEntries, aerr := s.archiveScan()
-	if aerr != nil {
-		return domain.Ticket{}, "", nil, aerr
-	}
-	for _, e := range archiveEntries {
-		if e.Name == baseName {
-			matches = append(matches, locatedFile{fileEntry: e, dir: archiveDir})
-		}
+	matches, n, err := s.matchExactName(baseName, "FindExact", false)
+	if err != nil {
+		return domain.Ticket{}, "", nil, err
 	}
 	switch len(matches) {
 	case 0:
@@ -151,26 +147,7 @@ type locatedFile struct {
 // archive errors (invalid path, T-0078, or an unreadable archive
 // directory) propagate the same way.
 func (s *Store) findAllNumber(n int) ([]locatedFile, error) {
-	entries, _, dirErr := s.scan()
-	if dirErr != nil {
-		return nil, fmt.Errorf("store: read dir %s: %w", s.Dir, dirErr)
-	}
-	var out []locatedFile
-	for _, e := range entries {
-		if e.Number == n {
-			out = append(out, locatedFile{fileEntry: e, dir: s.Dir})
-		}
-	}
-	archiveDir, archiveEntries, aerr := s.archiveScan()
-	if aerr != nil {
-		return nil, aerr
-	}
-	for _, e := range archiveEntries {
-		if e.Number == n {
-			out = append(out, locatedFile{fileEntry: e, dir: archiveDir})
-		}
-	}
-	return out, nil
+	return s.findNumberIn(n, false)
 }
 
 // ambiguousNumberError builds the T-0157 ambiguity error for number n

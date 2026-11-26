@@ -87,9 +87,12 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 		RawTemplates: rawTemplates{
 			Headers: make(map[sectionName]string),
 			Meta:    make(map[string]metaSegments),
+			Bodies:  make(map[sectionName]rawBody),
 		},
 	}
 	var details, userComments, comments []string
+	// Raw sidecar capture (T-0245): the same lines with CR preserved.
+	var rawDetails, rawUserComments, rawComments, rawBrief []string
 	sec := secHead
 	// Structural-blank tracking for the head zone (C2-1); see headFlags.
 	var flags headFlags
@@ -114,6 +117,7 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 		if isStubLine(strings.TrimLeft(t.Details, "\n")) {
 			t.Details = "" // stub from any dict means empty Details
 		}
+		t.storeParsedBody(secNameDetails, rawDetails, t.Details)
 		t.UserComments = strings.Join(trimTrailingEmpty(trimLeadingOneEmpty(userComments)), "\n")
 		if isStubLine(strings.TrimLeft(t.UserComments, "\n")) {
 			// Placeholder means no user remarks. Known limitation (by
@@ -121,11 +125,13 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 			// the same.
 			t.UserComments = ""
 		}
+		t.storeParsedBody(secNameUserComments, rawUserComments, t.UserComments)
 		// The free-form "## Comments (Комментарии)" section has no stub: only
 		// ONE leading blank line is trimmed — the one Render prints after the
 		// header (MD022). Any further leading blank line is content and stays
 		// byte-verbatim (T-0035).
 		t.Comments = strings.Join(trimTrailingEmpty(trimLeadingOneEmpty(comments)), "\n")
+		t.storeParsedBody(secNameComments, rawComments, t.Comments)
 		// Head-strays: strictly-empty blanks INSIDE the stray series are
 		// verbatim content and stay (rule iii, T-0035); only a TRAILING
 		// run of strictly-empty blanks is trimmed (rule iv) — Render
@@ -144,12 +150,14 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 		if len(t.Brief) == 0 {
 			t.Brief = nil
 		}
+		t.storeParsedBody(secNameSummary, rawBrief, strings.Join(t.Brief, "\n"))
 	}
 	blankRunStart := -1
 	for pos := 0; pos < len(data); {
 		start, end := lineBounds(data, pos)
 		pos = end
 		line := string(trimEOL(data[start:end]))
+		rawLine := string(bytes.TrimSuffix(data[start:end], []byte("\n")))
 		if sec == secJournal {
 			if journalHeaderBlank {
 				// Exactly one STRICTLY empty line after the first journal
@@ -192,7 +200,12 @@ func Parse(data []byte) (*Ticket, []byte, error) {
 			blankRunStart = -1
 			continue
 		}
+		d0, u0, c0, b0 := len(details), len(userComments), len(comments), len(t.Brief)
 		sec = absorbLine(t, &details, &userComments, &comments, sec, line, &flags)
+		appendRaw(&rawDetails, len(details) != d0, rawLine)
+		appendRaw(&rawUserComments, len(userComments) != u0, rawLine)
+		appendRaw(&rawComments, len(comments) != c0, rawLine)
+		appendRaw(&rawBrief, len(t.Brief) != b0, rawLine)
 		if sec == secJournal {
 			// A Journal header reached from any non-journal section (head,
 			// brief, details, user comments, comments) is the first or a
@@ -238,21 +251,43 @@ func parseTS(s string) time.Time {
 	return t
 }
 
-func trimTrailingEmpty(lines []string) []string {
-	for len(lines) > 0 && lines[len(lines)-1] == "" {
+// Blank predicates for the structural trims (T-0245). The two line views
+// of one body disagree by design: public slices hold trimEOL'd lines, so a
+// blank is exactly "" — a lone "\r" is REAL content that came from a raw
+// "\r\r\n" line and must survive. Raw sidecar lines keep their CR byte,
+// so there a lone "\r" IS the CRLF blank. Whitespace-only lines stay
+// content in both views.
+func lineBlank(line string) bool { return line == "" }
+
+func lineBlankOrCR(line string) bool { return line == "" || line == "\r" }
+
+// trimTrailing drops the trailing run of lines the predicate calls blank.
+func trimTrailing(lines []string, blank func(string) bool) []string {
+	for len(lines) > 0 && blank(lines[len(lines)-1]) {
 		lines = lines[:len(lines)-1]
 	}
 	return lines
 }
 
-// trimLeadingOneEmpty drops AT MOST ONE blank line at the start of a
-// section body: exactly the blank line Render emits after each section
-// header (MD022) must not become content on the next parse. Every further
-// leading blank line is content and stays verbatim — the free "## Comments"
+// trimLeadingOne drops AT MOST ONE blank line at the start of a section
+// body: exactly the blank line Render emits after each section header
+// (MD022) must not become content on the next parse. Every further leading
+// blank line is content and stays verbatim — the free "## Comments"
 // section is byte-verbatim (T-0035).
-func trimLeadingOneEmpty(lines []string) []string {
-	if len(lines) > 0 && lines[0] == "" {
+func trimLeadingOne(lines []string, blank func(string) bool) []string {
+	if len(lines) > 0 && blank(lines[0]) {
 		return lines[1:]
 	}
 	return lines
 }
+
+// Public wrappers: a lone "\r" is content, never a structural blank.
+func trimTrailingEmpty(lines []string) []string { return trimTrailing(lines, lineBlank) }
+
+func trimLeadingOneEmpty(lines []string) []string { return trimLeadingOne(lines, lineBlank) }
+
+// Raw-sidecar wrappers: a lone "\r" is the CRLF blank the LF-only split
+// left behind, so the sidecar trims it exactly like "".
+func trimTrailingEmptyRaw(lines []string) []string { return trimTrailing(lines, lineBlankOrCR) }
+
+func trimLeadingOneEmptyRaw(lines []string) []string { return trimLeadingOne(lines, lineBlankOrCR) }

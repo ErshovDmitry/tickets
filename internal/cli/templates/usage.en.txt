@@ -19,8 +19,11 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       an invalid --type/--priority value is an error (exit 1)
       project column shown when output tickets have differing projects;
       --json outputs a JSON array (6 fields: number, status, type, priority, title, created); empty = []
-  ticket show <number|filename>
+  ticket show <number|filename> [--section <name>] [--json]
       show a ticket (the archive and deleted/ are searched too); a duplicate number is exit 2 with every conflicting path
+      --section prints only the section body without the header (empty or missing section: exit 0, empty stdout; unknown name: exit 1)
+      --json prints one JSON document: number, status, type, priority, project, title, summary, created, who, details, user_comments, comments, journal[], unknown, unknown_encoding, warnings[]; status comes from the file name
+      the modes are mutually exclusive; diagnostics go to stderr only; extra positional args: warning (exit 0) in plain, error (exit 1) in --section/--json
   ticket set <number> <status> ["comment"]
       change the status (renames the file itself and appends a line to the ticket journal);
       re-setting the same status with a comment appends a journal entry
@@ -39,6 +42,20 @@ ticket — project tickets (T-NNNN-<status>.md files in <project>/tickets/).
       only separate "--flag value" pairs: "--flag=value" and short flags are refused; a repeat keeps the last value;
       an explicitly unchanged value refuses the whole edit (exit 1, nothing is written); success is silent (exit 0);
       a ticket whose file lives in deleted/ is refused (exit 1, nothing is written)
+  ticket comment <number> [-] [--file <path>] [--json] [--schema]
+      append a text block to the Comments section (never a replacement); the payload source is exactly one of - (stdin) or --file <path>;
+      no source or both sources is a usage error (exit 1) and the terminal is never read; --file is read byte for byte, an empty file is read as an empty payload;
+      --json treats the payload as strict JSON {"text":"<payload>"} (single field): unknown fields are exit 1 with the field list/format/example, invalid JSON or trailing garbage are exit 1 with position/format/example, never a plain-text fallback;
+      --schema prints the JSON Schema to stdout (exit 0, no lookup, no write) and cannot be combined with a source;
+      only separate "--flag value" pairs after the positional number; a payload line that is a markdown heading (1-6 '#' then whitespace or end of line) is refused (exit 1) with its line number;
+      an empty payload is refused (exit 1); success is silent (exit 0), parse warnings go to stderr; a deleted/ ticket is refused, an ambiguous number is exit 2 with every conflicting path
+  ticket section set <number> <section> [-] [--file <path>] [--json]
+      replace the body of an editable section; <section> is a canonical CLI token (a protected or unknown name is refused, exit 1, listing the editable names);
+      the payload source is exactly one of - (stdin) or --file <path>; no source or both is a usage error (exit 1), the terminal is never read;
+      --file is read byte for byte (an empty file clears the section); --json treats the payload as strict JSON {"text":"<payload>"} (single field), unknown fields or invalid JSON are exit 1, never a plain-text fallback;
+      an empty payload clears the section (an empty summary renders as the title); a payload markdown-heading line is refused (exit 1) with its line number;
+      only separate "--flag value" pairs after the positionals; success is silent (exit 0), parse warnings go to stderr;
+      a deleted/ ticket is refused (exit 1), an ambiguous number is exit 2 with every conflicting path
   ticket archive [<number>]
       move closed tickets (done/closed) into archive/;
       without a number — all closed ones, with a number — only the given one;
@@ -86,7 +103,7 @@ Tickets dir discovery (first match wins): -C/--tickets-dir → $TICKETS_DIR → 
 
 Lock timeout: TICKET_LOCK_TIMEOUT sets how long the .lock may remain without holder progress before ticket returns an error (while the holder keeps working, the wait is extended up to 12× the configured value); the value is a Go duration with a mandatory unit (30s, 2m, 500ms); an empty or invalid value silently falls back to the default; 0 or less means a single attempt with no wait; it applies to new, set, edit and archive.
 
-Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover, delete): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check). Duplicate numbers inside `tickets/deleted/` follow the same rules: `list` (any mode) warns and exits 0, `show` exits 2 with every conflicting path, and `set`/`edit` refuse a deleted ticket with exit 1.
+Exit codes: 0 — success; 1 — error (bad arguments, ticket not found, collision, input or store error, failed update check); 2 — ambiguous ticket number (commands show, set, edit, archive, new, recover, delete, comment, section): one number belongs to several files — the number and the conflicting files are printed to stderr. The list command prints the same warning for duplicates but exits with code 0; 3 — update available (command update-check). Duplicate numbers inside `tickets/deleted/` follow the same rules: `list` (any mode) warns and exits 0, `show` exits 2 with every conflicting path, and `set`/`edit`/`comment`/`section` refuse a deleted ticket with exit 1.
 
 Statuses: open — new; wip — in progress; done — fixed; closed — rejected/duplicate; deleted — soft-deleted (terminal, read-only).
 Types: BUG — breakage; OPS — incident/maintenance; TD — tech debt; ENH — enhancement.

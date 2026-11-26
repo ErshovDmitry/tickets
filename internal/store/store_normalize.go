@@ -140,6 +140,10 @@ func (s *Store) normalizeOneLocked(p string, e fileEntry, o NormalizeOptions, re
 		res.Warnings = append(res.Warnings, ParseWarning{Name: e.Name, Err: normalizeGuardErr(reason), Reason: reason})
 		return nil
 	}
+	// Canonicalization renders the normalized semantic view, not the
+	// write-path raw sidecar (T-0245): a CRLF legacy file must convert to
+	// the canonical LF form, so drop the preserved raw bodies first.
+	tk.DropRawBodies()
 	rendered, rerr := domain.Render(tk, unknown)
 	if rerr != nil {
 		return fmt.Errorf("store: render %s: %w", e.Name, rerr)

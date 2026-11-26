@@ -176,6 +176,30 @@ func createdRawSegments(line, ts, who string) (metaSegments, bool) {
 	}, true
 }
 
+// appendRaw mirrors one absorbLine append into the raw sidecar capture
+// (T-0245): absorbLine grows exactly one body slice per call, so the grew
+// flag identifies which raw slice receives the line. The raw line keeps
+// its CR byte; the public slices hold the trimEOL'd form.
+func appendRaw(raw *[]string, grew bool, rawLine string) {
+	if grew {
+		*raw = append(*raw, rawLine)
+	}
+}
+
+// storeParsedBody captures one section's raw sidecar after the structural
+// trims (T-0245). The raw wrappers use the raw blank predicate, not the
+// public one: here a lone "\r" is the CRLF blank left by the LF-only split
+// (a raw "\r\r\n" line arrives as "\r\r" and stays content). An empty or
+// stub body (public == "") stores nothing so Render never resurrects a
+// placeholder.
+func (t *Ticket) storeParsedBody(name sectionName, rawLines []string, public string) {
+	if public == "" {
+		return
+	}
+	raw := strings.Join(trimTrailingEmptyRaw(trimLeadingOneEmptyRaw(rawLines)), "\n")
+	t.setBodyRaw(name, raw, public)
+}
+
 func sectionFor(name string) section {
 	switch sectionName(name) {
 	case secNameSummary:
