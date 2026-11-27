@@ -38,7 +38,7 @@ Project-specific rules (if created) live in `project_tickets` — load with `_sc
 |---------|------|
 | 3+ files OR 50+ lines | Write plan to wiki (`project_tickets`) |
 | Code written (2+ files) | `subagent` code review |
-| Review task | Fresh `subagent` (≠ you) |
+| Review task | Fresh `subagent` (≠ you); wiki-страницу ревью создаёт оркестратор — у ревьюера read-only identity (см. Coordinator Requirements, п. 8) |
 | Coordinator role | Delegate, never code/diff |
 | Docker container removal | Ask user first |
 
@@ -72,6 +72,7 @@ Orchestrator — assigned 2026-09-03 (до этого Coordinator, 2026-09-02). 
 5) 🔴 MUST use micro-agent work: split to ATOMIC, launch as ONE batch (1 atom = 1 reviewer; default-class reviewers for mechanical coverage, reserve flagship models for semantic landmines only — model names + batch caps per `config://rules/wf-default/limits`).
 6) 🔴 DON'T RUSH — do it RIGHT. Review bar: 🔴=0 🟡=0 🔵=0.
 7) 🔴 1 agent per review point. Single page → sequential, one agent per point.
+8) 🔴 **Wiki-персист ревью делает оркестратор/координатор, а не ревьюер.** У субагентов-ревьюеров identity в WikiDB MCP — read-only: `create_page`/`link_pages` для них запрещены (default-deny по allowlist инструментов), поэтому отчёт ревьюера в wiki сам не попадёт. Обязательный порядок: (1) в бриф ревьюеру — требование подготовить в ответе ТЕКСТ страницы (title, type, tags, `metadata.review_of`/`metadata.reviewer`, список связей) на случай запрета `create_page`; (2) оркестратор/координатор создаёт страницу сам (`_schema="project_tickets"`), линкует её (план ↔ ревью) и в теле отмечает, что текст перенесён из read-only-отчёта ревьюера; (3) ID страницы — в финальном отчёте. Тип `review` требует `metadata.review_of` (UUID проверяемой страницы) и `metadata.reviewer` (непустая строка) — без них `create_page` отклоняет запрос. Молча пропущенный wiki-персист = нарушение Golden Rule.
 8) 🔴 Check available workers before delegating.
 
 ## 🔴 Release gate — CI на коммите тега
