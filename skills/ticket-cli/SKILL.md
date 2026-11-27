@@ -1,9 +1,9 @@
 ---
 name: ticket-cli
-version: "1.26"
-verified_with_cli: "2.0.3-10-g3f7883f"
+version: "1.27"
+verified_with_cli: "2.1.0"
 created: 2026-09-04
-modified: 2026-11-25
+modified: 2026-11-27
 type: guide
 tags: [ticket, tickets, t-nnnn, cli, task-tracker, dogfooding]
 description: "Workflow for the `ticket` CLI — file-based task tracker (tickets are plain `T-NNNN-<status>.md` files, no DB). Keywords: ticket, tickets, T-NNNN, CLI task tracker, dogfooding, ticket new/list/show/set/edit/comment/section set/archive/recover/delete/normalize. PROACTIVELY activate for: (1) any ticket CRUD via the `ticket` binary, (2) working on a ticket T-NNNN, (3) closing/archiving tickets, (4) resolving a crash pair (two files, ambiguous number) with `ticket recover`, (5) editing ticket metadata with `ticket edit`, (6) appending working notes with `ticket comment` or replacing a section body with `ticket section set`."
@@ -347,3 +347,4 @@ Tickets directory layout: `tickets/` (main) + `tickets/archive/` (closed) + `tic
 | 2026-11-25 | T-0240: the text-write commands `ticket comment` and `ticket section set` were undocumented | Added `comment`/`section set` subsections (payload source contract, strict `--json`/`--schema`, protected sections, heading guard, exit codes 0/1/2), the store-command list, an exit-code paragraph, Journal/pitfall 5/quick-reference updates; verified against the build `2.0.3-7-g240d10b` (branch `feat/t-0240-0241-cli-sections-json`, `ticket help` body byte-identical to the RU/EN templates) | 1.24 |
 | 2026-11-25 | T-0240 review pass 1: the `comment` bullet wrongly refused whitespace-only payloads and the `--file` note still said trailing-LF-only | Corrected to "An empty payload is refused" (a whitespace-only payload is written verbatim) and "trailing CR/LF trimmed"; re-verified against the binary built from `feat/t-0240-0241-cli-sections-json` (`2.0.3-8-g3615465`) | 1.25 |
 | 2026-11-25 | T-0240 review pass 2: the frontmatter still cited `2.0.3-8-g3615465` although the text carries the `1391e13` edits, and the installed-copy policy named only the PATH binary | Re-verified SKILL.md and the installed reference.md against the binary built from branch `feat/t-0240-0241-cli-sections-json` at `3f7883f` (`2.0.3-10-g3f7883f`): `ticket help` body byte-identical to the RU template, unknown-fields refusal didactic (fields + format + example); the policy now names the PATH release or a recorded branch build as the snapshot source; `verified_with_cli` refreshed | 1.26 |
+| 2026-11-27 | Release v2.1.0 published (tag on commit `0bd2ce7`); the skill still cited the pre-release branch build `2.0.3-10-g3f7883f` | Re-verified every documented behaviour against the published binary `ticket version 2.1.0` (`~/bin/ticket`) in a `/tmp` sandbox: `comment`/`section set`/`show --section`/`show --json` syntax and exit codes, the payload rules (empty comment refused, empty section cleared, heading guard, strict `--json`, `--schema`), the deleted-ticket refusals (`set`/`edit`/`comment`/`section` exit 1, `list deleted` the only showing mode) and the `TICKET_LOCK_TIMEOUT` fallbacks — all match the text, no wording changes; the actual `ticket help` body is byte-identical to the RU/EN templates at `0bd2ce7`; `verified_with_cli` set to `2.1.0` | 1.27 |

@@ -1,8 +1,8 @@
 ---
 name: ticket-cli-reference
-version: "1.20"
+version: "1.21"
 created: 2026-09-04
-modified: 2026-11-25
+modified: 2026-11-27
 type: reference
 tags: [ticket, cli, help, reference]
 description: "Verbatim `ticket help` output (RU) — full command reference."
@@ -151,3 +151,4 @@ ticket — тикеты проекта (файлы T-NNNN-<status>.md в <про
 | 2026-11-25 | T-0240 review pass 1: the `comment` block's "empty file is a valid empty payload" contradicted the exit-1 refusal and the ATX guard omitted the end-of-line case | Re-synced the fenced help with the corrected RU template (empty file read as an empty payload; heading guard "whitespace or end of line") | 1.18 |
 | 2026-11-25 | T-0240 review pass 2: the `comment --json` line promised position/format/example for unknown fields, but the unknown-fields refusal carries no byte position | Re-synced the fenced help with the reworded RU template (unknown fields: field list/format/example; position only for invalid JSON/trailing garbage) | 1.19 |
 | 2026-11-25 | T-0240 final pass (F5): the exit-code paragraph named only `set`/`edit` as refusing a deleted ticket, although `comment`/`section set` share the same `deletedGuard` | Re-synced the fenced help with the corrected RU template (the deleted-refusal phrase now names `set`/`edit`/`comment`/`section`); byte parity with `internal/cli/templates/usage.ru.txt` re-verified (`usage_registry_test`) | 1.20 |
+| 2026-11-27 | Release v2.1.0 published (tag on commit `0bd2ce7`) | Re-verified the fence against the release: the body is byte-identical to `internal/cli/templates/usage.ru.txt` at `0bd2ce7` and to the actual `ticket help` of the published binary `ticket version 2.1.0` (version line excluded, `diff` exit 0); the fence itself left untouched; `modified` refreshed | 1.21 |
